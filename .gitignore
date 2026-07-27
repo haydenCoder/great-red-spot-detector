@@ -40,3 +40,8 @@ build/
 *.swp
 Train_SPIRE_Background.command
 *.bak*
+
+# local runtime accounts
+app/accounts.json
+app/session.json
+app/admin_session.json

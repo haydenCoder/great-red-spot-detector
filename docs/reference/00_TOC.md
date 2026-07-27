@@ -1,6 +1,6 @@
-# Technical Reference — Table of Contents
+# Technical reference — table of contents
 
-Print this folder as PDF for a full book-length reference.
+Optional developer notes. The main user guide is `../GRS_OBSERVATORY_BOOK.md`.
 
 ## Parts
 

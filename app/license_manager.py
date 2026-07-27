@@ -332,7 +332,7 @@ def load_status(data_dir: Path, *, allow_trial_without_key: bool = True) -> Lice
             plan_label="Evaluation (no key)",
             message=(
                 "Evaluation mode: Process/Synth up to 4K only. "
-                "Factory Night, certify, NN train, 8K/16K need an activated key."
+                "Self-test night, certify, NN train, 8K/16K need an activated key."
             ),
             features=feat,
             licensed=False,

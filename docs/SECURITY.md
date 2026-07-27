@@ -1,9 +1,9 @@
-# GRS Observatory — Security notes
+# Great Red Spot Detector — security notes
 
 ## Honest statement
 
-**No app can block “all hacking methods.”**  
-We harden against the **common attacks that matter for this product** (local Flask UI + desktop + file APIs).
+No local app can block every attack. This project hardens against the **common
+issues that matter here** (local Flask UI + desktop + file APIs).
 
 ## What we block (v6.0+)
 

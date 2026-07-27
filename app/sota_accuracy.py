@@ -647,11 +647,11 @@ def assess_quality(
         if d_pipe < 8.0:
             flags.append("PIPELINE_AGREE")
             score += 12
-            notes.append(f"SOTA agrees with VLBI/pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"Consensus agrees with pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe < 15.0:
             flags.append("PIPELINE_NEAR")
             score += 6
-            notes.append(f"SOTA near VLBI/pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"Consensus near pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe > 30.0:
             flags.append("PIPELINE_DISAGREE")
             score -= 25
@@ -1172,7 +1172,7 @@ def format_sota_section(sota: Dict[str, Any]) -> str:
     if not sota:
         return "  (SOTA layer not run)\n"
     lines = [
-        "SOTA ROBUST PRIMARY (best accuracy procedure)",
+        "MULTI-METHOD CONSENSUS (scatter / confidence)",
         f"  Lon III           {sota.get('lon_iii_deg')}",
         f"  Lat               {sota.get('lat_deg')}",
         f"  σ_lon (SE)        {sota.get('sigma_lon_deg')} °",

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-SUPERDUPER best-answer card
-===========================
+Best-answer card (files still named SUPERDUPER_BEST_ANSWER.* for compatibility)
 
-One short, human file that answers: *what number do I report tonight?*
+One short file that answers: *what number do I report for this job?*
 
-Pulls champion ultimate lock + publish policy into a single card.
-Not a new measure — packaging of the best product already computed.
+Pulls the champion / publish policy into a single card.
+Not a new measure — packaging of the product already computed.
 """
 from __future__ import annotations
 
@@ -72,7 +71,7 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     card = {
-        "title": "SUPERDUPER BEST ANSWER",
+        "title": "BEST ANSWER — REPORT THIS",
         "report_this": {
             "definition": definition,
             "lon_iii_deg": lon,
@@ -100,22 +99,22 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         "citation_line": citation,
         "rules": [
             "Report lon_iii + φ_g (planetographic) when comparing to WinJUPOS.",
-            "Same mid-exposure UTC and CM source as your WinJUPOS session.",
+            "Use the same mid-exposure UTC and CM source as your WinJUPOS session.",
             "If absolute_publish_ok is false: do not publish absolute System III.",
-            "If unbeatable_auto is true: NO weaker method in THIS APP overrides it.",
-            "Method soup / SOTA are scatter only — ignore for the official centre.",
-            "Still not a claim vs HST / Juno / perfect human WinJUPOS.",
+            "If unbeatable_auto is true: weaker methods in this app do not override it.",
+            "Extra estimators / consensus are scatter only — not the published centre.",
+            "Still not a claim against HST, Juno, or a careful human WinJUPOS desk.",
         ],
         "honesty": (
-            "Best consolidated product of this job. Optical ground metrology. "
-            "When UNBEATABLE_AUTO: in-app hierarchy is locked. "
-            "Not radio VLBI. Not a claim to beat spacecraft imaging."
+            "Consolidated product of this job — ground-based optical measure. "
+            "When unbeatable_auto is true, quality gates in this app passed. "
+            "Not radio interferometry; not a spacecraft-grade absolute catalogue."
         ),
         "in_app_dominance": bool(unbeatable),
         "in_app_message": (
-            "NOBODY INSIDE THIS APP beats this lock tonight."
+            "All automated quality gates in this app passed on this frame."
             if unbeatable
-            else "Ultimate gates incomplete — see failed list; improve CM/UTC/stack."
+            else "Some quality gates failed — see the list; check CM, UTC, and stack quality."
         ),
     }
     return card
@@ -127,15 +126,15 @@ def format_superduper_txt(card: Dict[str, Any]) -> str:
     u = card.get("ultimate_gates") or {}
     lines = [
         "╔" + "═" * 58 + "╗",
-        "║" + " SUPERDUPER BEST ANSWER — REPORT THIS".center(58) + "║",
+        "║" + " BEST ANSWER — REPORT THIS".center(58) + "║",
         "╚" + "═" * 58 + "╝",
         "",
         f"  Grade              {r.get('grade')}",
-        f"  UNBEATABLE_AUTO    {r.get('unbeatable_auto')}",
+        f"  Gates all passed   {r.get('unbeatable_auto')}",
         f"  Absolute OK        {r.get('absolute_publish_ok')}",
-        f"  Ultimate gates     {u.get('n_pass')}/{u.get('n_total')}",
+        f"  Quality gates      {u.get('n_pass')}/{u.get('n_total')}",
         f"  Failed gates       {u.get('failed') or '—'}",
-        f"  In-app dominance   {card.get('in_app_message')}",
+        f"  Note               {card.get('in_app_message')}",
         "",
         f"  Definition         {r.get('definition')}",
         f"  Lon III            {r.get('lon_iii_deg')} °",
@@ -182,8 +181,8 @@ def attach_superduper(package: Dict[str, Any], out_dir: Optional[Path] = None) -
         from verbose_log import CONSOLE
         r = card.get("report_this") or {}
         CONSOLE.ok(
-            f"SUPERDUPER {r.get('grade')} lon={r.get('lon_iii_deg')}  "
-            f"unbeatable={r.get('unbeatable_auto')}"
+            f"Best answer {r.get('grade')} lon={r.get('lon_iii_deg')}  "
+            f"gates_ok={r.get('unbeatable_auto')}"
         )
     except Exception:
         pass

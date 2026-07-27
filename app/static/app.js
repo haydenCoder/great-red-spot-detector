@@ -134,8 +134,8 @@
   function sourceKindLabel(result) {
     const sk = result.source_kind || (result.headline && result.headline.source_kind) || "";
     if (result.kind === "factory_night") {
-      if (sk === "real_file" || String(sk).includes("REAL")) return { kind: "real", label: "FACTORY · REAL FILE" };
-      return { kind: "factory", label: "FACTORY · SYNTHETIC" };
+      if (sk === "real_file" || String(sk).includes("REAL")) return { kind: "real", label: "SELF-TEST · REAL FILE" };
+      return { kind: "factory", label: "SELF-TEST · SYNTHETIC" };
     }
     if (sk === "real_file" || String(sk).includes("REAL") || result.kind === "process")
       return { kind: "real", label: "REAL FILE" };
@@ -162,7 +162,7 @@
     setText("dRun", result.run_n != null ? String(result.run_n).padStart(4, "0") : (h.run_n != null ? String(h.run_n).padStart(4, "0") : "—"));
     setText("dOut", result.output_folder || result.output_dir || "—");
 
-    setText("dStatus", result.kind === "factory_night" ? "Factory Night DONE" : "DONE");
+    setText("dStatus", result.kind === "factory_night" ? "Self-test DONE" : "DONE");
     if (h.synth_epoch || result.synth_epoch || (result.truth && result.truth.user_time_iso)) {
       const ep = h.synth_epoch || result.synth_epoch || result.truth.user_time_iso;
       const rnd = h.random_time ?? result.random_time ?? (result.truth && result.truth.random_time);
@@ -308,7 +308,7 @@
     const sota = result.sota || {};
     if ((!gs || !gs.ok) && !sota.ok) {
       host.innerHTML =
-        '<div class="muted small">SOTA / gold not available. Re-run Process / Synth / Factory.</div>';
+        '<div class="muted small">Multi-method list not available yet. Run Process or a synthetic test.</div>';
       return;
     }
     const f4 = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(4));
@@ -330,21 +330,22 @@
     const nLabel = nOk != null ? ` · methods ${nOk}/${nTot || "?"} ok` : "";
     const sotaBlock = sota.ok
       ? `<div class="nasa-plain" style="margin-bottom:8px;border:1px solid #1d4a36;padding:8px;border-radius:8px;background:#0c1a14">
-          <strong>SOTA_ROBUST (use this):</strong>
+          <strong>Multi-method consensus (scatter):</strong>
           <span class="mono you">${f4(sota.lon_iii_deg)}°</span> /
           <span class="mono you">${f4(sota.lat_deg)}°</span>
           · ${esc(sota.quality_grade || "—")} score=${esc(String(sota.quality_score ?? "—"))}
           · inliers ${sota.n_inliers}/${(sota.n_inliers || 0) + (sota.n_outliers || 0)}
           · σ_lon ${f4(sota.sigma_lon_deg)}°
           ${sota.outlier_ids && sota.outlier_ids.length ? `<div class="muted small">Excluded: ${esc(sota.outlier_ids.slice(0, 14).join(", "))}${sota.outlier_ids.length > 14 ? "…" : ""}</div>` : ""}
+          <div class="muted small">For the number to report, open the publish / best-answer card in the job folder.</div>
         </div>`
       : "";
     const ah = result.ai_hard_case || {};
     const aiBlock = ah.difficulty != null
       ? `<div class="nasa-plain" style="margin-bottom:8px;border:1px solid ${ah.nn_used ? "#6b3fa0" : "#2a3548"};padding:8px;border-radius:8px">
-          <strong>AI hard-case:</strong> difficulty=${f4(ah.difficulty)}
+          <strong>Hard-frame assist:</strong> difficulty=${f4(ah.difficulty)}
           · engaged=${ah.engaged ? "yes" : "no"}
-          · NN=${ah.nn_used ? `yes w=${f4(ah.blend_weight)}` : "no"}
+          · CNN=${ah.nn_used ? `yes w=${f4(ah.blend_weight)}` : "no"}
           <div class="muted small">${esc(ah.note || "")}</div>
         </div>`
       : "";
@@ -352,7 +353,7 @@
       ${sotaBlock}
       ${aiBlock}
       <div class="nasa-plain">
-        <strong>Catalogue:</strong> ${esc((gs && gs.primary_definition) || "—")} ·
+        <strong>Named definition:</strong> ${esc((gs && gs.primary_definition) || "—")} ·
         <span class="mono you">${f4(gs && gs.primary_lon_iii_deg)}°</span> /
         <span class="mono you">${f4(gs && gs.primary_lat_deg)}°</span> ·
         CM=${esc((gs && gs.cm_source) || "—")}${nLabel}
@@ -364,7 +365,7 @@
         </table>
       </div>
       ${wj}
-      <div class="muted small" style="margin-top:6px">SOTA = MAD-clipped weighted consensus. Outliers excluded. Not NASA truth.</div>`;
+      <div class="muted small" style="margin-top:6px">Consensus clips outliers. Planet geometry from Horizons is not a GRS catalogue.</div>`;
   }
 
   function renderNasaCompare(result) {
@@ -373,7 +374,7 @@
     const nasa = result.nasa;
     if (!nasa || !nasa.measured) {
       host.innerHTML =
-        '<div class="muted small">No geometry compare on this job. Optional sanity only — not official GRS lon.</div>';
+        '<div class="muted small">No geometry compare on this job. Optional sanity only.</div>';
       return;
     }
     const m = nasa.measured || {};
@@ -422,7 +423,7 @@
       <div class="nasa-plain">
         <div><strong>Grade:</strong> ${esc(nasa.grade || "—")}</div>
         <div><strong>Source:</strong> ${esc(nasa.source || "—")}</div>
-        <div class="muted small">NOT NASA official GRS lon. Prefer Gold standard + WinJUPOS manual Δ for pro checks.</div>
+        <div class="muted small">Not a NASA GRS longitude. Prefer publish number + your WinJUPOS paste for a real check.</div>
       </div>`;
   }
 
@@ -468,7 +469,7 @@
         text += JSON.stringify(result.truth_recovery, null, 2) + "\n\n";
       }
       if (result.kind === "factory_night") {
-        text += "=== FACTORY HEADLINE ===\n" + JSON.stringify(h, null, 2) + "\n\n";
+        text += "=== SELF-TEST HEADLINE ===\n" + JSON.stringify(h, null, 2) + "\n\n";
       }
       text += "=== FULL JSON ===\n" + JSON.stringify(result, null, 2);
       setText("resultsBox", text);
@@ -849,7 +850,7 @@
     const hasFile = !!filePath;
     let body;
     if (hasFile) {
-      setModeBadge("real", "FACTORY · REAL…");
+      setModeBadge("real", "SELF-TEST · REAL…");
       body = payload({
         path: filePath,
         run_hard_synth: $("factoryHard") ? $("factoryHard").checked : true,
@@ -858,7 +859,7 @@
         hard_injection_trials: 6,
       });
     } else {
-      setModeBadge("factory", "FACTORY · SYNTH…");
+      setModeBadge("factory", "SELF-TEST · SYNTH…");
       body = {
         region: $("region") ? $("region").value : "global",
         country: $("country") ? $("country").value : "UTC",
@@ -881,14 +882,14 @@
     }
     if (!body) return;
     const msg = hasFile
-      ? "Factory Night will process YOUR uploaded file + multi-epoch + hard-synth. Continue?"
-      : "No file loaded — Factory Night will use SYNTHETIC test images. Continue?";
+      ? "Self-test will process YOUR uploaded file (plus multi-night / optional stress). Continue?"
+      : "No file loaded — self-test will use synthetic images. Continue?";
     if (!confirm(msg)) return;
-    startJob("/api/factory_night", body, "FACTORY");
+    startJob("/api/factory_night", body, "SELF-TEST");
   });
   $("btnMulti").addEventListener("click", () => startJob("/api/multi_epoch", { directory: null, smooth: true }, "MULTI"));
   $("btnHard").addEventListener("click", () => {
-    setModeBadge("synth", "HARD SYNTH…");
+    setModeBadge("synth", "STRESS…");
     const body = payload({
       resolution: "1080p",
       seed: Date.now() % 100000,
@@ -1001,22 +1002,22 @@
     if (!bar || !caps || !caps.pillars) return;
     bar.innerHTML = "";
     const labels = {
-      pro_ephemeris: "EPH",
-      horizons_orientation: "HOR",
+      pro_ephemeris: "Eph",
+      horizons_orientation: "Horizons",
       winjupos: "WJ",
       spice: "SPICE",
-      vlbi_optical: "VLBI",
-      multi_epoch: "MULTI",
-      hard_synth: "HARD",
-      factory_night: "FACTORY",
-      spire_net: "NN",
-      synthetic_hq: "SYNTH",
+      vlbi_optical: "Stack",
+      multi_epoch: "Multi",
+      hard_synth: "Stress",
+      factory_night: "Self-test",
+      spire_net: "CNN",
+      synthetic_hq: "Synth",
     };
     for (const [k, on] of Object.entries(caps.pillars)) {
       const s = document.createElement("span");
       s.className = "pillar " + (on ? "on" : "off");
       s.textContent = labels[k] || k;
-      s.title = k + (on ? " · online" : " · off");
+      s.title = (labels[k] || k) + (on ? " available" : " off");
       bar.appendChild(s);
     }
   }

@@ -2,7 +2,7 @@
 
 ## A verified System III case study (2026-01-09 15:40:00 UTC)
 
-**Software:** GRS Observatory (process-focused release)  
+**Software:** Great Red Spot Detector (process-focused release)  
 **Data:** AutoStakkert!3 RGB FITS — `2026-01-09-1540_4-U-RGB-Jup_lapl6_ap141.fit`  
 **Methods:** SPICE geometry · multi-isophote limb · cylindrical map · GS-ORANGE colour centre · dual limb  
 **Verification date:** 2026-07-27  
@@ -11,7 +11,7 @@
 
 ## Abstract
 
-This essay documents an end-to-end reduction of one planetary imaging stack to a **System III longitude** and **latitude** for Jupiter’s Great Red Spot (GRS). The pipeline is classical optical metrology (not radio interferometry, not spacecraft navigation): mid-exposure UTC, SPICE central-meridian geometry, limb fit, map projection, and a **colour-first** centre (GS-ORANGE) suited to RGB stacks where the GRS is orange rather than a dark intensity core.
+This note walks through one real night: a stacked planetary image reduced to a **System III longitude** and **latitude** for Jupiter’s Great Red Spot (GRS). The pipeline is ordinary optical work (not radio interferometry, not spacecraft navigation): mid-exposure UTC, SPICE central-meridian geometry, limb fit, map projection, and a **colour-first** centre (GS-ORANGE) suited to RGB stacks where the GRS is orange rather than a dark intensity core.
 
 On the study frame, a first reduction with a **wrong UI time** produced a false centre near **λ_III ≈ 184.8°, φ ≈ −30.7°**. After enforcing **filename UTC**, **automatic N–S flip**, **moon/shadow masking**, and **GS-ORANGE**, application and independent reprocess agree at the **0.1°** level:
 

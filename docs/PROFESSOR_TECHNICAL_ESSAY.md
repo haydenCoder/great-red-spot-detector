@@ -1,36 +1,32 @@
-GRS Observatory
+Great Red Spot Detector
 ========================================================================
 
-Automated Optical Metrology of Jupiter's Great Red Spot:
-System Design, Geometric Foundations, and Software Architecture
+Optical measurement of Jupiter's Great Red Spot:
+geometry, limb, map, and software layout
 
 Software version: 6.5.0
-Document revised: 2026-07-19
-Codebase scale: 41 application modules under app/ (~31k lines); imaging monolith reduced
-(~4.5k lines live path after dead-bulk removal). User-facing product centres on
-Champion Ultimate, job_finalize parity, publication hierarchy, and SUPERDUPER archival cards.
+Document revised: 2026-07-27
+Codebase: modules under app/. The user path centres on Process → publish hierarchy
+and a one-page best-answer card (files still named SUPERDUPER_BEST_ANSWER.*).
 
 ------------------------------------------------------------------------
 
 # Abstract
 
-This essay presents a comprehensive technical account of GRS Observatory, a software system
-for automated measurement of Jupiter's Great Red Spot (GRS) on ground-based optical images.
-The system couples observation-time discipline, multi-source planetary ephemerides (SPICE,
-JPL Horizons, and WinJUPOS central-meridian tables), multi-isophote limb navigation,
-cylindrical deprojection, multi-estimator localization under a fixed publication definition,
-a **Champion Ultimate** automated path with dual-channel and nav-stability tests, an
-**UNBEATABLE_AUTO** multi-gate lock (in-app hierarchy only), SUPERDUPER one-page archival
-cards, formal uncertainty bookkeeping (CM ⊕ timing ⊕ limb ⊕ definition ⊕ method), synthetic
-stress testing, and optional convolutional assistance with bundled network weights. The
-exposition proceeds from the scientific measurement equation through layered software
-architecture to module-level analysis. Empirical performance evaluation is reserved for a
-subsequent results section and is not presupposed herein.
+This essay describes Great Red Spot Detector, software for measuring Jupiter's Great Red
+Spot (GRS) on ground-based optical images. It combines mid-exposure time discipline,
+planetary ephemerides (SPICE, JPL Horizons, optional WinJUPOS CM tables), multi-isophote
+limb navigation, cylindrical deprojection, multi-estimator localization under a fixed
+publication definition, automated quality gates, a one-page report card, formal uncertainty
+bookkeeping (CM ⊕ timing ⊕ limb ⊕ definition ⊕ method), synthetic self-tests, and optional
+CNN assistance with bundled frozen weights. The text moves from the measurement equation
+through software layout to module notes. Empirical performance is documented separately
+(see the 2026-01-09 verified case essay).
 
-**Honesty clause.** Optical ground-based metrology is not radio VLBI. Horizons and SPICE
-supply planet geometry, not a NASA GRS longitude catalog. The grade UNBEATABLE_AUTO asserts
-that every automated quality gate *in this application* passed on a given frame; it does
-not assert superiority over HST, JunoCam, or a carefully executed human WinJUPOS measure.
+**Honesty clause.** Ground-based optical work is not radio VLBI. Horizons and SPICE
+supply planet geometry, not a NASA GRS longitude catalog. When quality gates all pass
+(`unbeatable_auto`), every automated check *in this application* passed on that frame; it
+does not assert superiority over HST, JunoCam, or a carefully executed human WinJUPOS measure.
 
 # 1. Introduction
 

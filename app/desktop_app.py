@@ -157,22 +157,22 @@ BTN_TEXT = "#ffffff"    # text on colored buttons
 HELP: Dict[str, str] = {
     "app": (
         "Great Red Spot Detector measures Jupiter’s Great Red Spot (GRS)\n"
-        "in System III longitude and latitude, with calibrated uncertainties.\n\n"
-        "• Synthetic = fake planet image with known truth (tests accuracy).\n"
+        "in System III longitude and latitude from your stack.\n\n"
         "• Process = measure a real FITS/SER/PNG.\n"
-        "• Results include lon/lat, σ in arcseconds, and full JSON packages.\n\n"
-        "Ground-based optical GRS metrology (limb + map + colour lock + SPICE)."
+        "• Synthetic = fake planet with known truth (pipeline tests).\n"
+        "• Results include lon/lat, σ in arcseconds, and job folders.\n\n"
+        "Ordinary optical measure: time, SPICE, limb, map, colour/core centre."
     ),
     "time": (
         "Observation time (UTC) for REAL data only.\n\n"
-        "Used when you Process a file or Resolve Ephemeris, so System III geometry\n"
-        "matches your night.\n\n"
-        "NOT used for Synthetic — synthetic always picks a random UTC epoch."
+        "Used when you Process a file or Resolve Ephemeris, so System III\n"
+        "geometry matches your night.\n\n"
+        "Not used for Synthetic — synthetic always picks a random UTC epoch."
     ),
     "time_error": (
         "How uncertain the observation time is (seconds).\n\n"
         "Jupiter rotates ~36°/hour in System III, so timing error becomes\n"
-        "longitude uncertainty in the formal error budget."
+        "longitude uncertainty in the error budget."
     ),
     "region": (
         "Framing for SYNTHETIC images only:\n"
@@ -190,8 +190,8 @@ HELP: Dict[str, str] = {
     "cm": (
         "Force Jupiter’s central meridian (System III) longitude.\n\n"
         "Paste a value from WinJUPOS / SPICE when you need absolute System III.\n"
-        "Leave empty to use Horizons / analytical CM.\n\n"
-        "Critical for absolute longitude; less important for pure relative tests."
+        "Leave empty to use Horizons / SPICE from kernels.\n\n"
+        "Important for absolute longitude."
     ),
     "sublat": (
         "Sub-observer latitude: how tilted Jupiter appears from Earth (°).\n\n"
@@ -204,17 +204,16 @@ HELP: Dict[str, str] = {
         "Leave empty unless known from ephemeris."
     ),
     "horizons": (
-        "Contact NASA JPL Horizons for Jupiter distance / orientation when online.\n\n"
-        "Geometry context only — Horizons is NOT an official GRS longitude product."
+        "Ask JPL Horizons for Jupiter distance / orientation when online.\n\n"
+        "Geometry only — Horizons is not a GRS longitude catalogue."
     ),
     "spice": (
-        "If spiceypy + kernel files are installed, use professional SPICE geometry.\n\n"
-        "Optional. Without kernels this does nothing harmful."
+        "Use local SPICE kernels for CM III and geometry (bundled in the app).\n\n"
+        "Recommended for absolute work. Without kernels, other sources still work."
     ),
     "winjupos": (
         "Load a WinJUPOS/JUPOS CML table (CSV/JSON of time + System III CM).\n\n"
-        "Interpolated to your process time for absolute CM.\n"
-        "Best practice for publishable absolute longitudes."
+        "Interpolated to your process time for absolute CM."
     ),
     "resolution": (
         "Pixel size of GENERATED synthetic images:\n"
@@ -226,58 +225,57 @@ HELP: Dict[str, str] = {
         "Does not change the size of a real file you Process."
     ),
     "mc": (
-        "Hierarchical Monte Carlo iterations.\n\n"
-        "Re-runs the measurement with map noise, limb/nav jitter, template scale,\n"
-        "and CM/time priors to estimate RANDOM uncertainty (σ).\n\n"
+        "Monte Carlo samples for uncertainty.\n\n"
+        "Re-runs the measure with small map noise, limb jitter, and time/CM\n"
+        "priors to estimate random uncertainty (σ).\n\n"
         "Higher = more stable σ but slower. Typical 40–80."
     ),
     "inj": (
-        "Phase-reference injection trials.\n\n"
-        "Injects known dark ovals into the image, recovers them with the same\n"
-        "science pipeline, estimates BIAS and scatter, then (if physical)\n"
-        "bias-corrects the real GRS position.\n\n"
+        "Injection trials for bias check.\n\n"
+        "Places known dark ovals in the image, recovers them with the same\n"
+        "pipeline, estimates bias and scatter, then may bias-correct the GRS.\n\n"
         "Higher = better calibration, slower. Typical 16–32."
     ),
     "vlbi": (
-        "Use the VLBI-inspired optical stack:\n"
-        "multi-scale template match, oriented cylindrical map, multi-definition\n"
-        "systematics, hierarchical MC, formal error budget.\n\n"
-        "Recommended ON for science-quality results."
+        "Full multi-method optical stack:\n"
+        "template match, cylindrical map, several centre definitions,\n"
+        "Monte Carlo, formal error budget.\n\n"
+        "Leave on for normal science runs."
     ),
     "factory_heavy": (
-        "Factory heavy mode: more injection trials and heavier MC when fidelity\n"
-        "toggles request it. Slower; better calibration on synthetics."
+        "Extra calibration: more injection trials and heavier MC when fidelity\n"
+        "toggles request it. Slower; useful on synthetics."
     ),
     "nasa": (
-        "After measuring, write a Horizons Jupiter geometry report (CM, distance — not GRS lon).\n\n"
-        "Useful context only. Offline GRS lon model is schematic — on synthetics\n"
-        "trust truth_recovery arcseconds, not the schematic lon delta."
+        "After measuring, write a Horizons Jupiter geometry report\n"
+        "(CM, distance — not GRS lon).\n\n"
+        "Context only."
     ),
     "nn": (
         "SPIRE-Net: a small CNN that suggests a rough GRS position.\n\n"
-        "Used only as a SOFT PRIOR — lightly blended if it agrees with physics\n"
-        "methods; ignored if it disagrees. Not the main measurer."
+        "Used only as a soft prior — blended lightly if it agrees with physics\n"
+        "methods; ignored if it disagrees. Not the main measurer.\n"
+        "Weights are frozen in this release."
     ),
     "imaging": (
         "When processing real files, try the full imaging branch first\n"
-        "(ingest / channels / stack-like path from grs_complete_system).\n\n"
-        "If it fails, processing continues on the raw frame."
+        "(ingest / channels). If it fails, processing continues on the raw frame."
     ),
     "synth_measure": (
         "After generating a synthetic planet, immediately run the full GRS measure\n"
         "and score truth recovery (how many arcsec off known truth)."
     ),
     "factory_hard": (
-        "When running Factory Night, also run the hard-synth stress suite\n"
-        "(mismatch physics: wrong CM, blur, noise) to check error-bar coverage."
+        "When running self-test night, also run the stress suite\n"
+        "(wrong CM, blur, noise) to check whether error bars still cover truth."
     ),
     "btn_synth": (
         "GENERATE SYNTHETIC\n\n"
-        "Creates a high-quality fake Jupiter + GRS image.\n"
-        "Always picks a RANDOM UTC observation time (you are not asked).\n"
-        "If “Measure after synthetic” is on, runs the full VLBI measure and\n"
+        "Creates a fake Jupiter + GRS image with known truth.\n"
+        "Always picks a random UTC epoch.\n"
+        "If “Measure after synthetic” is on, runs the full measure and\n"
         "reports truth recovery in arcseconds.\n\n"
-        "Best for testing the pipeline without real data."
+        "For testing the pipeline without real data."
     ),
     "btn_open": (
         "OPEN FILE\n\n"
@@ -285,55 +283,51 @@ HELP: Dict[str, str] = {
         "Does not measure until you click Process."
     ),
     "btn_process": (
-        "PROCESS FILE (FULL ADVANCED STACK)\n\n"
-        "Measures GRS on your loaded image using:\n"
-        "1) optional imaging branch\n"
-        "2) pro ephemeris (Horizons/SPICE/WinJUPOS/overrides)\n"
-        "3) limb navigation\n"
-        "4) VLBI multi-scale correlator + multi-method consensus\n"
-        "5) phase-ref injection bias calibration\n"
-        "6) hierarchical Monte Carlo\n"
-        "7) filter closure / definitions\n"
-        "8) SPIRE-Net soft prior (if enabled)\n"
-        "9) NASA geometry compare (if enabled)\n"
-        "10) full job_result JSON package\n\n"
-        "Requires: file + observation time."
+        "PROCESS FILE\n\n"
+        "Measures GRS on your loaded image:\n"
+        "1) mid-exposure UTC (header or filename)\n"
+        "2) ephemeris (Horizons / SPICE / overrides)\n"
+        "3) limb fit (auto + by-eye)\n"
+        "4) map + GS-ORANGE / GS-MAP centre\n"
+        "5) multi-method scatter + error budget\n"
+        "6) optional SPIRE-Net soft prior\n"
+        "7) publish + best-answer card in the job folder\n\n"
+        "Needs a file (and time if the header/filename lack it)."
     ),
     "btn_eph": (
         "RESOLVE EPHEMERIS\n\n"
-        "Computes Jupiter geometry at the session time only\n"
-        "(CM III, distance, sub-lat, NP PA when available).\n"
+        "Jupiter geometry at the session time only\n"
+        "(CM III, distance, sub-lat, north PA when available).\n"
         "Does not measure the GRS on an image."
     ),
     "btn_multi": (
-        "MULTI-EPOCH DIFFERENTIALS\n\n"
-        "Scans previous job results in the outputs folder.\n"
-        "Builds night-to-night Δlon/Δlat relative to a reference epoch\n"
-        "(common-mode errors partly cancel), fits drift °/day, optional RTS smooth.\n\n"
-        "Needs ≥2 prior measured epochs (run synthetic/process a few times first)."
+        "MULTI-NIGHT DRIFT\n\n"
+        "Scans previous job results and builds night-to-night Δlon/Δlat,\n"
+        "optional drift °/day.\n\n"
+        "Needs at least two prior measured jobs."
     ),
     "btn_hard": (
-        "HARD-SYNTH STRESS SUITE\n\n"
-        "Generates a base synthetic, then stresses it (wrong CM, seeing, noise,\n"
-        "orientation) and checks whether reported error bars still cover truth.\n\n"
-        "This calibrates honesty of σ — it is not a single science longitude."
+        "STRESS SUITE\n\n"
+        "Synthetic with wrong CM, blur, noise, etc., to check whether\n"
+        "reported error bars still cover truth.\n\n"
+        "Calibrates honesty of σ — not a science longitude."
     ),
     "btn_factory": (
-        "FACTORY NIGHT (ALL PILLARS)\n\n"
-        "One-button end-to-end self-test:\n"
-        "1) Pro ephemeris (session time for geometry context)\n"
-        "2) Synthetic with RANDOM epoch + full VLBI measure\n"
-        "3) Multi-epoch scan of all outputs\n"
-        "4) Optional hard-synth suite\n\n"
-        "Writes a factory_night report under outputs/."
+        "SELF-TEST NIGHT\n\n"
+        "End-to-end check:\n"
+        "1) Ephemeris at session time\n"
+        "2) Your file if loaded, else synthetic + measure\n"
+        "3) Multi-night scan of outputs\n"
+        "4) Optional stress suite\n\n"
+        "Writes a report under outputs/."
     ),
     "btn_nn": (
-        "TRAIN SPIRE-NET\n\n"
-        "Trains the small CNN on synthetic labeled maps so the soft prior\n"
-        "is slightly better. Physics methods remain authoritative."
+        "TRAIN SPIRE-NET (advanced)\n\n"
+        "Not needed for normal use — weights ship frozen.\n"
+        "Physics methods remain authoritative."
     ),
     "btn_outputs": (
-        "Opens the outputs folder in Finder (PNG, FITS, JSON reports)."
+        "Opens the outputs folder in Finder (PNG, FITS, JSON, best-answer card)."
     ),
     "btn_save": (
         "Save the last full result package as a JSON file you choose."
@@ -343,10 +337,10 @@ HELP: Dict[str, str] = {
     ),
     "metrics": (
         "Top strip after a job:\n"
-        "• Grade — quality label of the metrology run\n"
-        "• Lon III / Lat — bias-corrected GRS position\n"
+        "• Grade — quality label for this run\n"
+        "• Lon III / Lat — published GRS position\n"
         "• σ_tot — total sky uncertainty (arcsec)\n"
-        "• Truth rec — synthetic only: error vs known truth (arcsec)\n"
+        "• Truth — synthetic only, or vs WinJUPOS if you pasted\n"
         "• Epoch — observation time used for that run"
     ),
 }
@@ -528,17 +522,22 @@ class GRSDesktopApp(tk.Tk):
             name = PRODUCT_NAME
             tag = PRODUCT_TAGLINE
         except Exception:
-            name, ver, tag = "Great Red Spot Detector", "6.5.0", "Optical GRS metrology"
+            name, ver, tag = (
+                "Great Red Spot Detector",
+                "6.5.0",
+                "Measure GRS lon/lat from your stack",
+            )
         lic_line = ""
         if self._license_status:
             lic_line = f"\nLicense: {self._license_status.plan_label}"
         messagebox.showinfo(
             "About",
             f"{name} v{ver}\n{tag}{lic_line}\n\n"
-            "Ground-based optical metrology for Jupiter’s Great Red Spot.\n"
-            "Publish: GS-MAP · CM: SPICE / Horizons / WinJUPOS\n"
-            "Only guide: docs/GRS_OBSERVATORY_BOOK.md\n"
-            "CNN weights: app/models/spire_net_weights.npz\n"
+            "Open a Jupiter stack, set mid-exposure UTC, fit the limb,\n"
+            "and get System III lon/lat with a short report.\n\n"
+            "Geometry: SPICE / Horizons / optional WinJUPOS paste\n"
+            "Guide: docs/GRS_OBSERVATORY_BOOK.md\n"
+            "CNN weights (frozen): app/models/\n"
             "© 2026 — see LICENSE.",
         )
 
@@ -638,7 +637,7 @@ class GRSDesktopApp(tk.Tk):
         ).pack(side=tk.LEFT)
         tk.Label(
             left_h,
-            text="Black labels · grey help under every button · no question-mark icons",
+            text="Grey help under each control · dual limb on Process · frozen CNN weights",
             bg=BG, fg=MUTED, font=("Helvetica", 12),
         ).pack(anchor=tk.W, pady=(4, 0))
 
@@ -824,7 +823,7 @@ class GRSDesktopApp(tk.Tk):
         self.nn_gain_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
         self._action_btn(
             left, "Open outputs folder", self.on_open_outputs,
-            "Job folders with publish.txt / SUPERDUPER_BEST_ANSWER.txt.",
+            "Job folders with publish.txt and SUPERDUPER_BEST_ANSWER.txt (best-answer card).",
             secondary=True,
         )
         self._action_btn(
@@ -1139,13 +1138,13 @@ class GRSDesktopApp(tk.Tk):
         sd = package.get("superduper") or {}
         sdr = (sd.get("report_this") or {})
         lines = [
-            "SUPERDUPER / PUBLISH THIS (official)",
+            "REPORT THIS (publish / best answer)",
             "=" * 40,
             f"grade:      {ch.get('grade') or h.get('champion_grade') or grade}",
-            f"unbeatable: {ch.get('unbeatable_auto') or h.get('unbeatable_auto')}",
-            f"ultimate:   {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')} gates",
+            f"gates_ok:   {ch.get('unbeatable_auto') or h.get('unbeatable_auto')}",
+            f"gates:      {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')}",
             f"definition: {pub.get('publish_definition') or h.get('publish_definition')}",
-            f"lon_iii:    {lon}  (centre — use GS-MAP / champion for WJ compare)",
+            f"lon_iii:    {lon}",
             f"lat:        {lat}",
             f"lat_graphic:{pub.get('publish_lat_planetographic_deg') or h.get('lat_planetographic_deg')}",
             f"σ_sky:      {pub.get('publish_sigma_sky_arcsec') or h.get('champion_sigma_sky_arcsec')}",
@@ -1158,10 +1157,10 @@ class GRSDesktopApp(tk.Tk):
             f"WinJUPOS:   {eq.get('agreement') or h.get('winjupos_agreement') or '—'}",
             f"equal_WJ:   {eq.get('equal_to_winjupos')}",
             f"vs_WJ_sky:  {eq.get('sky_error_arcsec')}",
-            f"soup:       {pub.get('soup_n_methods') or h.get('soup_n_methods')} methods = scatter only",
+            f"extra meth: {pub.get('soup_n_methods') or h.get('soup_n_methods')} (scatter only)",
             f"citation:   {sdr.get('citation_line') or h.get('superduper_citation') or h.get('citation_line') or '—'}",
             "",
-            "Open SUPERDUPER_BEST_ANSWER.txt in the job folder for the one-page card.",
+            "One-page card: SUPERDUPER_BEST_ANSWER.txt in the job folder.",
             "",
         ]
         dual = package.get("dual_measure") or {}
@@ -1170,17 +1169,17 @@ class GRSDesktopApp(tk.Tk):
             hu = dual.get("human") or {}
             cmp_ = dual.get("comparison") or {}
             lines += [
-                "DUAL MEASURE (auto + human)",
+                "DUAL LIMB (auto + by eye)",
                 "=" * 40,
-                f"official:   {dual.get('official')}",
+                f"preferred:  {dual.get('official')}",
                 f"auto lon:   {a.get('lon_iii_deg')}  ({a.get('publish_definition')})",
-                f"human lon:  {hu.get('lon_iii_deg')}  ({hu.get('publish_definition')})",
+                f"hand lon:   {hu.get('lon_iii_deg')}  ({hu.get('publish_definition')})",
                 f"Δsky:       {cmp_.get('sky_delta_arcsec')} ″  ({cmp_.get('agreement')})",
                 f"note:       {cmp_.get('note')}",
                 "",
             ]
         lines += [
-            "FULL HEADLINE",
+            "HEADLINE DETAILS",
             "-" * 40,
         ]
         for k, v in (h or {}).items():
@@ -1729,7 +1728,7 @@ class GRSDesktopApp(tk.Tk):
                 run_hard=self.hard_in_factory_var.get(),
                 aperture_m=self._aperture(),
             )
-        self._run_bg("FACTORY NIGHT", job)
+        self._run_bg("SELF-TEST NIGHT", job)
 
     def _nn_epochs(self) -> int:
         try:

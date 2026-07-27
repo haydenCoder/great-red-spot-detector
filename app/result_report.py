@@ -14,24 +14,24 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 # Same tips as server — kept here so reports are self-contained offline
 ACCURACY_TIPS: List[str] = [
-    "Process full always runs AUTO limb (green) + BY EYE limb (cyan) — dual measure.",
-    "JUPOS: auto outline is approximate; fine-tune cyan outline on the true limb by eye.",
+    "Process runs auto limb (green) + by-eye limb (cyan) — dual limb.",
+    "Fine-tune the cyan outline on the true limb if the auto fit is off.",
     "Keys: arrows move outline, PgUp/PgDn size, R = reset cyan to green, drag = centre.",
-    "Publish lon: GS-MAP dark core. Edges for size only — core ≠ outline.",
-    "Same definition (core vs core) when comparing to WinJUPOS or prior nights.",
+    "Publish lon: GS-ORANGE / GS-MAP core. Edges are for size, not the centre.",
+    "Use the same definition (core vs core) when comparing to WinJUPOS or prior nights.",
     "Mid-exposure UTC only; ~0.6° System III per minute of time error (BAA).",
-    "Trusted CM: SPICE / Horizons / WinJUPOS CML — not analytical for absolute publish.",
-    "NASA Horizons = planet geometry only, NOT a GRS longitude catalog.",
+    "Trusted CM: SPICE / Horizons / WinJUPOS CML for absolute work.",
+    "Horizons = planet geometry only — not a GRS longitude catalogue.",
     "Prefer red channel for GRS; check E–W flip if lon is wildly wrong.",
-    "Paste WinJUPOS lon/lat → equality Δsky ″ is the real accuracy test.",
-    "dual_measure.json: auto vs human Δsky — large Δ = definition/limb sensitivity.",
-    "Method soup / SOTA = scatter only; never report as the official centre.",
-    "MC iterations: 50 quick, 200 good, 500–1000 research-grade (slower).",
-    "Injection trials: 16 draft, 28–36 solid, 48–64 tight bias calibration.",
-    "σ_tot ≤ 1–2″ is an honest ground-based target for an extended cloud feature.",
+    "Paste WinJUPOS lon/lat → Δsky ″ is the real accuracy check.",
+    "dual_measure.json: auto vs hand Δsky — large Δ means limb or definition sensitivity.",
+    "Extra methods / consensus = scatter only; report the publish centre.",
+    "MC samples: 50 quick, 200 solid (slower).",
+    "Injection trials: 16 draft, 28–36 solid.",
+    "σ_tot of a few arcseconds is normal for an extended cloud feature.",
     "Lat ~−22° typical; large lat offsets often mean limb/nav issues.",
     "Truth recovery arcsec only on synthetics (known ground truth).",
-    "Multi-epoch drift needs ≥2 nights with the same definition.",
+    "Multi-night drift needs ≥2 nights with the same definition.",
 ]
 # Merge JUPOS tip sheet when available
 try:
@@ -379,12 +379,12 @@ def format_human_report(package: Dict[str, Any]) -> str:
     lines.append("")
 
     # PHILOSOPHY
-    lines.extend(_section("2 · PHILOSOPHY (read this)"))
-    lines.append("  SUPERDUPER / PUBLISH = official GRS centre (Champion → GS-MAP → GS-BARY).")
-    lines.append("  UNBEATABLE_AUTO = all automated gates passed (not a claim vs HST/human desk).")
-    lines.append("  Method soup + SOTA = scatter / confidence ONLY — not the answer.")
-    lines.append("  EQUAL to WinJUPOS only if you paste WJ lon/lat, use same CM, Δsky ≤ 1″.")
-    lines.append("  Horizons/SPICE = Jupiter geometry only, not an official GRS longitude catalog.")
+    lines.extend(_section("2 · HOW TO READ THIS REPORT"))
+    lines.append("  PUBLISH / best-answer card = the GRS centre to report (policy hierarchy).")
+    lines.append("  Gates all passed = automated checks in this app OK (not a claim vs HST/human desk).")
+    lines.append("  Multi-method list = scatter / confidence only — not the answer.")
+    lines.append("  Equal to WinJUPOS only if you paste WJ lon/lat, same CM, small Δsky.")
+    lines.append("  Horizons/SPICE = Jupiter geometry only, not a GRS longitude catalogue.")
     if pkg.get("philosophy"):
         lines.append(f"  · {pkg['philosophy']}")
     lines.append("")
@@ -418,7 +418,7 @@ def format_human_report(package: Dict[str, Any]) -> str:
     # AI hard-case assist
     ah = pkg.get("ai_hard_case") or {}
     if ah:
-        lines.extend(_section("2b · AI HARD-CASE ASSIST (only when Python struggles)"))
+        lines.extend(_section("2b · HARD-FRAME ASSIST (only when the stack is difficult)"))
         lines.append(f"  Engaged          {ah.get('engaged')}")
         lines.append(f"  Difficulty 0–1   {ah.get('difficulty')}")
         lines.append(f"  NN used          {ah.get('nn_used')}")
@@ -432,7 +432,7 @@ def format_human_report(package: Dict[str, Any]) -> str:
 
     # SOTA = scatter only
     sota = pkg.get("sota") or {}
-    lines.extend(_section("3 · SOTA / METHOD SOUP (scatter only — NOT published centre)"))
+    lines.extend(_section("3 · MULTI-METHOD SCATTER (not the published centre)"))
     lines.append("  Do not report SOTA lon as your official GRS position.")
     lines.append("  Official number is in PUBLISH THIS (GS-MAP / GS-BARY) above.")
     lines.append("")
@@ -548,7 +548,7 @@ def format_human_report(package: Dict[str, Any]) -> str:
 
     # YOUR ANSWER — pipeline measure (bias-corrected VLBI/SPIRE)
     m = _pull_measured(pkg)
-    lines.extend(_section("4 · PIPELINE MEASURE (VLBI/SPIRE bias-corrected)"))
+    lines.extend(_section("4 · PIPELINE MEASURE (bias-corrected stack)"))
     lines.append("  Secondary product: research-grade stack. Prefer §3 gold primary for pro-style lon.")
     lines.append("")
     lines.append("  ★ BIAS-CORRECTED")

@@ -820,7 +820,7 @@ def measure_grs_vlbi(
     Point estimate is multiscale NCC (locked); others enter scatter only if sane.
     """
     if not quiet:
-        CONSOLE.info("VLBI-grade correlator: multi-scale NCC + definition closure")
+        CONSOLE.info("Multi-scale correlator + definition closure")
     im = to_mono(image)
     cyl = make_cylindrical_oriented(im, nav, width=map_width, height=map_height)
     nav_s = nav.to_nav_state()

@@ -31,7 +31,7 @@ def product_version() -> str:
 
 
 PRODUCT_NAME = "Great Red Spot Detector"
-PRODUCT_TAGLINE = "Professional ground-based GRS optical metrology"
+PRODUCT_TAGLINE = "Measure Jupiter’s Great Red Spot lon/lat from your stack"
 PRODUCT_VERSION = product_version()
 
 
@@ -122,7 +122,7 @@ def generate_synthetic(
     """
     Synthetic generation (+ optional measure).
 
-    Uses the SAME desktop full stack as the UI (VLBI/research-grade) so
+    Uses the SAME desktop full stack as the UI so
     CLI certify numbers match Process / Synthetic buttons.
 
     human_choice: optional dual auto+human (WinJUPOS-style) pass dict.

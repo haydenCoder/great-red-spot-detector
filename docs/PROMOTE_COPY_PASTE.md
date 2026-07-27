@@ -1,169 +1,113 @@
-# Promotion posts — copy & paste
+# Short posts you can paste (keep it human)
 
-**Project:** Great Red Spot Detector  
-**URL:** https://github.com/haydenCoder/great-red-spot-detector  
-**Clone:**
+Project: **Great Red Spot Detector**  
+https://github.com/haydenCoder/great-red-spot-detector
+
 ```bash
 git clone https://github.com/haydenCoder/great-red-spot-detector.git
 cd great-red-spot-detector
 ./RUN_ME.command
 ```
 
-Post **as yourself**. Do not spam the same text to every subreddit the same minute (accounts get filtered). Pick 2–3 places first.
+Post as yourself. One or two places is enough at first.
 
 ---
 
-## 1) Short (X / Twitter / Instagram caption)
+## X / short caption
 
 ```
-Great Red Spot Detector — open-source optical metrology for Jupiter’s GRS.
+I made a small open-source tool to measure Jupiter’s Great Red Spot from a stacked FITS/PNG.
 
-Measure System III lon/lat from your AutoStakkert stack: SPICE CM, dual limb (auto + by-eye), GS-ORANGE colour lock, frozen CNN prior, publish report.
+It uses SPICE for CM III, auto+hand limb fit, and a colour lock for orange GRS on RGB (GS-ORANGE). Not a sky-viewer — it writes a publish report.
 
-Verified case 2026-01-09 15:40 UTC → λ_III≈289.9°, φ_g≈−25.6°
+Example on a real AutoStakkert stack (2026-01-09 15:40 UTC): λ_III≈289.9°, φ_g≈−25.6°.
 
 https://github.com/haydenCoder/great-red-spot-detector
-
-#Jupiter #GreatRedSpot #Astrophotography #WinJUPOS #Astronomy
 ```
 
 ---
 
-## 2) Medium (Cloudy Nights / Stargazers Lounge / IceInSpace)
+## Cloudy Nights / SGL / IceInSpace
 
-**Title:** Open-source “Great Red Spot Detector” — System III lon/lat from a single stack (SPICE + dual limb + GS-ORANGE)
+**Title:** Open-source tool for GRS System III lon/lat from one stack
 
 ```
-Hi all,
+Hi,
 
-I released a process-focused open-source tool for measuring Jupiter’s Great Red Spot from one stacked frame (FITS/PNG/SER):
+I put up a process-focused tool for measuring the Great Red Spot from a single stack (FITS/PNG/SER):
 
 https://github.com/haydenCoder/great-red-spot-detector
 
-What it does
-• Mid-exposure UTC (filename if AutoStakkert header has no DATE-OBS)
-• SPICE System III CM + distance (kernels bundled)
-• Dual limb: automatic + by-eye cyan outline (WinJUPOS-style discipline)
-• GS-ORANGE colour centre for RGB stacks (orange oval, not only dark-core)
-• Multi-method scatter as confidence only — publish hierarchy is explicit
-• Frozen SPIRE-Net weights as optional soft prior (training disabled)
-• One-page SUPERDUPER / publish report under outputs/
+Rough pipeline:
+• mid-exposure UTC (filename works when AutoStakkert left DATE-OBS empty)
+• SPICE CM III + distance (kernels in the repo)
+• limb fit with optional hand adjust (green/cyan)
+• GS-ORANGE for RGB when the spot is orange, not only dark-core methods
+• multi-method suite kept as scatter; publish path is explicit
+• CNN weights included but frozen (no train UI)
 
-Verified on a real AutoStakkert RGB stack (2026-01-09 15:40 UTC):
-• CM III ≈ 310.43° (SPICE)
-• GRS λ_III ≈ 289.90° (GS-ORANGE)
-• φ_c / φ_g ≈ −22.73° / −25.60°
-• Independent reprocess agreed to ~0.1°
+On one AutoStakkert RGB night (2026-01-09 15:40 UTC) I got about:
+CM III 310.43°, GRS λ_III 289.90°, φ_g −25.60°. A second independent run was within ~0.1°.
 
-Honest scope: ground-based optical metrology. Not a NASA GRS catalog. Paste your WinJUPOS core pick for Δsky equality.
+This is ordinary optical metrology, not a NASA GRS catalogue. If you try it, I’d value a WinJUPOS core comparison on the same frame.
 
-Install:
+Install on macOS:
 git clone https://github.com/haydenCoder/great-red-spot-detector.git
-cd great-red-spot-detector
-./RUN_ME.command
+cd great-red-spot-detector && ./RUN_ME.command
 
-Technical essay: docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md
+Essay with the case study:
+docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md
 
-Feedback and WJ comparisons welcome — thanks.
+Thanks for any feedback.
 ```
-
-**Where to post (you log in):**
-- https://www.cloudynights.com/forum/71-solar-system-imaging-planetary/
-- https://stargazerslounge.com/forum/78-solar-system/
-- https://www.iceinspace.com.au/forum/forumdisplay.php?f=36 (planetary)
 
 ---
 
-## 3) Reddit
+## Reddit (r/Astronomy or r/telescopes)
 
-### r/Astronomy or r/telescopes (choose one first)
-
-**Title:** Free open-source tool to measure Jupiter’s Great Red Spot lon/lat from your stack
+**Title:** Open-source app to measure Jupiter GRS lon/lat from your stack
 
 ```
-I built Great Red Spot Detector — measures System III longitude/latitude from one AutoStakkert-style stack.
+I wrote a small Python app that measures the Great Red Spot (System III lon + lat) from one AutoStakkert-style stack.
 
-Repo: https://github.com/haydenCoder/great-red-spot-detector
+https://github.com/haydenCoder/great-red-spot-detector
 
-Stack: SPICE CM, dual auto/hand limb, GS-ORANGE colour lock (works when GRS is orange, not only dark), frozen CNN soft prior, publish report.
+It uses SPICE for geometry, dual limb (auto + hand), and a colour-based centre (GS-ORANGE) so orange GRS on RGB is less likely to lose to dark belts/moon. Training UI is off; weights are fixed.
 
-Example night (2026-01-09 15:40 UTC): λ_III≈289.9°, φ_g≈−25.6°, CM III≈310.4°. Independent reprocess matched ~0.1°.
+One real-night example (2026-01-09 15:40 UTC): λ_III≈289.9°, φ_g≈−25.6°, CM III≈310.4°. Independent reprocess matched ~0.1°.
 
-Not a planet wallpaper app — actual metrology with quality gates. WinJUPOS paste supported for Δsky check.
-
-macOS: git clone … then ./RUN_ME.command
+Not claiming to replace a careful WinJUPOS desk — you can paste WJ lon/lat for a Δsky check. Happy to hear what breaks on your data.
 ```
-
-**Also try (after a day, reword slightly):**
-- r/astrophotography  
-- r/AskAstronomy (as “feedback on method?” if rules allow)  
-- r/Python (as astronomy project showcase)
-
-Read each sub’s rules (no pure spam; include method + honesty).
 
 ---
 
-## 4) Hacker News “Show HN”
+## Show HN
 
-**Title:** Show HN: Great Red Spot Detector – measure Jupiter GRS lon/lat from amateur stacks
+**Title:** Show HN: Great Red Spot Detector – GRS lon/lat from amateur Jupiter stacks
 
 ```
 https://github.com/haydenCoder/great-red-spot-detector
 
-Python app for optical metrology of Jupiter’s Great Red Spot: SPICE System III geometry, multi-isophote limb, cylindrical map, colour-first GS-ORANGE centre, dual auto/human limb, publish hierarchy with formal gates. SPIRE-Net weights ship frozen (inference only).
+Python app for measuring Jupiter’s Great Red Spot from a single stack: SPICE System III geometry, limb navigation, cylindrical map, colour-first centre on RGB, dual auto/hand limb, and a written publish report. Neural weights ship frozen.
 
-Verified case on real AutoStakkert RGB: λ_III≈289.90°, φ_g≈−25.60°, independent reprocess Δ≈0.1°.
-
-Happy to discuss geometry, failure modes (wrong UTC, N–S flip, dark vs orange locks), and WinJUPOS comparison.
+Case study on a real AutoStakkert RGB frame (2026-01-09 15:40 UTC) in the docs. Interested in feedback from people who already use WinJUPOS.
 ```
-
-Post at: https://news.ycombinator.com/submit
 
 ---
 
-## 5) School / teacher email (short)
+## Email to a teacher
 
 ```
-Subject: Great Red Spot Detector — open-source Jupiter measurement project
+Subject: Great Red Spot Detector project
 
 Hi [Name],
 
-I published an open-source project that measures Jupiter’s Great Red Spot (System III longitude and latitude) from a single telescope stack:
+I published a small open-source project that measures Jupiter’s Great Red Spot position (System III longitude and latitude) from one telescope stack:
 
 https://github.com/haydenCoder/great-red-spot-detector
 
-It uses SPICE geometry, dual limb fitting, and a colour-based GRS centre (GS-ORANGE). I also wrote a technical essay with a verified case (2026-01-09) and independent reprocess checks.
-
-Happy to demo or share results for class.
+It uses SPICE geometry and a dual limb step. There is a short technical write-up with a verified night in the docs folder. I can demo it if useful for class.
 
 Thanks,
 [Your name]
 ```
-
----
-
-## 6) LinkedIn / portfolio blurb
-
-```
-Released Great Red Spot Detector — open-source optical metrology for Jupiter’s GRS.
-
-• System III lon/lat from FITS/PNG stacks
-• SPICE CM + dual limb + GS-ORANGE colour lock
-• Frozen neural soft prior; training locked for reproducibility
-• Verified case with independent reprocess (~0.1° agreement)
-
-GitHub: https://github.com/haydenCoder/great-red-spot-detector
-```
-
----
-
-## Checklist
-
-- [x] GitHub topics added  
-- [x] Repo discussion #1  
-- [ ] Cloudy Nights (you post)  
-- [ ] One Reddit community (you post)  
-- [ ] Show HN (optional)  
-- [ ] Star your own repo + share URL with friends  
-
-**Remember:** Google will not list you for days. Direct links + forums matter more than Safari search.

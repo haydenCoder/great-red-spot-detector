@@ -49,5 +49,5 @@ class TestSuperduper(unittest.TestCase):
         self.assertTrue(r["unbeatable_auto"])
         self.assertAlmostEqual(r["lon_iii_deg"], 100.5)
         txt = format_superduper_txt(card)
-        self.assertIn("SUPERDUPER", txt)
+        self.assertIn("BEST ANSWER", txt)
         self.assertIn("100.5", txt)

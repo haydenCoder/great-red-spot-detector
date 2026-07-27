@@ -1,45 +1,37 @@
-# Plateau — why “you can’t improve more” (inside this app)
+# Plateau — what “good enough” means for this app
 
 **Software:** 6.5.0  
-**Date:** 2026-07-19
+**Date:** 2026-07-27
 
 ## What “done” means here
 
-For **automated ground-based optical GRS centre metrology on a single stacked frame**, this codebase has reached a **product plateau**:
+For **automated ground-based optical GRS centre measurement on a single stacked frame**, further renames and extra estimators rarely beat a careful desk on the same CM and definition.
 
 | Layer | Status |
 |-------|--------|
 | Time fail-closed | Done (`fits_time`) |
 | CM chain + provenance | Done (SPICE / Horizons / WJ / override) |
-| Fixed publish definition | Done (Champion / GS-MAP hierarchy) |
-| Multi-method scatter only | Done (soup/SOTA not published) |
-| Full absolute σ budget | Done (CM ⊕ time ⊕ limb ⊕ def ⊕ method) |
-| Ultimate multi-gate lock | Done (`UNBEATABLE_AUTO`, 13 gates) |
-| Dual-channel + nav stability | Done |
-| One-page archival answer | Done (`SUPERDUPER_BEST_ANSWER.*`) |
-| Desktop ↔ server product parity | Done (`job_finalize.py`) |
-| Dead generated bulk stripped | Done (monolith ~4.5k live lines) |
-| Docs / essay aligned | Done (Book + professor essay) |
+| Fixed publish definition | Done (champion / GS-MAP / GS-ORANGE hierarchy) |
+| Multi-method scatter only | Done (extra methods not published as the centre) |
+| Absolute σ budget | Done (CM ⊕ time ⊕ limb ⊕ def ⊕ method) |
+| Quality multi-gate lock | Done (`unbeatable_auto`) |
+| Dual limb + nav stability | Done |
+| One-page answer card | Done (`SUPERDUPER_BEST_ANSWER.*`) |
+| Desktop ↔ server parity | Done (`job_finalize.py`) |
+| Docs aligned | Done (Book + case essay) |
 
-Further **estimator soup** or **grade renames** will not materially beat a careful desk on the same CM and definition.
+## What would actually improve results
 
-## What would actually beat this product
+These need **new data or science**, not more marketing terms:
 
-These require **new science or data**, not more Python:
+1. Multi-frame wind-field style GRS centres  
+2. Spacecraft or HST resolution and navigation  
+3. Careful human WinJUPOS on messy limbs  
+4. A real multi-night archive (your measures vs published tables)  
+5. Full instrument metadata (pixel scale, PA flip, filter) every night  
 
-1. **Multi-frame ACCIV / wind-field** GRS centre (literature: Asay-Davis / Wong-class pipelines)  
-2. **Spacecraft or HST** resolution and absolute navigation  
-3. **Human WinJUPOS** on messy limbs / weird seasons  
-4. **Real multi-night labeled archive** (your measurements vs published tables) to calibrate floors  
-5. **Instrument metadata** (pixel scale, PA flip, filter) for every night  
+## Operator rule
 
-## Operator rule after plateau
-
-1. Maximize **data quality** (UTC, CM, red stack, limb).  
+1. Maximize **data quality** (UTC, CM, stack, limb).  
 2. Open **`SUPERDUPER_BEST_ANSWER.txt`**.  
-3. If not `UNBEATABLE_AUTO`, fix the **failed gates** in `champion.txt` — don’t add more methods.  
-
-## Honesty
-
-Optical · ground-based · not VLBI μas · not NASA GRS catalog ·  
-`UNBEATABLE_AUTO` = unbeatable **inside this app**, not versus the entire scientific world.
+3. If quality gates failed, fix those items in `champion.txt` — don’t add more methods.  

@@ -516,7 +516,7 @@ def run_research_grade(
     if use_vlbi and max_fidelity:
         try:
             from vlbi_metrology import run_vlbi_grade, research_grade_compat
-            CONSOLE.info("Routing to VLBI-inspired optical metrology stack")
+            CONSOLE.info("Routing to full multi-method optical stack")
             ut = (user_time_iso or "").strip()
             if not ut:
                 raise ValueError(
@@ -573,7 +573,7 @@ def run_research_grade(
                 elapsed_s=float(c.get("elapsed_s") or (time.time() - t0)),
             )
         except Exception as e:
-            CONSOLE.warn(f"VLBI stack failed ({e}); falling back to classic SPIRE-M")
+            CONSOLE.warn(f"Full optical stack failed ({e}); falling back to classic SPIRE-M")
             CONSOLE.debug(str(e))
 
     if nav is None:
@@ -587,7 +587,7 @@ def run_research_grade(
     if factory_mode:
         injection_trials = max(injection_trials, 48)
         mc_iter = max(mc_iter, 80)
-        CONSOLE.info("SPIRE-M FACTORY MODE: heavy probe suite")
+        CONSOLE.info("SPIRE-M extra calibration: heavy probe suite")
 
     CONSOLE.info("=" * 60)
     CONSOLE.info("SPIRE-M METROLOGY (Synthetic Probe Injection Residual Estimation)")

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "great-red-spot-detector"
 version = "6.5.0"
-description = "Great Red Spot Detector — ground-based Jupiter GRS optical metrology (System III lon/lat, SPICE, GS-ORANGE)"
+description = "Great Red Spot Detector — measure Jupiter GRS System III lon/lat from amateur stacks (SPICE, dual limb, GS-ORANGE)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary — see LICENSE" }

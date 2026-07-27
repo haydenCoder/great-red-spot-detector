@@ -1,92 +1,52 @@
 # Great Red Spot Detector
 
-### Professional optical metrology for Jupiter’s Great Red Spot  
-**Measure System III longitude & latitude from a single stacked frame — with SPICE geometry, dual limb discipline, and a colour-first GRS lock.**
+A small desktop app for measuring **where Jupiter’s Great Red Spot is** on your stacked image — System III longitude and latitude.
+
+It is built for real telescope stacks (FITS, PNG, SER), not for pretty planet wallpapers. You open a file, set the mid-exposure time (or let the filename supply it), fit the limb (auto + by eye), and get a published centre with a short report.
+
+**Repo:** https://github.com/haydenCoder/great-red-spot-detector  
+**Release:** [v6.5.0](https://github.com/haydenCoder/great-red-spot-detector/releases/tag/v6.5.0)
 
 ---
 
-| | |
-|--|--|
-| **GitHub** | https://github.com/haydenCoder/great-red-spot-detector |
-| **Release** | [v6.5.0](https://github.com/haydenCoder/great-red-spot-detector/releases/tag/v6.5.0) |
-| **Version** | 6.5.0 |
-| **Platform** | macOS (Python 3.10+) · FITS / PNG / SER |
+## What it does
 
-> **Search keywords:** Jupiter · Great Red Spot · GRS detector · System III · SPICE · WinJUPOS · planetary imaging · AutoStakkert · optical metrology · GS-ORANGE
+1. Reads your stack and mid-exposure **UTC** (from the FITS header, or from names like `2026-01-09-1540_…`).
+2. Gets Jupiter geometry from **SPICE** (bundled kernels): CM III, distance, size.
+3. Finds the limb, builds a simple cylindrical map, and estimates the GRS centre.
+4. On RGB images, **GS-ORANGE** prefers the orange oval over random dark belts or a moon shadow.
+5. Opens a dual limb step (green auto / cyan hand) so you can correct the outline.
+6. Writes `publish.txt` and a short “best answer” file under `app/outputs/job_…/`.
 
----
+Optional: paste a WinJUPOS core lon/lat to see how close you are (Δsky).
 
-## Why this project exists
-
-Most Jupiter apps are **pretty planet viewers**.  
-**Great Red Spot Detector** is built as a **measurement instrument**: it turns your stack into a **defensible GRS centre** — longitude, latitude, central meridian, quality flags, and a one-page publish report.
-
-It is designed for:
-
-- serious amateurs and school/research demos  
-- nights when you want **numbers**, not only a picture  
-- workflows that **mirror professional desk practice** (time → CM → limb → definition → publish)
+SPIRE-Net weights are included and can be used as a soft prior. **Training is turned off** so results stay stable.
 
 ---
 
-## What makes it professional
+## How it works (methods, short)
 
-| Pillar | What you get |
-|--------|----------------|
-| **Absolute geometry** | Mid-exposure **UTC** + **SPICE** System III CM / distance (bundled kernels) |
-| **Limb discipline** | Auto limb **plus** by-eye cyan outline (WinJUPOS-style dual path) |
-| **Colour-first GRS lock** | **GS-ORANGE** — tracks the orange oval on RGB, not only “darkest pixel” |
-| **Map geometry** | Cylindrical deprojection with planetocentric **and** planetographic latitude |
-| **Multi-method suite** | Dozens of estimators for **scatter / confidence** — soup is not silently published as truth |
-| **Publish hierarchy** | Official centre = GS-ORANGE / GS-MAP / champion gates — not random method average |
-| **Frozen CNN prior** | SPIRE-Net weights **on by default**, training **locked** (reproducible forever) |
-| **Quality honesty** | Core-lat band, dual MATCH, near-limb warnings, SUPERDUPER one-pager |
+| Step | Method |
+|------|--------|
+| Time | FITS mid-time or filename; never wall-clock “now” |
+| Geometry | SPICE (local kernels); optional Horizons geometry report |
+| Limb | Multi-isophote fit + optional hand adjust |
+| Map | Orthographic disk → lon/lat around CM |
+| Centre | GS-ORANGE (colour) and/or GS-MAP / bary; many other estimators only for scatter |
+| Check | Dual auto vs hand; optional WinJUPOS paste |
 
-### Accuracy positioning (clear and fair)
+This is ordinary planetary imaging metrology: time, CM, limb, definition. It is **not** radio interferometry and **not** a NASA “official GRS catalogue.”
 
-| Compared to… | Great Red Spot Detector |
-|---------------|-------------------------|
-| **Typical hobby / sky apps** | **Far more professional** — real UTC/CM, limb, map lon/lat, publish gates, dual measure |
-| **One-click “find the spot” toys** | **Much more accurate** when time and orientation are correct — not a rough visual guess |
-| **Careful human WinJUPOS desk** | **Built to the same discipline** (CM, core definition, limb outline). On good data it can **match or approach** a careful desk; always **paste your WJ pick** to prove Δsky. It does **not** claim to beat every expert on every messy night |
+### Accuracy — honest version
 
-**In short:** more rigorous and more automated than most public apps; **WinJUPOS-class methodology** with optional WJ equality check — not a magic claim over every human measurement.
+- More complete than typical “draw a circle on Jupiter” hobby tools (real UTC/CM, dual limb, publish gates).
+- Aimed at the same *discipline* as a careful WinJUPOS session. On a good frame it can land close; on a messy frame it can still be wrong.
+- Always compare to your own WinJUPOS core pick when you care about the number.
+- It does **not** beat HST/Juno or a perfect human desk by magic.
 
 ---
 
-## Methods (brief technical overview)
-
-```text
-Image (FITS/PNG/SER)
-    │
-    ├─► Observation UTC (header or filename, e.g. 2026-01-09-1540)
-    ├─► SPICE CM III + distance (local kernels)
-    ├─► Image prep
-    │      • auto N–S flip when the orange oval is “upside down”
-    │      • compact moon / shadow mask
-    │      • red + orange-as-dark mono for RGB stacks
-    ├─► Multi-isophote limb navigation
-    ├─► Orthographic → cylindrical map (System III)
-    ├─► GS-ORANGE colour centre (+ classic GS-MAP / bary methods)
-    ├─► Multi-method soup → scatter only
-    ├─► Dual: automatic + by-eye limb / definition
-    └─► Publish + SUPERDUPER best-answer report
-```
-
-| Method family | Role |
-|---------------|------|
-| **SPICE ephemeris** | Central meridian & distance for absolute System III |
-| **Limb fit** | Places the disk; human cyan outline fine-tunes like WinJUPOS |
-| **GS-ORANGE** | Primary centre on orange RGB GRS |
-| **GS-MAP / bary / templates** | Classical dark-core / map definitions |
-| **SPIRE-Net (frozen)** | Optional soft prior only — not the published centre |
-| **Dual measure** | Auto vs hand agreement (MATCH = internal trust) |
-
----
-
-## Download the code
-
-### One command (clone)
+## Install / download
 
 ```bash
 git clone https://github.com/haydenCoder/great-red-spot-detector.git
@@ -94,39 +54,17 @@ cd great-red-spot-detector
 ./RUN_ME.command
 ```
 
-### ZIP (no git)
+ZIP without git:
 
 ```bash
-curl -L -o great-red-spot-detector.zip \
+curl -L -o grs-detector.zip \
   https://github.com/haydenCoder/great-red-spot-detector/archive/refs/heads/main.zip
-unzip great-red-spot-detector.zip
+unzip grs-detector.zip
 cd great-red-spot-detector-main
 ./RUN_ME.command
 ```
 
-### Release package v6.5.0
-
-```bash
-curl -L -o great-red-spot-detector-v6.5.0.zip \
-  https://github.com/haydenCoder/great-red-spot-detector/archive/refs/tags/v6.5.0.zip
-unzip great-red-spot-detector-v6.5.0.zip
-cd great-red-spot-detector-6.5.0
-./RUN_ME.command
-```
-
-**Direct link:** https://github.com/haydenCoder/great-red-spot-detector  
-
-> Google/Safari may not list a brand-new repo for days. Use the **URL** or GitHub search: `haydenCoder great-red-spot-detector`.
-
----
-
-## Run (macOS)
-
-```bash
-./RUN_ME.command
-```
-
-Or manually:
+Manual:
 
 ```bash
 python3 -m venv .venv
@@ -135,42 +73,32 @@ pip install -r requirements.txt
 cd app && python desktop_app.py
 ```
 
-### Operator flow
-
-1. **Open** stack  
-2. **UTC** — blank if filename embeds time, else mid-exposure UTC  
-3. **Process full** — green auto limb + cyan by-eye limb  
-4. Read **`SUPERDUPER_BEST_ANSWER.txt`** and **`publish.txt`**  
-5. Optional: paste **WinJUPOS** core lon/lat → Δsky equality check  
+Needs Python 3.10+. SPICE kernels ship under `app/ephemeris_data/spice/`.
 
 ---
 
-## Verified showcase result
+## One verified night (real stack)
 
-Full write-up: [`docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`](docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md)
+Details: [`docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`](docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md)
 
-**Stack:** AutoStakkert RGB · `2026-01-09 15:40:00 UTC`
+| | |
+|--|--|
+| Time | 2026-01-09 15:40:00 UTC |
+| CM III (SPICE) | 310.428° |
+| GRS λ_III (GS-ORANGE) | ≈ 289.90° |
+| φ_c / φ_g | ≈ −22.73° / −25.60° |
+| Second independent run | within ~0.1° of the app |
 
-| Field | Result |
-|-------|--------|
-| CM III (SPICE) | **310.428°** |
-| GRS λ_III (GS-ORANGE) | **≈ 289.90°** |
-| φ_c / φ_g | **≈ −22.73° / −25.60°** |
-| Independent reprocess | **Δλ ≈ 0.08° · Δφ ≈ 0.10°** |
-| Dual path | **MATCH** |
-
-That is a **reproducible, professional-grade auto product** on real data — not a one-off screenshot claim.
+Earlier mistakes on the same file (wrong day in the UI, dark-core lock, N–S flip) are documented in that essay so others do not repeat them.
 
 ---
 
-## What’s in / out of this release
+## What is not in the UI (on purpose)
 
-| Included | Intentionally out of the UI |
-|----------|-----------------------------|
-| Process + dual limb | SPIRE-Net **training** (weights frozen forever) |
-| GS-ORANGE + publish gates | WinJUPOS CM **table** upload/download |
-| Frozen CNN soft prior | Factory night / hard-synth / multi-epoch buttons |
-| Bundled SPICE kernels | Online SPICE auto-download |
+- Neural-net **training** (weights stay frozen)
+- WinJUPOS CM-table upload/download
+- Factory night / hard-synth / multi-epoch buttons
+- Online SPICE kernel download (local files only)
 
 ---
 
@@ -180,5 +108,4 @@ See [`LICENSE`](LICENSE).
 
 ---
 
-**Great Red Spot Detector** — open the stack, run Process, publish a real System III centre.  
-Built for people who care about **measurement**, not only a pretty Jupiter.
+Questions and WinJUPOS comparisons: open a [discussion](https://github.com/haydenCoder/great-red-spot-detector/discussions) or issue on the repo.

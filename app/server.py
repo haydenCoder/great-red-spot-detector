@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-GRS Observatory v3 — VLBI-inspired optical metrology for ground-based GRS photos.
+Great Red Spot Detector — local web UI for ground-based GRS measurement.
 
-Target: best-in-class planetary imaging metrology (formal error budgets, multi-scale
-NCC, phase-reference probes, hierarchical MC). Not radio-VLBI microarcseconds —
-honest optical floor for an extended cloud feature.
+Pipeline: mid-exposure UTC, SPICE/Horizons geometry, limb fit, map, colour/core
+centre, dual limb optional. Formal error budget and multi-method scatter for
+diagnostics. This is ordinary optical metrology — not radio interferometry.
 """
 from __future__ import annotations
 
@@ -300,16 +300,16 @@ def _attach_human_report(package: Dict[str, Any], out: Path, run_n: Optional[int
 
 
 ACCURACY_TIPS = [
-    "MC iterations: 50 = quick, 200 = good, 500–1000 = research-grade precision (slower).",
-    "Injection trials: 16 = draft, 28–36 = solid, 48–64 = tight bias calibration.",
-    "Always enter the mid-exposure time of your real photo (UTC preferred).",
-    "Pick your country so local clock vs UTC is clear; ephemeris uses UTC.",
-    "Time error (s): set honest clock uncertainty — it becomes System III σ.",
-    "Real FITS/PNG Process uses YOUR file. Synthetic is a fake planet for tests only.",
-    "Factory Night with a loaded file processes that file; without a file it generates synthetic.",
-    "Paste WinJUPOS CM III when you need absolute System III longitude.",
-    "Enable VLBI + Max fidelity for the full optical metrology stack.",
-    "σ_tot ≤ 1–2″ is the honest ground-based target for an extended cloud feature.",
+    "Use mid-exposure UTC for real photos (filename often works if DATE-OBS is empty).",
+    "About 0.6° System III per minute of time error — set time uncertainty honestly.",
+    "Country only converts local clock → UTC; geometry always uses UTC.",
+    "Process measures the file you drop. Synthetic is a fake planet for testing only.",
+    "On RGB, GS-ORANGE prefers the orange oval over dark belts or a moon shadow.",
+    "Dual limb: green = auto, cyan = by eye — tweak the cyan outline if needed.",
+    "Paste a WinJUPOS core lon/lat for a real Δsky check on the same frame.",
+    "Horizons/SPICE = planet geometry only, not a NASA GRS longitude catalogue.",
+    "Leave multi-method stack on for a full measure; leave training off for stable results.",
+    "σ_tot of a few arcseconds is a normal ground-based target for an extended cloud feature.",
 ]
 
 
@@ -327,21 +327,21 @@ def health():
         _ver = "6.1.0"
     return jsonify({
         "ok": True,
-        "app": "GRS Observatory — optical GRS metrology",
+        "app": "Great Red Spot Detector",
         "version": _ver,
         "pipeline": getattr(grs, "__version__", "?"),
         "technology": (
-            "Pro ephemeris (WinJUPOS/SPICE/Horizons) + optical metrology stack + "
-            "multi-epoch differential tracking + hard-synth stress calibration"
+            "SPICE/Horizons geometry · limb + map · colour/core centre · dual limb · "
+            "optional multi-night and synthetic self-tests"
         ),
         "ram_gb": 16,
-        "target_arcsec": "0.1-2 optical (methods from VLBI; not μas radio)",
-        "modes": ["vlbi_optical", "spire_m_classic", "multi_epoch", "hard_synth", "real_image", "factory_night"],
+        "target_arcsec": "about 0.1–2″ optical (not radio μas)",
+        "modes": ["optical_stack", "multi_epoch", "hard_synth", "real_image", "self_test"],
         "pillars": [
             "pro_cm_ephemeris",
             "horizons_orientation",
-            "multi_epoch_phase_ref",
-            "hard_synth_calibration",
+            "multi_epoch",
+            "self_test",
         ],
         "time": datetime.now().isoformat(),
         "tips": ACCURACY_TIPS,
@@ -643,7 +643,7 @@ def process():
                     eb = vf.get("error_budget") or {}
                     (out / "vlbi_metrology.txt").write_text(
                         "\n".join([
-                            "VLBI-INSPIRED OPTICAL METROLOGY",
+                            "OPTICAL GRS MEASURE",
                             f"Grade: {vf.get('grade')}",
                             f"lon={vf.get('lon_iii_deg')} lat={vf.get('lat_deg')}",
                             f"σ_tot={eb.get('sigma_total_sky_arcsec')} arcsec",
@@ -718,7 +718,7 @@ def process():
                     "target_2_arcsec": rg.sigma_total_sky_arcsec <= 2.0,
                     "definition_n": rg.definition_n,
                     "injection_n": rg.injection_n,
-                    "metrology": "pro-procedure + VLBI-inspired optical" if use_vlbi and max_fidelity else "pro-procedure + SPIRE-M",
+                    "metrology": "full multi-method optical stack" if use_vlbi and max_fidelity else "standard optical stack",
                 },
                 "research_grade": rg.to_dict(),
                 "nasa": nasa_rep,
@@ -949,7 +949,7 @@ def synthetic():
                     "bias_lat_deg": rg.bias_lat_deg,
                     "research_grade": rg.grade,
                     "cm_source": "synthetic_truth",
-                    "metrology": "pro-procedure + VLBI-inspired optical" if use_vlbi and max_fid else "pro-procedure",
+                    "metrology": "full multi-method optical stack" if use_vlbi and max_fid else "standard optical stack",
                 }
                 result["research_grade"] = rg.to_dict()
                 # Gold-standard professional definitions (primary product)
@@ -1273,7 +1273,7 @@ def api_factory_night():
         try:
             stages: Dict[str, Any] = {}
             CONSOLE.info("=" * 64)
-            CONSOLE.info("FACTORY NIGHT — full optical metrology pipeline")
+            CONSOLE.info("Self-test night — full optical pipeline")
             CONSOLE.info(f"run=#{run_n:04d}  job={jid}  time={user_time}")
             CONSOLE.info(f"output → {out.name}")
 
@@ -1302,7 +1302,7 @@ def api_factory_night():
             measure_block: Dict[str, Any] = {}
 
             if path and Path(path).exists():
-                CONSOLE.info("[2/4] Process REAL uploaded image (FITS/PNG/JPG) with VLBI stack…")
+                CONSOLE.info("[2/4] Process real uploaded image (FITS/PNG/JPG)…")
                 p = Path(path)
                 meas, channels, _prev = _load_image(p)
                 channels = dict(channels) if channels else None
@@ -1361,7 +1361,7 @@ def api_factory_night():
                 except Exception as e:
                     CONSOLE.warn(f"Factory gold: {e}")
             else:
-                CONSOLE.info("[2/4] No upload → HQ SYNTHETIC + VLBI measure (random epoch)…")
+                CONSOLE.info("[2/4] No upload → synthetic + measure (random epoch)…")
                 synth_dir = out / f"synth_run{run_n:04d}"
                 png, fit, truth = generate(
                     SynthSpec(
@@ -1585,7 +1585,7 @@ def api_factory_night():
             (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
             # Short summary still written for quick glance
             lines = [
-                "FACTORY NIGHT — QUICK SUMMARY",
+                "SELF-TEST NIGHT — QUICK SUMMARY",
                 "=" * 50,
                 f"Run #: {run_n:04d}",
                 f"Job: {jid}",
@@ -1619,7 +1619,7 @@ def api_factory_night():
             (out / f"factory_night_report_run{run_n:04d}.txt").write_text("\n".join(lines), encoding="utf-8")
             (out / "factory_night_report.txt").write_text("\n".join(lines), encoding="utf-8")
             CONSOLE.ok("=" * 64)
-            CONSOLE.ok(f"FACTORY NIGHT COMPLETE run#{run_n:04d} → {out}")
+            CONSOLE.ok(f"Self-test complete run#{run_n:04d} → {out}")
             free_memory()
             _finish(report)
         except Exception as e:
@@ -1691,8 +1691,8 @@ def main():
     CONSOLE.clear()
     CONSOLE.ok(f"GRS Observatory v{ver} — optical GRS metrology")
     CONSOLE.info(f"http://{host}:{port}  |  16GB RAM  |  SSD: app/ssd_cache")
-    CONSOLE.info("Pillars: pro-eph · VLBI · multi-epoch · hard-synth · FACTORY NIGHT")
-    CONSOLE.info("UI: set TIME → Factory Night (or Process / Synthetic / tools)")
+    CONSOLE.info("Available: ephemeris · optical stack · multi-night · self-test")
+    CONSOLE.info("UI: set time → Process your image (or synthetic / self-test)")
     if host not in ("127.0.0.1", "localhost", "::1"):
         CONSOLE.warn("Non-localhost bind — do not expose without auth; path APIs are local-trust.")
     app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)

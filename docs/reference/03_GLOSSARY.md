@@ -1,6 +1,6 @@
 # Glossary & cross-feature map
 
-**Version note:** 6.5.0 product vocabulary (Champion / SUPERDUPER / UNBEATABLE_AUTO / job_finalize).
+**Version note:** 6.5.0 product vocabulary (champion path / best-answer card / quality gates / job_finalize).
 
 ## Terms
 
@@ -13,16 +13,16 @@
 | Cylindrical map | Lon ∈ [−90°, +90°] about CM × latitude (visible hemisphere) |
 | GS-MAP | Map dark core — classic fixed publish definition |
 | GS-BARY | Image-plane dark barycentre — ordered fallback |
-| Champion Ultimate | Automated best path (`champion_measure.py`) with full σ budget |
-| UNBEATABLE_AUTO | All ultimate gates passed; in-app lock (not vs HST) |
-| SUPERDUPER | One-page best-answer card for the job folder |
+| Champion path | Automated best path (`champion_measure.py`) with full σ budget |
+| unbeatable_auto | All quality gates passed; in-app lock (not vs HST) |
+| Best-answer card | One-page “report this” file (`SUPERDUPER_BEST_ANSWER.*`) |
 | φ_c / φ_g | Planetocentric / planetographic latitude |
 | Truth recovery | Synthetic-only: \|measured − truth\| in sky arcseconds |
 | Error budget | CM ⊕ timing ⊕ limb ⊕ definition ⊕ method → σ_sky |
 | SPICE | NASA NAIF toolkit + kernels for planetary geometry |
 | Horizons | JPL geometry service (not a GRS lon catalog) |
-| Soup / SOTA | Multi-estimator scatter diagnostics only |
-| Dual measure | Automatic stack + human by-eye limb/definition |
+| Multi-method scatter | Extra estimators for confidence only |
+| Dual limb | Automatic outline + by-eye cyan outline |
 
 ## Import / call graph (simplified)
 

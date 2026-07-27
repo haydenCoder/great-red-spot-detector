@@ -33,10 +33,10 @@ Flask HTTP API (/api/process, /api/synthetic, /api/ephemeris, factory night) and
 
 ### Module summary
 
-GRS Observatory v3 — VLBI-inspired optical metrology for ground-based GRS photos.
+Great Red Spot Detector — optical measure of GRS on ground-based photos.
 
-Target: best-in-class planetary imaging metrology (formal error budgets, multi-scale
-NCC, phase-reference probes, hierarchical MC). Not radio-VLBI microarcseconds —
+Target: careful planetary imaging metrology (formal error budgets, multi-scale
+match, probes, Monte Carlo). Not radio-VLBI microarcseconds —
 honest optical floor for an extended cloud feature.
 
 ## F03 — Professional CLI

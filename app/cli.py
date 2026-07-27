@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory — professional command-line interface
+Great Red Spot Detector — command-line interface
 =====================================================
 
 Examples:
@@ -41,7 +41,7 @@ def main(argv=None) -> int:
 
     p = argparse.ArgumentParser(
         prog="grs-observatory",
-        description=f"{PRODUCT_NAME} v{PRODUCT_VERSION} — professional GRS optical metrology",
+        description=f"{PRODUCT_NAME} v{PRODUCT_VERSION} — measure GRS lon/lat from your stack",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 

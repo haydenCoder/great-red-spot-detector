@@ -1,0 +1,18 @@
+{
+  "updated": "2026-07-27T13:18:23Z",
+  "kernel_dir": "/Users/haydenchung/Downloads/GREAT RED SPOT DETECTER/GRS_Observatory/app/ephemeris_data/spice",
+  "kernels": [
+    "naif0012.tls",
+    "pck00011.tpc",
+    "gm_de440.tpc",
+    "de440s.bsp"
+  ],
+  "downloaded_this_call": [],
+  "missing_required": [],
+  "notes": [
+    "found local naif0012.tls (5257 B)",
+    "found local pck00011.tpc (131226 B)",
+    "found local gm_de440.tpc (12406 B)",
+    "found local de440s.bsp (32726016 B)"
+  ]
+}

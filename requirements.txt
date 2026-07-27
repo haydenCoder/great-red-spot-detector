@@ -1,0 +1,9 @@
+numpy>=1.22
+flask>=2.3
+Pillow>=9.0
+scipy>=1.9
+astropy>=5.0
+certifi>=2023.0.0
+spiceypy>=6.0
+# Desktop packaging (optional; used by build_mac_app.sh)
+# pyinstaller>=6.0

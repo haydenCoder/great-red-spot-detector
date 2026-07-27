@@ -1,0 +1,31 @@
+GRS Observatory — Proprietary Commercial License
+================================================
+
+Copyright (c) 2026 GRS Observatory Authors. All rights reserved.
+
+This software and associated documentation files (the "Software") are licensed
+for use under the following terms unless a separate written commercial agreement
+is executed:
+
+1. PERSONAL / RESEARCH EVALUATION
+   You may install and use the Software on machines you control for personal
+   research, education, and non-commercial evaluation.
+
+2. COMMERCIAL USE AND REDISTRIBUTION
+   Sale, sublicensing, SaaS hosting, OEM bundling, or redistribution of the
+   Software (modified or unmodified) requires a paid commercial license from
+   the copyright holder.
+
+3. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A
+   PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE
+   LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM USE OF THE
+   SOFTWARE.
+
+4. SCIENTIFIC HONESTY
+   Results are metrological estimates with documented uncertainty. Users are
+   responsible for validation against independent ephemerides (e.g. WinJUPOS,
+   SPICE, JPL Horizons) before publication.
+
+For commercial licensing inquiries, contact the project author.

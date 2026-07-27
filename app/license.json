@@ -1,0 +1,36 @@
+{
+  "key": "GRS-1-PRO-HBD30PDM5A5J4QBE-DEMO0-95B7-0C8A-8FB8-B1F9",
+  "activated_utc": "2026-07-14T14:29:28.281916+00:00",
+  "machine": "85428A1A54A6",
+  "fields": {
+    "plan": "PRO",
+    "payload": "HBD30PDM5A5J4QBE",
+    "body": "DEMO0",
+    "customer": "DEMO0",
+    "expires_unix": 0,
+    "machine_id": "",
+    "key": "GRS-1-PRO-HBD30PDM5A5J4QBE-DEMO0-95B7-0C8A-8FB8-B1F9",
+    "key_fingerprint": "0265782fa75c"
+  },
+  "status": {
+    "valid": true,
+    "plan": "PRO",
+    "plan_label": "Professional",
+    "message": "OK",
+    "customer": "DEMO0",
+    "expires_utc": null,
+    "machine_bound": false,
+    "machine_ok": true,
+    "features": {
+      "max_resolution": "16K",
+      "certify": true,
+      "cli": true,
+      "commercial_use": true,
+      "watermark": false,
+      "days": 0
+    },
+    "key_fingerprint": "0265782fa75c",
+    "licensed": true
+  },
+  "meta": {}
+}

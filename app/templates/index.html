@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>GRS Observatory · Harvard-grade</title>
+  <link rel="stylesheet" href="/static/style.css?v=5.9.0" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open controls menu" aria-expanded="false" aria-controls="controlsPanel">☰</button>
+        <div class="logo" aria-hidden="true">♃</div>
+        <div class="brand-text">
+          <h1>GRS Observatory · Harvard-grade</h1>
+          <p class="sub">Real FITS · synthetic tests · factory night — clearly separated</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div id="pillarBar" class="pillar-bar" title="Capability pillars"></div>
+        <span id="modeBadge" class="mode-badge idle" title="Data source mode">NO DATA YET</span>
+        <label class="toggle">
+          <input type="checkbox" id="verboseToggle" checked />
+          <span class="toggle-label">Verbose</span>
+        </label>
+        <span id="statusPill" class="pill idle" role="status">IDLE</span>
+      </div>
+    </header>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+
+    <main class="grid">
+      <section class="panel controls" id="controlsPanel" aria-label="Controls">
+        <h2>1 · Where &amp; when (real observations)</h2>
+        <label>Your country
+          <select id="country"></select>
+        </label>
+        <p id="countryHint" class="muted small">Pick country so local clock vs UTC is clear. Ephemeris uses UTC.</p>
+        <label>Observation date (real photo)
+          <input type="date" id="obsDate" />
+        </label>
+        <label class="time-bar-label">Time of day (local → converted with country offset)
+          <div class="time-bar-row">
+            <input type="range" id="timeBar" min="0" max="1439" value="720" step="1" />
+            <span id="timeBarReadout" class="mono">12:00:00</span>
+          </div>
+        </label>
+        <label>Observation time (UTC mid-exposure)
+          <input type="text" id="userTime" placeholder="YYYY-MM-DD HH:MM:SS" autocomplete="off" />
+        </label>
+        <p class="muted small">Drag the bar or type UTC time. Used for <strong>Process</strong> / ephemeris — not for Synthetic.</p>
+        <label>Time error (s) — enters Sys-III σ
+          <input type="number" id="timeError" value="0" step="0.001" inputmode="decimal" />
+        </label>
+
+        <h2>2 · Absolute geometry (pro eph)</h2>
+        <label>CM III override (WinJUPOS / SPICE paste)
+          <input type="number" id="cmOverride" placeholder="optional e.g. 214.55" step="0.0001" inputmode="decimal" />
+        </label>
+        <div class="row2">
+          <label>Sub-lat override
+            <input type="number" id="subLatOverride" placeholder="°" step="0.01" inputmode="decimal" />
+          </label>
+          <label>North PA override
+            <input type="number" id="northPaOverride" placeholder="°" step="0.01" inputmode="decimal" />
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" id="useHorizons" checked /> JPL Horizons geometry</label>
+        <label class="check"><input type="checkbox" id="useSpice" checked /> SPICE if kernels present</label>
+        <div class="drop small-drop" id="winjuposDrop" role="button" tabindex="0">
+          <p>Drop WinJUPOS CML CSV/JSON (geometry table)</p>
+          <input type="file" id="winjuposInput" accept=".csv,.json,.txt" hidden />
+        </div>
+        <div id="winjuposInfo" class="file-info muted">No WinJUPOS CM table</div>
+        <p class="muted small">WinJUPOS is <strong>geometry + measuring desk</strong>, not a GRS detector. Paste your <em>manual</em> measure below to validate our code.</p>
+        <div class="row2">
+          <label>Your WinJUPOS lon III (manual)
+            <input type="number" id="wjManualLon" placeholder="optional" step="0.0001" inputmode="decimal" />
+          </label>
+          <label>Your WinJUPOS lat (manual)
+            <input type="number" id="wjManualLat" placeholder="optional" step="0.0001" inputmode="decimal" />
+          </label>
+        </div>
+        <div class="btn-row">
+          <button type="button" id="btnEph" class="btn ghost">Resolve ephemeris</button>
+          <button type="button" id="btnWjTemplate" class="btn ghost">CML template</button>
+        </div>
+        <div id="ephSummary" class="card muted small">Ephemeris: not resolved yet</div>
+        <div class="card muted small pro-note">
+          <strong>Pro mode:</strong> we run gold-standard definitions (GS-MAP, GS-BARY, edges…).
+          We do <strong>not</strong> invent a NASA GRS answer — we replicate professional procedure.
+        </div>
+
+        <h2>3 · Accuracy knobs</h2>
+        <label>MC iterations (50 quick · 200 good · <strong>1000</strong> research)
+          <input type="number" id="mcIter" value="50" min="0" max="1000" inputmode="numeric" />
+        </label>
+        <label>Phase-ref injection trials (16 draft · 28 solid · 64 tight)
+          <input type="number" id="injectionN" value="28" min="8" max="64" inputmode="numeric" />
+        </label>
+        <label class="check"><input type="checkbox" id="useVlbi" checked /> VLBI-inspired optical stack</label>
+        <label class="check"><input type="checkbox" id="maxFidelity" checked /> Max fidelity</label>
+        <label class="check"><input type="checkbox" id="factoryMode" checked /> Factory heavy probes</label>
+        <label class="check"><input type="checkbox" id="nasaCompare" checked /> NASA geometry compare</label>
+        <label class="check"><input type="checkbox" id="useNn" checked /> SPIRE-Net soft prior</label>
+        <div class="tips-box" id="tipsBox">
+          <div class="tips-title">Accuracy tips</div>
+          <ul id="tipsList" class="tips-list"></ul>
+        </div>
+
+        <div class="mode-section real">
+          <h2>4 · REAL data (your FITS / PNG / JPG)</h2>
+          <p class="mode-tag">REAL — measures the file you drop. Not a test planet.</p>
+          <div class="drop" id="dropZone" role="button" tabindex="0">
+            <p>Drop FITS / SER / PNG / JPG or click</p>
+            <input type="file" id="fileInput" accept=".fit,.fits,.fts,.ser,.png,.jpg,.jpeg" hidden />
+          </div>
+          <div id="fileInfo" class="file-info muted">No real file loaded</div>
+          <button type="button" id="btnProcess" class="btn primary" disabled>Process real image (VLBI)</button>
+        </div>
+
+        <div class="mode-section synth">
+          <h2>5 · SYNTHETIC (test only)</h2>
+          <p class="mode-tag">SYNTHETIC — computer-generated planet. Never mixed with real results.</p>
+          <label>Synthetic framing
+            <select id="region"></select>
+          </label>
+          <label>Resolution
+            <select id="resolution">
+              <option value="auto" selected>Auto max for 16 GB (≈8K)</option>
+              <option value="1080p">1080p (fast)</option>
+              <option value="4K">4K</option>
+              <option value="8K">8K</option>
+              <option value="16K">16K (may downshift)</option>
+            </select>
+          </label>
+          <p class="muted small">Always picks a <strong>random UTC epoch</strong>. Session time above is ignored for synth.</p>
+          <label class="check"><input type="checkbox" id="synthProcess" checked /> Measure after generate</label>
+          <button type="button" id="btnSynth" class="btn accent">Generate synthetic HQ</button>
+        </div>
+
+        <div class="mode-section factory">
+          <h2>6 · FACTORY NIGHT</h2>
+          <p class="mode-tag">With a loaded file → processes <strong>your</strong> image. Without → runs synthetic test.</p>
+          <label class="check"><input type="checkbox" id="factoryHard" checked /> Include hard-synth stress suite</label>
+          <button type="button" id="btnFactory" class="btn factory">⚡ FACTORY NIGHT (all pillars)</button>
+        </div>
+
+        <h2>7 · Advanced tools</h2>
+        <button type="button" id="btnMulti" class="btn primary">Multi-epoch differentials</button>
+        <button type="button" id="btnHard" class="btn accent">Hard-synth stress suite</button>
+
+        <h2>8 · SPIRE-Net (CNN)</h2>
+        <label>Train epochs (quick mode)
+          <input type="number" id="nnEpochs" value="25" min="1" max="500" inputmode="numeric" />
+        </label>
+        <label>Samples / epoch
+          <input type="number" id="nnSamples" value="12" min="4" max="64" inputmode="numeric" />
+        </label>
+        <label>Overnight hours (if overnight on)
+          <input type="number" id="nnHours" value="8" min="0.5" max="72" step="0.5" inputmode="decimal" />
+        </label>
+        <label class="check"><input type="checkbox" id="nnFineTune" checked /> Fine-tune existing weights</label>
+        <label class="check"><input type="checkbox" id="nnOvernight" /> Overnight / multi-strategy (long run)</label>
+        <label class="check"><input type="checkbox" id="nnPreventSleep" checked /> Keep Mac awake (lid close / idle — until Stop or power off)</label>
+        <p class="muted small">NaN-guard: bad steps are skipped; only finite weights are saved. GOOD backup at <code>spire_net_weights.GOOD.npz</code>.</p>
+        <div class="btn-row">
+          <button type="button" id="btnNnTrain" class="btn ghost">Start train</button>
+          <button type="button" id="btnNnStop" class="btn ghost">Stop train (safe)</button>
+        </div>
+        <div id="nnStatus" class="file-info muted">NN: idle</div>
+
+        <button type="button" id="btnClearLog" class="btn ghost">Clear console</button>
+        <button type="button" id="btnCloseDrawer" class="btn ghost menu-only-mobile">Close menu</button>
+      </section>
+
+      <section class="panel center" aria-label="Workspace">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="preview" role="tab" aria-selected="true">Preview</button>
+          <button type="button" class="tab" data-tab="dashboard" role="tab">Dashboard</button>
+          <button type="button" class="tab" data-tab="results" role="tab">Full report</button>
+          <button type="button" class="tab" data-tab="eph" role="tab">Ephemeris</button>
+          <button type="button" class="tab" data-tab="multi" role="tab">Multi-epoch</button>
+          <button type="button" class="tab" data-tab="hard" role="tab">Hard-synth</button>
+          <button type="button" class="tab" data-tab="nasa" role="tab">NASA</button>
+        </div>
+
+        <div id="tab-preview" class="tabpane active" role="tabpanel">
+          <div class="preview-meta">
+            <span id="previewSource" class="preview-source none">No image</span>
+            <span id="previewRun" class="muted small"></span>
+          </div>
+          <div class="preview-wrap">
+            <img id="previewImg" alt="Jupiter / GRS preview" />
+            <div id="previewEmpty" class="preview-empty">
+              Load a real FITS/PNG to see <strong>your</strong> photo, or run Synthetic for a test planet.
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-dashboard" class="tabpane" role="tabpanel">
+          <div id="dashCards" class="dash-grid">
+            <div class="dash-card"><div class="dk">Status</div><div class="dv" id="dStatus">Idle</div></div>
+            <div class="dash-card"><div class="dk">Source</div><div class="dv" id="dSource">—</div></div>
+            <div class="dash-card"><div class="dk">Run #</div><div class="dv mono" id="dRun">—</div></div>
+            <div class="dash-card"><div class="dk">Grade</div><div class="dv" id="dGrade">—</div></div>
+            <div class="dash-card"><div class="dk">GS definition</div><div class="dv" id="dGsDef">—</div></div>
+            <div class="dash-card"><div class="dk">Lon III (gold)</div><div class="dv mono" id="dLon">—</div></div>
+            <div class="dash-card"><div class="dk">Lat (gold)</div><div class="dv mono" id="dLat">—</div></div>
+            <div class="dash-card"><div class="dk">vs WinJUPOS</div><div class="dv mono" id="dWj">—</div></div>
+            <div class="dash-card"><div class="dk">σ_tot sky</div><div class="dv mono" id="dSigma">—</div></div>
+            <div class="dash-card"><div class="dk">Truth recovery</div><div class="dv mono" id="dTruth">—</div></div>
+            <div class="dash-card"><div class="dk">CM source</div><div class="dv" id="dCm">—</div></div>
+            <div class="dash-card"><div class="dk">Drift °/day</div><div class="dv mono" id="dDrift">—</div></div>
+            <div class="dash-card"><div class="dk">Calibration</div><div class="dv" id="dCal">—</div></div>
+            <div class="dash-card wide"><div class="dk">Headline</div><div class="dv small" id="dHead">Run a job to populate metrics.</div></div>
+            <div class="dash-card wide"><div class="dk">Output folder</div><div class="dv small mono" id="dOut">—</div></div>
+          </div>
+          <div class="nasa-compare-panel gold-panel">
+            <h3 class="nasa-h">SOTA robust + all methods (not NASA truth)</h3>
+            <div id="goldBox" class="nasa-compare-box">
+              <div class="muted small">MAD-clipped multi-method consensus · quality gates · optional WinJUPOS manual Δ. Use <strong>SOTA_ROBUST</strong> as the science number.</div>
+            </div>
+          </div>
+          <div class="nasa-compare-panel">
+            <h3 class="nasa-h">Geometry context (Horizons/model — NOT official GRS lon)</h3>
+            <div id="nasaCompareBox" class="nasa-compare-box">
+              <div class="muted small">Sanity only. Prefer gold standard + WinJUPOS manual Δ for pro-quality checks.</div>
+            </div>
+          </div>
+          <div id="budgetBars" class="budget"></div>
+        </div>
+
+        <div id="tab-results" class="tabpane" role="tabpanel">
+          <p class="muted small results-hint">Full human report: YOUR lon/lat · NASA answer · differences · all tips · complete dump. Also written to <code>FULL_REPORT.txt</code> in the job folder.</p>
+          <pre id="resultsBox" class="codeblock">No results yet.</pre>
+        </div>
+        <div id="tab-eph" class="tabpane" role="tabpanel"><pre id="ephBox" class="codeblock">Resolve ephemeris or run Factory Night.</pre></div>
+        <div id="tab-multi" class="tabpane" role="tabpanel"><pre id="multiBox" class="codeblock">Run multi-epoch after ≥2 measured jobs.</pre></div>
+        <div id="tab-hard" class="tabpane" role="tabpanel"><pre id="hardBox" class="codeblock">Run hard-synth stress suite.</pre></div>
+        <div id="tab-nasa" class="tabpane" role="tabpanel"><pre id="nasaBox" class="codeblock">No NASA report.</pre></div>
+      </section>
+
+      <section class="panel console-panel" aria-label="Live console">
+        <div class="console-head">
+          <h2>Live console</h2>
+          <span class="muted small" id="logCount">0</span>
+        </div>
+        <div id="console" class="console"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>http://127.0.0.1:8765 · outputs use run#### + metrics tags · not radio-μas</span>
+      <span id="healthInfo">…</span>
+    </footer>
+  </div>
+  <script src="/static/app.js?v=5.9.0"></script>
+</body>
+</html>

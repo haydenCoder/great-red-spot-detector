@@ -1,0 +1,42 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local runtime (regenerated)
+app/outputs/
+app/uploads/
+app/logs/
+app/ssd_cache/
+app/nasa_cache/
+app/owner_access/
+app/session.json
+app/admin_session.json
+OWNER_SHARED_LOGS/
+
+# Temp weight copies (keep primary .npz)
+app/models/*.tmp.npz
+app/models/train_logs/
+app/models/spire_train_checkpoint.json
+app/outputs/nn_train_cache/
+
+# Packaging
+dist/
+build/
+*.app/
+*.spec
+
+# Editor
+.idea/
+.vscode/
+*.swp
+Train_SPIRE_Background.command
+*.bak*

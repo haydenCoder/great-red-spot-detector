@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grs-observatory"
+version = "6.5.0"
+description = "Professional ground-based Jupiter GRS optical metrology (SPICE, formal error budgets, synthetic certification)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary — see LICENSE" }
+authors = [{ name = "GRS Observatory Authors" }]
+keywords = [
+  "astronomy",
+  "jupiter",
+  "great-red-spot",
+  "metrology",
+  "spice",
+  "planetary-imaging",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Programming Language :: Python :: 3",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+  "numpy>=1.22",
+  "scipy>=1.9",
+  "Pillow>=9.0",
+  "astropy>=5.0",
+  "certifi>=2023.0.0",
+  "spiceypy>=6.0",
+  "flask>=2.3",
+]
+
+[project.optional-dependencies]
+desktop = []
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+grs-observatory = "cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "app"}
+py-modules = [
+  "cli",
+  "product_core",
+  "desktop_pipeline",
+  "precision_engine",
+  "ephemeris_pro",
+  "spice_auto",
+  "synthetic_hq",
+  "batch_prove",
+  "research_grade",
+  "vlbi_metrology",
+  "verbose_log",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["app"]

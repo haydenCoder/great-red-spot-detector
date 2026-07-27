@@ -1,0 +1,18 @@
+{
+  "users": {
+    "test1784129530@example.com": {
+      "account_id": "4b4d2af1e0417d36",
+      "email": "test1784129530@example.com",
+      "display_name": "Tester",
+      "salt": "",
+      "password_hash": "",
+      "created_utc": "2026-07-15T15:32:10.183561+00:00",
+      "provider": "open_identity",
+      "is_gmail": false,
+      "no_password": true,
+      "last_seen_utc": "2026-07-27T07:38:18.324112+00:00",
+      "last_action": "job_done"
+    }
+  },
+  "version": 2
+}

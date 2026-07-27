@@ -775,7 +775,7 @@ class GRSDesktopApp(tk.Tk):
         self.vlbi_var = tk.BooleanVar(value=True)       # multi-method optical stack
         self.factory_var = tk.BooleanVar(value=False)
         self.nasa_var = tk.BooleanVar(value=True)       # geometry report only
-        self.nn_var = tk.BooleanVar(value=False)      # frozen weights optional off by default
+        self.nn_var = tk.BooleanVar(value=True)       # frozen CNN ON — inference only
         self.imaging_var = tk.BooleanVar(value=False)
         self.synth_process_var = tk.BooleanVar(value=False)
         self.hard_in_factory_var = tk.BooleanVar(value=False)
@@ -784,8 +784,9 @@ class GRSDesktopApp(tk.Tk):
                     "Multi-method optical measure (not radio interferometry).")
         self._check(left, "Write Horizons geometry report", self.nasa_var,
                     "Planet geometry only — not an official NASA GRS longitude.")
-        self._check(left, "Use frozen SPIRE-Net weights (optional hint)", self.nn_var,
-                    "Loads app/models/spire_net_weights.npz only. Training removed.")
+        self._check(left, "SPIRE-Net CNN prior (frozen weights ON)", self.nn_var,
+                    "Uses shipped app/models/spire_net_weights.npz as a soft hint. "
+                    "Training is permanently disabled in this release.")
 
         self._section(left, "4 · Process (main)")
         self._action_btn(
@@ -812,7 +813,7 @@ class GRSDesktopApp(tk.Tk):
 
         self._section(left, "5 · Results")
         self.nn_lbl = tk.Label(
-            left, text="SPIRE-Net: frozen weights on disk (no training UI)",
+            left, text="SPIRE-Net: ON · frozen weights only · training locked",
             bg=PANEL, fg=MUTED, font=("Helvetica", 11), wraplength=340, justify=tk.LEFT,
         )
         self.nn_lbl.pack(anchor=tk.W, padx=14, pady=2)

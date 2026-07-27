@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Thread-safe console log for the web UI."""
+"""Thread-safe console log — used by both the web UI and desktop app.
+
+I needed a way to stream log messages to both the desktop console and
+the web UI without blocking, so this uses a deque + lock pattern that
+lets the UI poll for new messages while processing continues."""
 from __future__ import annotations
 
 import datetime as dt

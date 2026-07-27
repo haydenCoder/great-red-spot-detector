@@ -1,26 +1,28 @@
 # GRS Observatory — The Book
 
 **Version:** see `VERSION` in the project root (currently **6.5.0**)  
-**Audience:** self-use / lab / careful observers  
+**Audience:** self-use / lab / careful observers (I wrote this for my coursework, but it should be useful for anyone measuring Jupiter)  
 **This is the only user guide.** Other files under `docs/` are optional (essay, audits, module dumps).
 
 ---
 
 ## 0. What this software is
 
-GRS Observatory turns a high-resolution Jupiter image (FITS / SER / PNG / JPEG) into a **documented System III longitude and latitude of the Great Red Spot**, with:
+GRS Observatory takes a high-resolution Jupiter image (FITS / SER / PNG / JPEG) and tries to measure the Great Red Spot's **System III longitude and latitude** with calibrated uncertainties. I built it because I wanted something that would give me a reliable, repeatable measurement that I could compare to my WinJUPOS manual picks.
+
+Key features:
 
 - **SPICE** (auto kernels) and/or **JPL Horizons** and/or **WinJUPOS CM** for planet geometry  
-- **Limb navigation** (multi-isophote) + oriented cylindrical map  
+- **Limb navigation** (multi-isophote) + oriented cylindrical map — the outline choice is the single biggest source of systematic error, so we probe multiple isophotes  
 - **Champion Ultimate** path: dark-core lock, dual-channel, nav stability, full error budget  
-- **SUPERDUPER** card: one file that says *what number to report*  
+- **SUPERDUPER** card: one file that says *what number to report tonight*  
 - **Publish hierarchy:** UNBEATABLE_AUTO / Champion → GS-MAP → GS-BARY → pipeline  
 - ~80 soup estimators + SOTA = **scatter only**, not the published centre  
 - Optional paste of **your WinJUPOS GRS lon/lat** → equality Δsky  
 - Synthetic planets for truth-recovery self-tests  
-- SPIRE-Net CNN weights **bundled** under `app/models/` (soft prior only)
+- SPIRE-Net CNN weights **bundled** under `app/models/` (soft prior only — physics methods are authoritative)
 
-It is **ground-based optical metrology**. It is **not** radio VLBI microarcseconds and **not** an official NASA GRS longitude catalog.  
+**Ground-based optical metrology.** This is **not** radio VLBI microarcseconds and **not** an official NASA GRS longitude catalog.  
 **UNBEATABLE_AUTO** means: every automated gate in *this app* passed on that frame — **not** that the result beats HST, JunoCam, or a perfect human WinJUPOS desk.
 
 ---

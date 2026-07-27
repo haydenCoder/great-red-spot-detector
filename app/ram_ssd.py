@@ -2,6 +2,12 @@
 """
 16 GB RAM budget manager + SSD memmap cache.
 
+My laptop has 16 GB RAM, and running Monte Carlo on large images can easily
+blow through that if I'm not careful. This module tracks memory usage and
+spills large arrays to SSD (app/ssd_cache) when we're getting close to the
+budget. The 10 GB working-set target leaves room for the OS and browser
+so things don't freeze up mid-run.
+
 Target machine: 16 GB unified RAM. Keep peak working set under ~10 GB so the
 OS stays responsive. Large arrays spill to SSD under app/ssd_cache (project disk).
 """

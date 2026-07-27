@@ -3,6 +3,11 @@
 Central paths for GRS Observatory (works on every device)
 =========================================================
 
+This resolves where all the data lives on different platforms — source,
+PyInstaller bundle, macOS .app, etc. The paths change depending on how
+you run the app, which caused me a lot of headaches early on (output files
+kept going to wrong directories on my friend's laptop).
+
 Resolves:
   - CODE_DIR   — Python modules (may be PyInstaller extract dir)
   - DATA_DIR   — writable data (outputs, logs, license, owner access)

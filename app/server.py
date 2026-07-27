@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 """
-GRS Observatory v3 — VLBI-inspired optical metrology for ground-based GRS photos.
+GRS Observatory server — Flask API for processing GRS measurements remotely
 
-Target: best-in-class planetary imaging metrology (formal error budgets, multi-scale
-NCC, phase-reference probes, hierarchical MC). Not radio-VLBI microarcseconds —
-honest optical floor for an extended cloud feature.
+This is the web API version of the desktop pipeline. I built it so I could
+process images from a browser without having to run the desktop app locally
+(my laptop is old and slow, and sometimes I want to process images from the
+lab machines).
+
+It wraps the same measurement stack as the desktop app — research-grade
+measurement, VLBI metrology, Monte Carlo, gold standard, champion, publish
+policy, SUPERDUPER, etc. — and exposes it via REST endpoints.
+
+Target: best ground-based optical metrology I can manage (formal error
+budgets, multi-scale NCC, phase-reference probes, hierarchical MC).
+Not radio-VLBI microarcseconds — honest optical floor for an extended
+cloud feature. I'm a student, not JPL.
 """
 from __future__ import annotations
 

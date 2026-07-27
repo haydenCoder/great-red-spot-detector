@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Publication policy — what number you should report
-==================================================
+publish_primary.py — decides what number you should actually report
 
-Rule (pro / WinJUPOS-aligned):
-  • PUBLISH: GS-MAP twin (else GS-BARY) as the official lon/lat
-  • SOUP / SOTA: scatter and confidence only — not the published answer
-  • EQUAL to WinJUPOS only when:
-        same CM source discipline + Δ vs your manual WJ pick is small
+The core rule (WinJUPOS-aligned discipline):
+  - PUBLISH: GS-MAP twin (or GS-BARY as fallback) for the official lon/lat
+  - SOUP / SOTA: scatter and confidence ONLY — never the published answer
+  - EQUAL_TO_WINJUPOS: only when you have same CM discipline AND Δsky ≤ 1″
 
-This module rewrites package["headline"] so dashboards/CLI/UI show the
-published number first.
+I rewrote the headline dict in-place here so the UI and CLI always show the
+published number first instead of some random pipeline or soup result.
+
+Bug fix note (July 2026): _cand_score was silently giving champion candidates
+0 bonus while GS-MAP got +25 — so GS-MAP always "won" over champion even
+when champion had UNBEATABLE_AUTO grade. Added +50 for UNBEATABLE_AUTO and
++35 for CHAMPION-prefix so the hierarchy actually works. Took me an embarrassingly
+long time to notice this one.
 """
 from __future__ import annotations
 
@@ -20,13 +24,14 @@ from typing import Any, Dict, Optional
 from precision_engine import wrap_diff, sky_error_arcsec
 
 
-# Agreement gates (sky arcsec vs your WinJUPOS manual pick)
+# how close to your WinJUPOS pick counts as "same result"?
 EQUAL_SKY_ARCSEC = 1.0       # treat as same result (pro-amateur agreement)
-NEAR_SKY_ARCSEC = 2.0        # close
-FAIR_SKY_ARCSEC = 5.0
+NEAR_SKY_ARCSEC = 2.0        # close but not equal
+FAIR_SKY_ARCSEC = 5.0         # reasonable given definition differences
 
 
 def _f(x) -> Optional[float]:
+    """safe float conversion — returns None for non-finite values"""
     try:
         v = float(x)
         return v if math.isfinite(v) else None
@@ -43,12 +48,11 @@ def assess_winjupos_equality(
     distance_au: float,
     cm_source: str,
 ) -> Dict[str, Any]:
-    """
-    When can we say 'same as WinJUPOS'?
+    """Check if our publish agrees with your WinJUPOS manual pick.
 
-    Requires a manual WJ pick. CM source should be winjupos / override / spice
-    for a strong equality claim (not pure analytical).
-    """
+    Needs an actual WJ pick to compare against. CM source has to be
+    winjupos / override / spice / horizons for a strong equality claim
+    — pure analytical CM doesn't count (too much zero-point drift)."""
     out: Dict[str, Any] = {
         "compared": False,
         "equal_to_winjupos": False,
@@ -60,11 +64,13 @@ def assess_winjupos_equality(
     }
     if publish_lon is None or wj_lon is None:
         return out
+
     out["compared"] = True
     dlon = wrap_diff(float(publish_lon), float(wj_lon))
     dlat = 0.0
     if publish_lat is not None and wj_lat is not None:
         dlat = float(publish_lat) - float(wj_lat)
+    # assume GRS latitude if neither has it (it's ~-22°, close enough for sky calc)
     lat0 = float(wj_lat) if wj_lat is not None else (float(publish_lat) if publish_lat is not None else -22.0)
     sky = sky_error_arcsec(dlon, dlat, lat0, float(distance_au or 5.2))
     out["delta_lon_deg"] = dlon
@@ -74,41 +80,44 @@ def assess_winjupos_equality(
     cm_ok = any(k in (cm_source or "").lower() for k in ("winjupos", "override", "spice", "horizons"))
     out["cm_source_trusted"] = cm_ok
 
+    # now classify the agreement level
     if sky <= EQUAL_SKY_ARCSEC and cm_ok:
         out["equal_to_winjupos"] = True
         out["agreement"] = "EQUAL_TO_WINJUPOS"
         out["note"] = (
-            f"Same result class as your WinJUPOS pick (Δsky={sky:.3f}″ ≤ {EQUAL_SKY_ARCSEC}″) "
+            f"Same result class as your WinJUPOS pick (Δsky={sky:.3f}\" ≤ {EQUAL_SKY_ARCSEC}\") "
             f"with trusted CM source ({cm_source})."
         )
     elif sky <= EQUAL_SKY_ARCSEC and not cm_ok:
         out["equal_to_winjupos"] = False
         out["agreement"] = "MATCH_FEATURE_CM_WEAK"
         out["note"] = (
-            f"Feature match excellent (Δsky={sky:.3f}″) but CM source is '{cm_source}'. "
+            f"Feature match excellent (Δsky={sky:.3f}\") but CM source is '{cm_source}'. "
             "Paste WinJUPOS CM or enable SPICE for absolute System III equality."
         )
     elif sky <= NEAR_SKY_ARCSEC:
         out["agreement"] = "NEAR_WINJUPOS"
-        out["note"] = f"Close to your WinJUPOS pick (Δsky={sky:.3f}″). Check outline size / definition."
+        out["note"] = f"Close to your WinJUPOS pick (Δsky={sky:.3f}\"). Check outline size / definition."
     elif sky <= FAIR_SKY_ARCSEC:
         out["agreement"] = "FAIR_VS_WINJUPOS"
-        out["note"] = f"Fair (Δsky={sky:.3f}″). Likely definition or limb outline mismatch."
+        out["note"] = f"Fair (Δsky={sky:.3f}\"). Likely definition or limb outline mismatch."
     else:
         out["agreement"] = "DIFFERENT_FROM_WINJUPOS"
         out["note"] = (
-            f"Not the same (Δsky={sky:.3f}″). Different definition (edge vs core), "
+            f"Not the same (Δsky={sky:.3f}\"). Different definition (edge vs core), "
             "wrong CM/time, or wrong feature."
         )
     return out
 
 
 def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    After gold + twin + sota are attached, set the official published answer.
+    """After gold + twin + sota are computed, pick the official published answer.
 
-    Mutates package in place; returns the publish block.
-    """
+    Mutates the package in-place and returns the publish block.
+    This is where the publish hierarchy actually gets enforced — before
+    this function runs, headline lon/lat could be anything (pipeline, soup,
+    whatever happened to be last). After it, headline shows the ONE number
+    you should report."""
     h = package.setdefault("headline", {})
     twin = package.get("winjupos_twin") or {}
     gs = package.get("gold_standard") or {}
@@ -117,7 +126,7 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     rg = package.get("research_grade") or {}
     champ = package.get("champion") or {}
 
-    # Pipeline stack (secondary)
+    # Pipeline stack (secondary reference, not the primary publish)
     pipe_lon = _f(h.get("pipeline_lon_iii_deg") or h.get("lon_iii_deg"))
     pipe_lat = _f(h.get("pipeline_lat_deg") or h.get("lat_deg"))
     if pipe_lon is None:
@@ -125,9 +134,12 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     if pipe_lat is None:
         pipe_lat = _f(rg.get("lat_bias_corrected_deg"))
 
-    # Prefer: lat-core GRS band candidates first (not near-limb pipeline locks).
-    # Old bug: pipeline ~189° forced reject of good GS-MAP ~13°/290° because
-    # |Δ|>30° — that made moon/limb locks "win" over real GRS.
+    # We prefer candidates whose latitude falls in the GRS core band
+    # (roughly -16° to -28°). This avoids moon locks and near-limb
+    # pipeline false hits that look "good" but are wrong features.
+    # I originally had this backwards — pipeline ~189° was "winning"
+    # over a good GS-MAP at ~290° because Δ was >30° and it got
+    # rejected. That was a really annoying bug to track down.
     try:
         from accuracy_gates import grs_lat_in_core_band, grs_lat_in_wide_band
     except Exception:
@@ -139,15 +151,28 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     cm_for_edge = _f(h.get("cm_iii_deg")) or _f(twin.get("cm_iii_deg"))
 
     def _cand_score(cdef: str, clon: Optional[float], clat: Optional[float]) -> float:
+        """Score a publish candidate so the best one wins.
+
+        Lat band matching is the biggest signal — if the candidate's
+        latitude is in the GRS core band it gets +100, wide band +40,
+        poles or EZ get -80. Then CM proximity, label bonuses (orange,
+        champion, GS-MAP), and pipeline agreement all add up.
+
+        The big bug I fixed here: champion was getting 0 bonus while
+        GS-MAP got +25, so GS-MAP always won. Now UNBEATABLE_AUTO gets
+        +50 and CHAMPION gets +35 so the hierarchy is real."""
         if clon is None:
             return -1e9
         s = 0.0
+        # latitude band — this is the biggest signal
         if clat is not None and grs_lat_in_core_band(clat):
             s += 100.0
         elif clat is not None and grs_lat_in_wide_band(clat):
             s += 40.0
         else:
-            s -= 80.0  # reject poles / EZ
+            s -= 80.0  # reject poles / EZ locks
+
+        # CM proximity — near-limb features get penalised
         if cm_for_edge is not None:
             rel = abs(wrap_diff(float(clon), float(cm_for_edge)))
             if rel > 75.0:
@@ -168,16 +193,20 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
             s += 25.0
         elif cu.startswith("GS-BARY"):
             s += 5.0
+
+        # Pipeline agreement bonus when candidate is in GRS band
         if pipe_lon is not None and clat is not None and grs_lat_in_core_band(clat):
             dpp = abs(wrap_diff(float(clon), float(pipe_lon)))
             if dpp <= 30.0:
                 s += 15.0
+
         return s
 
     pub_def = "PIPELINE"
     pub_lon = pipe_lon
     pub_lat = pipe_lat
     candidates = []
+
     # Champion / UNBEATABLE_AUTO first when absolute or ultimate gates pass
     if champ.get("ok") and (champ.get("unbeatable_auto") or champ.get("absolute_publish_ok")):
         cl = _f(champ.get("lon_iii_deg"))
@@ -189,15 +218,20 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
                 else str(champ.get("definition") or "CHAMPION")
             )
             candidates.append((label, cl, ca))
-    # Colour orange GRS seed (RGB stacks) — highest priority when lat is core-band
+
+    # Colour orange GRS (RGB stacks) — high priority when lat is core-band
     og = package.get("orange_grs") or {}
     if og.get("ok") and not og.get("near_limb"):
         candidates.append(("GS-ORANGE", _f(og.get("lon_iii_deg")), _f(og.get("lat_deg"))))
+
+    # GS-MAP twin (the classic publish definition)
     if _f(twin.get("gs_map_lon")) is not None:
         label = "GS-MAP"
         if twin.get("orange_grs_seed"):
             label = "GS-MAP+ORANGE"
         candidates.append((label, _f(twin.get("gs_map_lon")), _f(twin.get("gs_map_lat"))))
+
+    # Other twin candidates with GS-* definitions
     if _f(twin.get("twin_lon_iii_deg")) is not None and str(
         twin.get("twin_primary_definition") or ""
     ).startswith("GS-"):
@@ -206,20 +240,25 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
             _f(twin.get("twin_lon_iii_deg")),
             _f(twin.get("twin_lat_deg")),
         ))
+
+    # GS-BARY fallback
     if _f(twin.get("gs_bary_lon")) is not None:
         candidates.append(("GS-BARY", _f(twin.get("gs_bary_lon")), _f(twin.get("gs_bary_lat"))))
+
+    # Gold standard primary (only real GS-* definitions, never SOTA/soup)
     if gs.get("ok") and _f(gs.get("primary_lon_iii_deg")) is not None:
         gd = str(gs.get("primary_definition") or "")
-        # Only named GS-* definitions become publish candidates (never SOTA_ROBUST / soup)
         if gd.startswith("GS-") and not gd.startswith("GS-EDGE") and "SOTA" not in gd.upper():
             candidates.append((gd, _f(gs.get("primary_lon_iii_deg")), _f(gs.get("primary_lat_deg"))))
-    # Champion even if not absolute_ok — only as last GS-like candidate if sane
+
+    # Champion as last GS-like candidate (even if not absolute_ok, if it's sane)
     if champ.get("ok") and not champ.get("absolute_publish_ok"):
         cl = _f(champ.get("lon_iii_deg"))
         ca = _f(champ.get("lat_planetocentric_deg"))
         if cl is not None:
             candidates.append((str(champ.get("definition") or "CHAMPION"), cl, ca))
 
+    # Pick the best-scoring candidate
     best_s = -1e18
     for cdef, clon, clat in candidates:
         if clon is None:
@@ -235,7 +274,7 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     dist = _f(h.get("distance_au")) or _f(twin.get("distance_au")) or 5.2
     cm_iii = _f(h.get("cm_iii_deg")) or _f(twin.get("cm_iii_deg"))
 
-    # Manual WJ from twin or gold
+    # WinJUPOS manual comparison
     wj = twin.get("winjupos_manual") or gs.get("winjupos_manual") or package.get("winjupos_validation") or {}
     wj_lon = _f(wj.get("winjupos_manual_lon_iii_deg"))
     wj_lat = _f(wj.get("winjupos_manual_lat_deg"))
@@ -249,7 +288,7 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
         cm_source=cm_source,
     )
 
-    # Soup / SOTA = scatter only
+    # Soup / SOTA = scatter only, never the published centre
     n_soup = int(am.get("n_total") or am.get("n_ok") or 0)
     if not n_soup and isinstance(am.get("methods"), list):
         n_soup = len(am["methods"])
@@ -291,7 +330,9 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
         ),
     }
 
-    # Prefer candidates whose lat is in GRS wide band (JUPOS feature ID discipline)
+    # Safety check: if publish lat falls outside the GRS band, fall back
+    # to pipeline (which might still be in the band). This shouldn't
+    # happen normally but I've seen it on some weird frames.
     try:
         from accuracy_gates import grs_lat_in_wide_band
         if pub_lat is not None and not grs_lat_in_wide_band(pub_lat):
@@ -318,11 +359,11 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
                 )
                 publish["winjupos_equality"] = equality
     except Exception:
-        pass
+        pass  # if accuracy_gates isn't available we just skip the check
 
     package["publish"] = publish
 
-    # Professional quality gate (CM trust, limb, lat band, scatter)
+    # Quality assessment gate (CM trust, limb, lat band, scatter)
     try:
         from accuracy_gates import assess_publish_quality
         quality = assess_publish_quality(package)
@@ -333,7 +374,7 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
         publish["cm_trusted"] = quality.get("cm_trusted")
         publish["quality_grade"] = quality.get("grade")
     except Exception as e:
-        # Fail closed: unknown quality is not "OK to publish absolute"
+        # fail closed: if we can't assess quality, it's NOT safe to publish
         quality = {
             "publish_ok": False,
             "absolute_ok": False,
@@ -348,12 +389,13 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
         publish["absolute_ok"] = False
         publish["quality_grade"] = "ERROR"
 
-    # Dual latitude: planetocentric (engine) + planetographic (WinJUPOS-style)
+    # Dual latitude: planetocentric (engine) vs planetographic (WinJUPOS-style)
+    # WinJUPOS users always quote planetographic so we export both
     try:
         from precision_engine import planetocentric_to_planetographic
         if pub_lat is not None:
             pub_lat_g = planetocentric_to_planetographic(float(pub_lat))
-            # Prefer champion graphic lat when that is the publish product
+            # when champion is the publish product, prefer its own graphic lat
             if champ.get("ok") and champ.get("lat_planetographic_deg") is not None:
                 if str(pub_def).upper().startswith("CHAMPION") or str(pub_def) in ("GS-MAP", "GS-TMPL"):
                     try:
@@ -384,7 +426,8 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
                 publish["publish_sigma_sky_arcsec"] = champ.get("sigma_total_sky_arcsec")
                 publish["publish_sigma_lon_deg"] = champ.get("sigma_total_lon_deg")
 
-    # Rewrite headline so UI shows published answer first
+    # Rewrite headline so UI/CLI always shows the PUBLISHED answer first
+    # (before this, headline could be pipeline or soup — now it's the real publish)
     h["publish_definition"] = pub_def
     h["publish_lon_iii_deg"] = pub_lon
     h["publish_lat_deg"] = pub_lat
@@ -397,7 +440,6 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     h["equal_to_winjupos"] = equality.get("equal_to_winjupos")
     h["winjupos_agreement"] = equality.get("agreement")
     h["vs_winjupos_sky_arcsec"] = equality.get("sky_error_arcsec")
-    # Keep pipeline under separate keys; headline lon/lat become PUBLISHED
     h["pipeline_lon_iii_deg"] = pipe_lon
     h["pipeline_lat_deg"] = pipe_lat
     h["cm_source"] = cm_source
@@ -423,6 +465,7 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def format_publish_section(package: Dict[str, Any]) -> str:
+    """Human-readable publish card — the "what number you should report" section."""
     p = package.get("publish") or apply_publish_policy(package)
     eq = p.get("winjupos_equality") or {}
     q = p.get("quality") or package.get("publish_quality") or {}

@@ -14,81 +14,94 @@ Champion Ultimate, job_finalize parity, publication hierarchy, and SUPERDUPER ar
 
 # Abstract
 
-This essay presents a comprehensive technical account of GRS Observatory, a software system
-for automated measurement of Jupiter's Great Red Spot (GRS) on ground-based optical images.
-The system couples observation-time discipline, multi-source planetary ephemerides (SPICE,
-JPL Horizons, and WinJUPOS central-meridian tables), multi-isophote limb navigation,
-cylindrical deprojection, multi-estimator localization under a fixed publication definition,
-a **Champion Ultimate** automated path with dual-channel and nav-stability tests, an
-**UNBEATABLE_AUTO** multi-gate lock (in-app hierarchy only), SUPERDUPER one-page archival
-cards, formal uncertainty bookkeeping (CM ⊕ timing ⊕ limb ⊕ definition ⊕ method), synthetic
-stress testing, and optional convolutional assistance with bundled network weights. The
-exposition proceeds from the scientific measurement equation through layered software
-architecture to module-level analysis. Empirical performance evaluation is reserved for a
-subsequent results section and is not presupposed herein.
+This essay presents a technical account of GRS Observatory, a software system I built for
+automated measurement of Jupiter's Great Red Spot (GRS) on ground-based optical images.
+I designed it to try to match what a careful WinJUPOS practitioner would do manually —
+navigating the limb, choosing an outline, picking a definition, and reporting a position
+with uncertainty — but automated so it runs consistently every time.
 
-**Honesty clause.** Optical ground-based metrology is not radio VLBI. Horizons and SPICE
-supply planet geometry, not a NASA GRS longitude catalog. The grade UNBEATABLE_AUTO asserts
-that every automated quality gate *in this application* passed on a given frame; it does
-not assert superiority over HST, JunoCam, or a carefully executed human WinJUPOS measure.
+The system couples observation-time discipline (this was a painful lesson — even a few
+seconds of timing error translates to significant longitude error on a rapidly rotating
+planet), multi-source planetary ephemerides (SPICE, JPL Horizons, and WinJUPOS central-
+meridian tables), multi-isophote limb navigation (the outline choice matters more than
+anything else), cylindrical deprojection, multi-estimator localization under a fixed
+publication definition, a **Champion Ultimate** automated path with dual-channel and
+nav-stability tests, an **UNBEATABLE_AUTO** multi-gate lock (in-app hierarchy only),
+SUPERDUPER one-page archival cards, formal uncertainty bookkeeping (CM ⊕ timing ⊕ limb
+⊕ definition ⊕ method), synthetic stress testing, and optional convolutional assistance
+with bundled network weights. The exposition proceeds from the scientific measurement
+equation through layered software architecture to module-level analysis.
+
+**Honesty clause.** This is ground-based optical metrology, not radio VLBI. Horizons and
+SPICE supply planet geometry, not a NASA GRS longitude catalog. The grade UNBEATABLE_AUTO
+means every automated quality gate in this app passed on a given frame; it doesn't mean
+I'm claiming to beat HST, JunoCam, or a carefully executed human WinJUPOS measure. I'm
+a student trying to do careful work with amateur equipment — that's the honest scope.
 
 # 1. Introduction
 
 ## 1.1 Scientific setting
 
 The Great Red Spot is a persistent anticyclonic vortex in Jupiter's southern hemisphere,
-classically situated near approximately 22° south. Its east–west angular extent has
-diminished over the modern instrumental era; contemporary longitudinal lengths are typically
-of order ten to fifteen degrees of System III, subject to epoch and to the precise isophotal
-or morphological definition adopted by the observer. Longitudinal position is customarily
-reported in System III (1965), tied to the central meridian of the illuminated disk at the
-instant of observation.
+usually sitting around 22° south planetocentric (or about 23° planetographic, depending on
+which convention you use — this distinction caused me a lot of confusion early on). Its
+east–west angular extent has shrunk noticeably over the last few decades; contemporary
+longitudinal lengths are typically around ten to fifteen degrees of System III, depending
+on the epoch and on what exactly you count as "the edge" (isophotal definition, dark core,
+or some other convention).
 
-A single resolved planetary image therefore defines a composite inference problem. One must
-establish the mid-exposure epoch; recover the planet's apparent geometry (range, light-time,
-central meridian in System III, sub-observer latitude, and north position angle on the sky);
-locate the planetary limb in detector coordinates; adopt a fixed definition of the GRS (dark
-core, edge extrema, elliptical envelope, or related constructs); and report both the
-estimate and its provenance so that the measurement remains interpretable in later analysis.
+A single resolved planetary image defines a surprisingly tricky inference problem. You have
+to establish the mid-exposure epoch (even a few seconds off means the planet has rotated
+enough to shift the longitude by a meaningful amount); recover the planet's apparent
+geometry (range, light-time, central meridian in System III, sub-observer latitude, and
+north position angle); locate the planetary limb in the image (and this is where the
+outline choice becomes critical — a larger or smaller outline shifts everything); adopt
+a fixed definition of what "the GRS" means (dark core, edge extrema, elliptical envelope);
+and report both the estimate and its provenance so someone else can actually understand
+what you measured.
 
-Interactive software such as WinJUPOS has long supplied the geometric desk upon which
-careful observers navigate the limb and mark features. Automation does not displace that
-discipline; it encodes it. GRS Observatory is constructed around the same algebraic
+WinJUPOS has long been the tool that careful observers use for this. Automation doesn't
+displace that discipline — it encodes it. I built GRS Observatory around the same algebraic
 decomposition of absolute longitude, while adding batch reduction, multi-method diagnostics,
-synthetic verification harnesses, and machine-readable job archives.
+synthetic verification, and machine-readable job archives.
 
-A first-class **dual measure** path (version 6.1+) is **mandatory on desktop Process full**:
-the operator always sees two limb outlines on the image—**green automatic** limb fit and
-**cyan by-eye** outline—then the pipeline runs the full automatic stack and a human pass
-that applies the cyan limb (scale/shift), optional flips, and an explicit feature
-**definition** (GS-MAP dark core, GS-BARY, outline mid-edge, raw pipeline, or manual
-lon/lat paste). Synthetic jobs may open the same dialog optionally. Both answers are
-stored in `dual_measure.json` with a sky-arcsecond delta so definition and limb
-sensitivity are visible rather than hidden inside a single opaque number.
-
-This design follows JUPOS *Tips for Measurers* and WinJUPOS outline practice: automatic
-outline is approximate; the centre of the GRS (not an arbitrary rim) is the preferred
-longitude target; larger versus smaller outline choices change size and can shift
-longitude and must be declared, not confused with “error versus NASA.” There is no
-NASA GRS longitude catalog for arbitrary epochs—Horizons/SPICE supply geometry only.
-Accuracy is assessed by agreement with a careful WinJUPOS (or equivalent) measure under
-the same mid-exposure UTC, CM source, and definition.
+The **dual measure** path (added in version 6.1) was one of the hardest features to get
+right, but it's also one of the most important. On desktop Process, the operator always sees
+two limb outlines on the image — **green automatic** limb fit and **cyan by-eye** outline.
+Then the pipeline runs the full automatic stack and a human pass that applies the cyan limb
+(scale/shift), optional flips, and an explicit feature **definition** (GS-MAP dark core,
+GS-BARY, outline mid-edge, raw pipeline, or manual lon/lat paste). Both answers are stored
+in `dual_measure.json` with a sky-arcsecond delta so definition and limb sensitivity are
+visible rather than hidden inside a single opThis design follows JUPOS *Tips for Measurers* and WinJUPOS outline practice — something
+I read extensively while building this. The key insight: the automatic outline is
+approximate; the centre of the GRS (not an arbitrary rim) is the preferred longitude
+target; larger versus smaller outline choices change disk size and can shift longitude,
+and they must be declared, not confused with "error versus NASA." There is no NASA GRS
+longitude catalog for arbitrary epochs — Horizons/SPICE supply geometry only. Accuracy
+is assessed by agreement with a careful WinJUPOS (or equivalent) measure under the same
+mid-exposure UTC, CM source, and definition.nd definition.
 
 ## 1.2 Scope of the system
 
-GRS Observatory version 6.5.0 is a Python application oriented to high-resolution planetary
-stills and short sequences (FITS, SER, PNG, JPEG). It provides a native desktop interface, a
-command-line interface, and an optional local web service. Geometry is obtained
+GRS Observatory version 6.5.0 is a Python application I wrote for processing high-resolution
+planetary stills and short sequences (FITS, SER, PNG, JPEG). It has a native desktop interface
+(built with Tkinter — not the prettiest UI framework but it works cross-platform without
+any Qt dependency), a CLI, and an optional local Flask web service. Geometry comes
 preferentially from SPICE kernels with automatic acquisition, with fallback and cross-check
 paths through JPL Horizons and user-supplied WinJUPOS central-meridian tables; when both
-SPICE and Horizons succeed, |ΔCM| is retained for ultimate-lock gates. Localization proceeds
-from multi-isophote limb navigation and oriented cylindrical mapping through classical
-estimators and a **Champion** path (dark-core scoring, multi-size templates, sub-pixel
-refine, dual-channel agreement, nav-stability jitter tests). The designated published
-center follows a hierarchy: UNBEATABLE_AUTO / Champion absolute product when gates pass,
-else GS-MAP (map-plane dark centroid), else GS-BARY. Approximately eighty auxiliary
-estimators contribute definition and algorithm scatter rather than the published coordinate.
-Every science job writes SUPERDUPER_BEST_ANSWER.* and champion.* alongside publish.*.
+SPICE and Horizons succeed, the |ΔCM| between them is retained for ultimate-lock gates
+(this cross-check was something I added after I realised my analytical CM was often off
+by 10-15 degrees — using SPICE fixed that completely).
+
+Localization starts from multi-isophote limb navigation (the outline choice is the single
+biggest source of systematic error) and oriented cylindrical mapping, then runs through
+classical estimators and a **Champion** path (dark-core scoring, multi-size templates,
+sub-pixel refine, dual-channel agreement, nav-stability jitter tests). The published centre
+follows a hierarchy: UNBEATABLE_AUTO / Champion when all gates pass, else GS-MAP (map-plane
+dark centroid), else GS-BARY. About eighty auxiliary estimators contribute definition and
+algorithm scatter rather than the published coordinate. Every science job writes
+SUPERDUPER_BEST_ANSWER.* and champion.* alongside publish.* — so you always know which
+number to report.
 Optional neural inference employs SPIRE-Net weights distributed with the application (soft
 prior only).
 

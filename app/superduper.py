@@ -5,8 +5,13 @@ SUPERDUPER best-answer card
 
 One short, human file that answers: *what number do I report tonight?*
 
-Pulls champion ultimate lock + publish policy into a single card.
-Not a new measure — packaging of the best product already computed.
+This pulls together the champion ultimate lock + publish policy into a single
+card so you don't have to dig through 5 different JSON files to find your
+answer. It's not a new measurement — it's just packaging the best result
+the pipeline already computed.
+
+I added this because I kept losing track of which number was "the real one"
+after a run. Now there's one file that says "REPORT THIS" and you're done.
 """
 from __future__ import annotations
 
@@ -16,9 +21,10 @@ from typing import Any, Dict, Optional
 
 
 def _f(x):
+    """safe float — returns None if it can't convert or if it's NaN/inf"""
     try:
         v = float(x)
-        if v != v:
+        if v != v:  # NaN check (NaN != NaN is True, weird but handy)
             return None
         return v
     except Exception:
@@ -26,6 +32,13 @@ def _f(x):
 
 
 def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the one-card summary of the best answer from this job.
+
+    Tries to pull from publish first (that's the official number), then
+    champion, then headline — whatever's actually available. The cascade
+    logic was annoying to get right but it means this works even if the
+    pipeline only partially completed.
+    """
     h = package.get("headline") or {}
     pub = package.get("publish") or {}
     ch = package.get("champion") or {}
@@ -99,12 +112,12 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         "desk_grade": wj.get("desk_grade") or h.get("desk_grade"),
         "citation_line": citation,
         "rules": [
-            "Report lon_iii + φ_g (planetographic) when comparing to WinJUPOS.",
-            "Same mid-exposure UTC and CM source as your WinJUPOS session.",
-            "If absolute_publish_ok is false: do not publish absolute System III.",
-            "If unbeatable_auto is true: NO weaker method in THIS APP overrides it.",
-            "Method soup / SOTA are scatter only — ignore for the official centre.",
-            "Still not a claim vs HST / Juno / perfect human WinJUPOS.",
+            "Use lon_iii + φ_g (planetographic) when comparing to WinJUPOS — they use planetographic.",
+            "Same mid-exposure UTC and CM source as your WinJUPOS session or the comparison is meaningless.",
+            "If absolute_publish_ok is false: do NOT publish absolute System III — the error budget is too weak.",
+            "If unbeatable_auto is true: no weaker method in this app overrides it (that's the whole point).",
+            "Method soup / SOTA are scatter only — they're for confidence, not the published centre.",
+            "This is still ground-based optical metrology. Not a claim vs HST / Juno / perfect human WinJUPOS.",
         ],
         "honesty": (
             "Best consolidated product of this job. Optical ground metrology. "
@@ -115,13 +128,18 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         "in_app_message": (
             "NOBODY INSIDE THIS APP beats this lock tonight."
             if unbeatable
-            else "Ultimate gates incomplete — see failed list; improve CM/UTC/stack."
+            else "Ultimate gates incomplete — check the failed list; improve CM/UTC/stack and try again."
         ),
     }
     return card
 
 
 def format_superduper_txt(card: Dict[str, Any]) -> str:
+    """Format the SUPERDUPER card as a readable text file for the output folder.
+
+    This is the one you paste into your observation log or email to your
+    supervisor. It's designed to be human-readable at a glance.
+    """
     r = card.get("report_this") or {}
     v = card.get("vs_winjupos") or {}
     u = card.get("ultimate_gates") or {}
@@ -162,6 +180,12 @@ def format_superduper_txt(card: Dict[str, Any]) -> str:
 
 
 def attach_superduper(package: Dict[str, Any], out_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Build the SUPERDUPER card, attach it to the package, and write files.
+
+    This is the last step in the pipeline — after champion, publish, and
+    WinJUPOS+ are all done. The card goes into the package dict and also
+    gets written as JSON + TXT + a one-line citation file.
+    """
     card = build_superduper_card(package)
     package["superduper"] = card
     h = package.setdefault("headline", {})

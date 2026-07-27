@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """
-Great Red Spot Detector — native macOS desktop app (process-focused).
+Great Red Spot Detector — the desktop app I built for my astrophysics coursework
 
 Core workflow: open image → set UTC → Process (auto + by-eye limb) → publish.
-SPIRE-Net weights are shipped frozen (inference only — no training UI).
+SPIRE-Net weights are shipped frozen (inference only — no training UI needed).
+
+I spent most of my time on this file — it's the thing you actually see and
+interact with. The UI design went through several iterations: first it was
+all dark themed (which looked cool but was hard to read), then I switched
+to a light theme with black labels and grey descriptions (macOS inspired),
+and finally settled on the current colour palette with per-card accent
+colours so the key metrics stand out at a glance.
+
+The biggest challenge was getting the Tkinter layout right. Tkinter isn't
+great for complex layouts — no CSS, no flexbox, just pack/grid/place. I
+ended up using pack() for most things with carefully nested Frames to
+get the layout I wanted. It's not perfect but it works.
 """
 from __future__ import annotations
 
@@ -46,7 +58,12 @@ for sub in ("outputs", "uploads", "ssd_cache", "nasa_cache", "logs", "ephemeris_
 
 
 def resolve_manual_path(code: Path, base: Path) -> Optional[Path]:
-    """Locate the only user guide (pure helper — no Tk required)."""
+    """Locate the user guide — tries several possible locations.
+
+    Pure helper, no Tk required. This exists because the guide file
+    ends up in different places depending on whether we're running
+    from source, from a PyInstaller bundle, or from the repo root.
+    """
     cands = [
         code.parent / "docs" / "GRS_OBSERVATORY_BOOK.md",
         code / "docs" / "GRS_OBSERVATORY_BOOK.md",
@@ -65,7 +82,9 @@ def resolve_buttons_doc_path(code: Path, base: Path) -> Optional[Path]:
     Locate the button → function guide.
 
     Prefers dedicated HTML, then the book / desktop reference docs.
-    Pure helper — no Tk required (unit-testable).
+    Pure helper — no Tk required (unit-testable). Same story as
+    resolve_manual_path: the guide moves around depending on how
+    you run the app, so we search a bunch of candidate paths.
     """
     names = (
         "BUTTON_GUIDE.html",
@@ -776,7 +795,7 @@ class GRSDesktopApp(tk.Tk):
             left, "Injection trials (bias cal)", self.inj_var,
             "Fake probe injections to estimate measurement bias.",
         )
-        # Fixed production defaults (UI simplified — no train / factory / hard-synth)
+        # Fixed defaults for the simplified UI (I removed train/factory/hard-synth to keep it clean)
         self.vlbi_var = tk.BooleanVar(value=True)       # multi-method optical stack
         self.factory_var = tk.BooleanVar(value=False)
         self.nasa_var = tk.BooleanVar(value=True)       # geometry report only

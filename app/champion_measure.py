@@ -926,7 +926,7 @@ def run_champion_measure(
             lon, lat = lon2, lat2
             notes.append(
                 f"Map refine ({len(refine_meta.get('passes') or [])} pass) "
-                f"Δlon={refine_meta.get('dlon_deg'):.3f}° Δlat={refine_meta.get('dlat_deg'):.3f}°"
+                f"Δlon={refine_meta.get('dlon_deg', 0.0):.3f}° Δlat={refine_meta.get('dlat_deg', 0.0):.3f}°"
             )
         # Pass-2 limb: re-weight stored probes (no re-fit) using final GRS lon
         try:
@@ -1013,15 +1013,15 @@ def run_champion_measure(
                 sig_m_lat = max(sig_m_lat, float(nav_stab.get("sigma_lat_deg") or 0))
                 if nav_stab.get("stable"):
                     notes.append(
-                        f"Nav stability OK σ_lon={nav_stab.get('sigma_lon_deg'):.3f}° "
-                        f"maxΔ={nav_stab.get('max_dlon_deg'):.3f}°"
+                        f"Nav stability OK σ_lon={nav_stab.get('sigma_lon_deg', 0.0):.3f}° "
+                        f"maxΔ={nav_stab.get('max_dlon_deg', 0.0):.3f}°"
                     )
                     flags.append("NAV_STABLE")
                 else:
                     flags.append("NAV_UNSTABLE")
                     notes.append(
-                        f"Nav stability weak σ_lon={nav_stab.get('sigma_lon_deg'):.3f}° "
-                        f"maxΔ={nav_stab.get('max_dlon_deg'):.3f}°"
+                        f"Nav stability weak σ_lon={nav_stab.get('sigma_lon_deg', 0.0):.3f}° "
+                        f"maxΔ={nav_stab.get('max_dlon_deg', 0.0):.3f}°"
                     )
         except Exception as e:
             notes.append(f"Nav stability skipped: {e}")
@@ -1040,7 +1040,7 @@ def run_champion_measure(
             elif dual.get("ok") and not dual.get("agree") and dual.get("dlon_deg") is not None:
                 flags.append("DUAL_CHANNEL_DISAGREE")
                 notes.append(
-                    f"Dual-channel DISAGREE Δlon={dual.get('dlon_deg'):.3f}° — not ultimate"
+                    f"Dual-channel DISAGREE Δlon={dual.get('dlon_deg', 0.0):.3f}° — not ultimate"
                 )
         except Exception as e:
             notes.append(f"Dual-channel skipped: {e}")

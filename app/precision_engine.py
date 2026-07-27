@@ -140,12 +140,15 @@ def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
         from scipy.ndimage import gaussian_filter
         return gaussian_filter(img, sigma=sigma, mode="nearest")
     except Exception:
-        # box approx
-        k = max(1, int(sigma * 2) | 1)
+        # Box-filter approximation when scipy unavailable
+        k = max(3, int(sigma * 4) | 1)  # kernel size, always odd
         ker = np.ones((k, k), dtype=np.float64) / (k * k)
-        from numpy.fft import rfft2, irfft2
-        # fall back simple
-        return img  # type: ignore
+        from numpy.fft import fft2, ifft2
+        padded = np.pad(img, k // 2, mode='edge')
+        ker_padded = np.zeros_like(padded)
+        ker_padded[k // 2:k // 2 + k, k // 2:k // 2 + k] = ker
+        result = np.real(ifft2(fft2(padded) * fft2(ker_padded)))
+        return result[k // 2:k // 2 + img.shape[0], k // 2:k // 2 + img.shape[1]]
 
 
 def to_mono(image: np.ndarray) -> np.ndarray:

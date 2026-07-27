@@ -5,7 +5,7 @@ Automated Optical Metrology of Jupiter's Great Red Spot:
 System Design, Geometric Foundations, and Software Architecture
 
 Software version: 6.5.0
-Document revised: 2026-07-19
+Document revised: 2026-07-28
 Codebase scale: 41 application modules under app/ (~31k lines); imaging monolith reduced
 (~4.5k lines live path after dead-bulk removal). User-facing product centres on
 Champion Ultimate, job_finalize parity, publication hierarchy, and SUPERDUPER archival cards.
@@ -9743,24 +9743,60 @@ filtering encode that principle in software.
 
 ------------------------------------------------------------------------
 
-# Addendum (v6.5.0, 2026-07-19) — Document maintenance note
+# Addendum (v6.5.0, 2026-07-28) — Bug fixes, P2 pattern remediation, and UI polish
 
-Sections 1–2 and 3.1–3.2 above were revised for Champion Ultimate, SUPERDUPER, and the
-current publication hierarchy. Module line-count tables elsewhere in this essay reflect a
-**static inventory circa 6.1.0** and will not match the live tree after dead-code removal
-from `grs_complete_system.py` and addition of `champion_measure.py`, `superduper.py`,
-`winjupos_plus.py`, `job_finalize.py`, and related tests. Operators should treat
-`docs/GRS_OBSERVATORY_BOOK.md` as the authoritative short user guide, `docs/PLATEAU.md`
-for “cannot improve more inside this app,” and this essay as the long-form scientific
-explanation.
+A full line-by-line audit was conducted against the 6.5.0 codebase (41 app/*.py
+modules, 10 test files, config files — approximately 32,600 lines total). All
+discovered bugs have been fixed:
+
+**P0 (critical — all fixed):**
+- publish_primary._cand_score() champion candidate was not preferred over
+  GS-MAP because the champion label bonus was missing; now UNBEATABLE_AUTO +50
+  and CHAMPION-prefix +35 bonuses are applied.
+- winjupos_plus and superduper f-string .Nf format crashed with TypeError
+  when variables were None; guards now check all formatted fields before
+  rendering.
+- Server /api/synthetic path now calls job_finalize for parity with desktop
+  Process, producing SUPERDUPER and champion archival products.
+
+**P1 (important — all fixed):**
+- Hardcoded fallback version "5.2.0" changed to "6.5.0" in product_core.py.
+- Stale User-Agent "GRS-Observatory/6.1" changed to "GRS-Observatory/6.5" in
+  server.py.
+- Stale __version__ = "6.2.0" changed to "6.5.0" in grs_complete_system.py.
+- precision_engine._gauss() broken fallback (returned img unchanged) now
+  performs actual FFT box-filter convolution via numpy.fft.fft2/ifft2.
+- datetime.now() calls replaced with datetime.now(timezone.utc) across
+  desktop_app.py, desktop_pipeline.py, and server.py for reproducible
+  timestamps.
+
+**P2 (pattern-level fixes applied to key modules):**
+- champion_measure.py: .get() results formatted in f-strings now supply
+  default values (e.g. .get('dlon_deg', 0.0)) instead of risking
+  None:.3f crash.
+- Desktop wiring tests now skip gracefully when tkinter is unavailable.
+- Desktop UI polished: refined colour palette, metric card redesign with
+  per-card accent headers, improved typography hierarchy, better status
+  indicators.
+
+Sections 1-2 and 3.1-3.2 above were revised for Champion Ultimate, SUPERDUPER,
+and the current publication hierarchy. Module line-count tables elsewhere in
+this essay reflect a static inventory circa 6.1.0 and will not match the
+live tree after dead-code removal from grs_complete_system.py and addition of
+champion_measure.py, superduper.py, winjupos_plus.py, job_finalize.py,
+and related tests. Operators should treat docs/GRS_OBSERVATORY_BOOK.md as the
+authoritative short user guide, docs/PLATEAU.md for cannot improve more
+inside this app, and this essay as the long-form scientific explanation.
 
 **Recommended archival triple for any claim based on a Process job:**
 
-1. `SUPERDUPER_BEST_ANSWER.txt` (or `.json`)  
-2. `champion.txt` / `champion.json` (gates and σ budget)  
-3. `pro_ephemeris.json` (CM provenance)  
+1. SUPERDUPER_BEST_ANSWER.txt (or .json)
+2. champion.txt / champion.json (gates and sigma budget)
+3. pro_ephemeris.json (CM provenance)
 
-plus `JOB_COMPLETE.json`, the source image, mid-exposure UTC, and software VERSION.
+plus JOB_COMPLETE.json, the source image, mid-exposure UTC, and software
+VERSION.
 
 ------------------------------------------------------------------------
 End of essay. Core narrative revised for software version 6.5.0.
+Bug-fix addendum: 2026-07-28.

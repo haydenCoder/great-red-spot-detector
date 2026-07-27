@@ -156,10 +156,14 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
                 s -= 20.0
             else:
                 s += 10.0
-        # Prefer colour oval / GS-MAP over soup barycentres
+        # Prefer colour oval / champion / GS-MAP over soup barycentres
         cu = (cdef or "").upper()
         if "ORANGE" in cu:
             s += 45.0
+        elif cu == "UNBEATABLE_AUTO":
+            s += 50.0
+        elif cu.startswith("CHAMPION"):
+            s += 35.0
         elif cu.startswith("GS-MAP"):
             s += 25.0
         elif cu.startswith("GS-BARY"):

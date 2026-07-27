@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -135,7 +135,7 @@ def next_run_id(out_root: Path, kind: str) -> Tuple[int, str, str]:
     n += 1
     counter.write_text(str(n), encoding="utf-8")
     short = uuid.uuid4().hex[:12]
-    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     folder = f"{kind}_run{n:04d}_{stamp}_{short}"
     return n, short, folder
 

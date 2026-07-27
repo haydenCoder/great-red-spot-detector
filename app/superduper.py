@@ -66,8 +66,8 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
 
     citation = (
         f"GRS {definition}  λ_III={lon:.4f}°  φ_c={lat_c:.3f}°  φ_g={lat_g:.3f}°  "
-        f"σ_sky≈{sig:.3f}″  CM={cm}° ({cm_source})  grade={grade}"
-        if lon is not None and lat_c is not None
+        f"σ_sky≈{sig:.3f}″  CM={cm:.4f}° ({cm_source})  grade={grade}"
+        if lon is not None and lat_c is not None and lat_g is not None and sig is not None and cm is not None
         else "Measure incomplete — check champion.txt / publish.txt"
     )
 

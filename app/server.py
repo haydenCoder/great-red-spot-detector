@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -343,7 +343,7 @@ def health():
             "multi_epoch_phase_ref",
             "hard_synth_calibration",
         ],
-        "time": datetime.now().isoformat(),
+        "time": datetime.now(timezone.utc).isoformat(),
         "tips": ACCURACY_TIPS,
     })
 
@@ -488,7 +488,7 @@ def upload():
                 return jsonify({"ok": False, "error": f"Bad type {ext}"}), 400
     except SecurityError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     short = uuid.uuid4().hex[:8]
     name = f"{stamp}_{short}{ext}"
     dest = UPLOAD / name
@@ -959,6 +959,26 @@ def synthetic():
                     cm_source="synthetic_truth", user_time_iso=synth_time,
                     data=data, out=out, channels=channels,
                 )
+                # Finalize: champion → publish → WinJUPOS+ → SUPERDUPER → completeness
+                # (parity with desktop Process — was previously missing on server synth)
+                try:
+                    from job_finalize import finalize_science_package
+                    finalize_science_package(
+                        result, meas,
+                        nav=nav,
+                        cm_iii_deg=nav.cm_iii_deg,
+                        distance_au=nav.distance_au,
+                        cm_source="synthetic_truth",
+                        sigma_cm_deg=0.05,
+                        sub_lat_deg=float(nav.sub_lat_deg or 0.0),
+                        north_pa_deg=float(nav.north_pa_deg or 0.0),
+                        channels=channels,
+                        out_dir=out,
+                        user_time_iso=synth_time,
+                        time_error_seconds=float(truth.get("time_error_seconds") or 0),
+                    )
+                except Exception as finalize_err:
+                    CONSOLE.warn(f"Synthetic finalize (parity): {finalize_err}")
                 gs = result.get("gold_standard") or {}
                 lon_use = float(gs.get("primary_lon_iii_deg") if gs.get("ok") else rg.lon_bias_corrected_deg)
                 lat_use = float(gs.get("primary_lat_deg") if gs.get("ok") else rg.lat_bias_corrected_deg)
@@ -1058,7 +1078,7 @@ def api_ephemeris():
             use_spice=bool(data.get("use_spice", True)),
             force_horizons=bool(data.get("force_horizons", False)),
         )
-        out = OUTPUT / f"eph_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        out = OUTPUT / f"eph_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
         out.mkdir(exist_ok=True)
         write_ephemeris_report(out / "pro_ephemeris.json", pe)
         return jsonify({"ok": True, "ephemeris": pe.to_dict(), "output_dir": str(out)})
@@ -1687,7 +1707,7 @@ def main():
         from product_core import PRODUCT_VERSION
         ver = PRODUCT_VERSION
     except Exception:
-        ver = "6.1.0"
+        ver = "6.5.0"
     CONSOLE.clear()
     CONSOLE.ok(f"GRS Observatory v{ver} — optical GRS metrology")
     CONSOLE.info(f"http://{host}:{port}  |  16GB RAM  |  SSD: app/ssd_cache")

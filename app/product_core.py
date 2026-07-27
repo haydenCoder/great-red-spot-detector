@@ -26,8 +26,8 @@ ROOT_DIR = APP_DIR.parent
 def product_version() -> str:
     for p in (ROOT_DIR / "VERSION", APP_DIR / "VERSION"):
         if p.exists():
-            return p.read_text(encoding="utf-8").strip() or "5.2.0"
-    return "5.2.0"
+            return p.read_text(encoding="utf-8").strip() or "6.5.0"
+    return "6.5.0"
 
 
 PRODUCT_NAME = "Great Red Spot Detector"

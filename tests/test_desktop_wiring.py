@@ -3,6 +3,9 @@ Desktop handler wiring + construction safety.
 
 Exercises the real shipped desktop_app module so missing callbacks
 (e.g. _open_buttons_doc) fail the test before launch.
+
+When tkinter is unavailable (headless server / CI), tests that import
+desktop_app are skipped rather than raising ModuleNotFoundError.
 """
 from __future__ import annotations
 
@@ -19,7 +22,16 @@ if str(APP) not in sys.path:
 
 os.environ.setdefault("TK_SILENCE_DEPRECATION", "1")
 
+# Check if tkinter is available before importing desktop_app
+_HAS_TK = False
+try:
+    import tkinter as _tk  # noqa: F401
+    _HAS_TK = True
+except ImportError:
+    pass
 
+
+@unittest.skipUnless(_HAS_TK, "tkinter not available — headless environment")
 class TestDesktopWiring(unittest.TestCase):
     def test_open_buttons_doc_handler_exists(self):
         import desktop_app as da

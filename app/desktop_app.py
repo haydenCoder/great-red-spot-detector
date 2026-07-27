@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -135,23 +135,27 @@ except Exception:
     pass
 
 
-# Light, readable UI — black labels, grey descriptions (easy to see)
-BG = "#e8ecf1"          # app background (soft grey)
-PANEL = "#ffffff"       # side panels (white)
-PANEL2 = "#f3f5f8"      # secondary surfaces
-CARD = "#ffffff"        # metric cards
-FG = "#111827"          # black / near-black words
-MUTED = "#4b5563"       # grey descriptions under buttons
-ACCENT = "#2563eb"      # blue primary actions
-OK = "#15803d"
-WARN = "#ca8a04"
-ERR = "#b91c1c"
-PURPLE = "#7c3aed"      # factory
-BORDER = "#c5cdd8"
-INPUT_BG = "#ffffff"
-CONSOLE_BG = "#0f172a"  # console stays dark for log contrast
-CONSOLE_FG = "#e2e8f0"
-BTN_TEXT = "#ffffff"    # text on colored buttons
+# Light, readable UI — refined colour palette inspired by macOS design language
+BG = "#eef0f5"          # app background (cool off-white)
+PANEL = "#ffffff"       # side panels (clean white)
+PANEL2 = "#f4f6fa"      # secondary surfaces (subtle elevation)
+CARD = "#ffffff"        # metric cards (white)
+CARD_HEADER = "#f0f4ff" # metric card header tint (light blue hint)
+FG = "#0f172a"          # primary text (near-black, deep navy)
+MUTED = "#64748b"       # secondary / descriptions (blue-grey)
+ACCENT = "#1d4ed8"      # primary actions (royal blue)
+ACCENT_HOVER = "#2563eb" # hover variant
+OK = "#15803d"          # success green
+WARN = "#b45309"        # warning amber (richer, more legible)
+ERR = "#b91c1c"         # error red
+PURPLE = "#7c3aed"      # factory / specialist
+BORDER = "#cbd5e1"      # borders (blue-grey, softer)
+BORDER_FOCUS = "#1d4ed8" # focus ring border
+INPUT_BG = "#ffffff"    # input fields
+CONSOLE_BG = "#0f172a"  # console dark (Slate 900)
+CONSOLE_FG = "#e2e8f0"  # console light text (Slate 200)
+BTN_TEXT = "#ffffff"    # text on coloured buttons
+SHADOW_BG = "#94a3b8"   # shadow / inactive indicators
 
 # Accurate plain-language help for every control / action (shown via ⓘ)
 HELP: Dict[str, str] = {
@@ -369,8 +373,8 @@ class LogBridge:
 class GRSDesktopApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Great Red Spot Detector")
-        self.geometry("1380x880")
+        self.title("Great Red Spot Detector · System III Metrology")
+        self.geometry("1440x900")
         self.minsize(1100, 700)
         self.configure(bg=BG)
 
@@ -561,7 +565,7 @@ class GRSDesktopApp(tk.Tk):
             style.theme_use("clam")
         except Exception:
             pass
-        # Light theme: black words, grey secondary, white panels
+        # Refined light theme: deep navy text, blue-grey secondary, clean white panels
         style.configure(".", background=BG, foreground=FG, fieldbackground=INPUT_BG)
         style.configure("TFrame", background=BG)
         style.configure("Card.TFrame", background=PANEL)
@@ -592,7 +596,7 @@ class GRSDesktopApp(tk.Tk):
             "TNotebook.Tab",
             background=PANEL2,
             foreground=MUTED,
-            padding=[16, 10],
+            padding=[18, 10],
             font=("Helvetica", 12, "bold"),
         )
         style.map(
@@ -604,7 +608,7 @@ class GRSDesktopApp(tk.Tk):
             "Horizontal.TProgressbar",
             troughcolor="#d1d5db",
             background=ACCENT,
-            thickness=8,
+            thickness=6,
             bordercolor=BORDER,
             lightcolor=ACCENT,
             darkcolor=ACCENT,
@@ -619,47 +623,48 @@ class GRSDesktopApp(tk.Tk):
 
     # ── UI ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # Header bar
+        # Header bar — top-of-app brand strip
         head = tk.Frame(self, bg=BG, highlightthickness=0)
-        head.pack(fill=tk.X, padx=16, pady=(14, 8))
+        head.pack(fill=tk.X, padx=18, pady=(16, 10))
         left_h = tk.Frame(head, bg=BG)
         left_h.pack(side=tk.LEFT, fill=tk.X, expand=True)
         title_row = tk.Frame(left_h, bg=BG)
         title_row.pack(anchor=tk.W)
+        # Jupiter symbol logo badge
         logo = tk.Label(
-            title_row, text="♃", bg=PANEL, fg=ACCENT,
-            font=("Helvetica", 18, "bold"), width=3, padx=4, pady=4,
-            highlightbackground=BORDER, highlightthickness=1,
+            title_row, text=" ♃ ", bg=ACCENT, fg=BTN_TEXT,
+            font=("Helvetica", 16, "bold"), padx=6, pady=6,
+            highlightbackground=ACCENT, highlightthickness=0,
         )
-        logo.pack(side=tk.LEFT, padx=(0, 10))
+        logo.pack(side=tk.LEFT, padx=(0, 12))
         tk.Label(
             title_row, text="Great Red Spot Detector", bg=BG, fg=FG,
-            font=("Helvetica", 20, "bold"),
+            font=("Helvetica", 22, "bold"),
         ).pack(side=tk.LEFT)
         tk.Label(
             left_h,
-            text="Black labels · grey help under every button · no question-mark icons",
-            bg=BG, fg=MUTED, font=("Helvetica", 12),
-        ).pack(anchor=tk.W, pady=(4, 0))
+            text="Ground-based optical metrology · System III longitude & latitude · publish-ready packages",
+            bg=BG, fg=MUTED, font=("Helvetica", 11),
+        ).pack(anchor=tk.W, pady=(3, 0))
 
         right_h = tk.Frame(head, bg=BG)
         right_h.pack(side=tk.RIGHT)
         self.license_var = tk.StringVar(value="● Evaluation")
         self.license_lbl = tk.Label(
-            right_h, textvariable=self.license_var, bg=PANEL, fg=MUTED,
-            font=("Helvetica", 11, "bold"), padx=12, pady=6,
+            right_h, textvariable=self.license_var, bg=PANEL, fg=ACCENT,
+            font=("Helvetica", 11, "bold"), padx=14, pady=7,
             highlightbackground=BORDER, highlightthickness=1,
         )
         self.license_lbl.pack(side=tk.RIGHT, padx=6)
         self.status_var = tk.StringVar(value="● IDLE")
         self.status_lbl = tk.Label(
-            right_h, textvariable=self.status_var, bg=PANEL, fg=OK,
-            font=("Helvetica", 12, "bold"), padx=14, pady=6,
+            right_h, textvariable=self.status_var, bg=PANEL, fg=SHADOW_BG,
+            font=("Helvetica", 12, "bold"), padx=16, pady=7,
             highlightbackground=BORDER, highlightthickness=1,
         )
         self.status_lbl.pack(side=tk.RIGHT, padx=6)
-        self.prog = ttk.Progressbar(right_h, mode="indeterminate", length=140)
-        self.prog.pack(side=tk.RIGHT, padx=8)
+        self.prog = ttk.Progressbar(right_h, mode="indeterminate", length=120)
+        self.prog.pack(side=tk.RIGHT, padx=10)
         self._refresh_license_badge()
         
         body = tk.Frame(self, bg=BG)
@@ -843,41 +848,46 @@ class GRSDesktopApp(tk.Tk):
         center = tk.Frame(body, bg=BG)
         center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Metric strip
+        # Metric strip — key result cards at a glance
         metrics = tk.Frame(center, bg=BG)
-        metrics.pack(fill=tk.X, pady=(0, 8))
+        metrics.pack(fill=tk.X, pady=(0, 10))
         self.metric_vars = {}
         mhead = tk.Frame(metrics, bg=BG)
         mhead.pack(fill=tk.X)
         tk.Label(
-            mhead, text="RESULT STRIP", bg=BG, fg=FG,
+            mhead, text="KEY METRICS", bg=BG, fg=FG,
             font=("Helvetica", 11, "bold"),
         ).pack(side=tk.LEFT)
         mrow = tk.Frame(metrics, bg=BG)
         mrow.pack(fill=tk.X, pady=(6, 0))
-        for key, label in (
-            ("grade", "Grade"),
-            ("lon", "Lon III"),
-            ("lat", "Lat"),
-            ("sigma", "σ_tot ″"),
-            ("truth", "Truth ″"),
-            ("epoch", "Epoch"),
-        ):
+        metric_colours = {
+            "grade": (ACCENT, "Grade"),
+            "lon":   (FG,    "Lon III"),
+            "lat":   (FG,    "Lat"),
+            "sigma": (WARN,  "σ_tot ″"),
+            "truth": (OK,    "Truth ″"),
+            "epoch": (MUTED, "Epoch"),
+        }
+        for key, (val_colour, label) in metric_colours.items():
             card = tk.Frame(
                 mrow, bg=CARD,
                 highlightbackground=BORDER, highlightthickness=1,
             )
             card.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
+            # Header row of card (light blue tint)
+            hdr = tk.Frame(card, bg=CARD_HEADER)
+            hdr.pack(fill=tk.X)
             tk.Label(
-                card, text=label.upper(), bg=CARD, fg=MUTED,
-                font=("Helvetica", 10, "bold"),
-            ).pack(anchor=tk.W, padx=10, pady=(8, 0))
+                hdr, text=label.upper(), bg=CARD_HEADER, fg=ACCENT,
+                font=("Helvetica", 9, "bold"),
+            ).pack(anchor=tk.W, padx=10, pady=(5, 3))
+            # Value row
             v = tk.StringVar(value="—")
             self.metric_vars[key] = v
             tk.Label(
-                card, textvariable=v, bg=CARD, fg=FG,
-                font=("Menlo", 13, "bold"),
-            ).pack(anchor=tk.W, padx=10, pady=(2, 10))
+                card, textvariable=v, bg=CARD, fg=val_colour,
+                font=("Menlo", 14, "bold"),
+            ).pack(anchor=tk.W, padx=10, pady=(2, 8))
 
         self.nb = ttk.Notebook(center)
         self.nb.pack(fill=tk.BOTH, expand=True)
@@ -887,7 +897,7 @@ class GRSDesktopApp(tk.Tk):
         self.nb.add(tab_prev, text="  Preview  ")
         self.preview_lbl = tk.Label(
             tab_prev,
-            text="No image yet\n\nUse  Generate Synthetic  or  Open file",
+            text="No image yet\n\nOpen a FITS/SER/PNG file  or  Generate Synthetic",
             bg=PANEL2, fg=MUTED, font=("Helvetica", 14),
             highlightbackground=BORDER, highlightthickness=1,
         )
@@ -911,9 +921,9 @@ class GRSDesktopApp(tk.Tk):
             wrap=tk.WORD, relief=tk.FLAT, padx=8, pady=8,
         )
         self.dash.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-        self.dash.insert(tk.END, "Run a job to populate the dashboard.\n")
+        self.dash.insert(tk.END, "Run a job to populate the dashboard.\n\nMetrics strip above updates after every Process or Synthetic run.\n")
 
-        # ── Console ──
+        # ── Console (right panel) ──
         right = tk.Frame(
             body, bg=PANEL, width=340,
             highlightbackground=BORDER, highlightthickness=1,
@@ -923,12 +933,12 @@ class GRSDesktopApp(tk.Tk):
         ch = tk.Frame(right, bg=PANEL)
         ch.pack(fill=tk.X, padx=10, pady=(10, 4))
         tk.Label(
-            ch, text="LIVE CONSOLE", bg=PANEL, fg=FG,
+            ch, text="LIVE LOG", bg=PANEL, fg=ACCENT,
             font=("Helvetica", 11, "bold"),
         ).pack(side=tk.LEFT)
         tk.Label(
-            ch, text="scroll for log", bg=PANEL, fg=MUTED,
-            font=("Helvetica", 10),
+            ch, text="auto-scroll ↓", bg=PANEL, fg=MUTED,
+            font=("Helvetica", 9),
         ).pack(side=tk.RIGHT)
         self.console = scrolledtext.ScrolledText(
             right, bg=CONSOLE_BG, fg=CONSOLE_FG, font=("Menlo", 11),
@@ -941,22 +951,26 @@ class GRSDesktopApp(tk.Tk):
         ):
             self.console.tag_config(tag, foreground=color)
 
+        # Footer status bar
         foot = tk.Frame(self, bg=BG)
-        foot.pack(fill=tk.X, padx=16, pady=8)
+        foot.pack(fill=tk.X, padx=18, pady=(6, 10))
         tk.Label(
             foot,
-            text=f"Data · {BASE}   ·   grey text = help under buttons   ·   black text = labels",
-            bg=BG, fg=MUTED, font=("Helvetica", 11),
+            text=f"Data · {BASE}   ·   grey = help · navy = labels · blue = actions",
+            bg=BG, fg=MUTED, font=("Helvetica", 10),
         ).pack(anchor=tk.W)
 
     def _section(self, parent, title: str):
-        """Section title: black bold on light grey strip."""
+        """Section header: bold navy text on tinted strip with accent underline."""
         wrap = tk.Frame(parent, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
-        wrap.pack(fill=tk.X, padx=12, pady=(16, 6))
+        wrap.pack(fill=tk.X, padx=12, pady=(18, 6))
         tk.Label(
             wrap, text=title.upper(), bg=PANEL2, fg=FG,
             font=("Helvetica", 11, "bold"),
-        ).pack(anchor=tk.W, padx=12, pady=9)
+        ).pack(anchor=tk.W, padx=12, pady=(8, 2))
+        # Thin accent underline
+        accent_bar = tk.Frame(wrap, bg=ACCENT, height=2)
+        accent_bar.pack(fill=tk.X, padx=12, pady=(0, 6))
 
     def _labeled_entry(self, parent, label: str, var: tk.StringVar, desc: str = ""):
         tk.Label(
@@ -970,9 +984,9 @@ class GRSDesktopApp(tk.Tk):
             ).pack(anchor=tk.W, padx=14, pady=(1, 3))
         e = tk.Entry(
             parent, textvariable=var,
-            bg=INPUT_BG, fg=FG, insertbackground=FG,
+            bg=INPUT_BG, fg=FG, insertbackground=ACCENT,
             relief=tk.FLAT, font=("Menlo", 12),
-            highlightbackground=BORDER, highlightthickness=1,
+            highlightbackground=BORDER, highlightthickness=2,
             highlightcolor=ACCENT,
         )
         e.pack(fill=tk.X, padx=14, pady=(0, 6), ipady=8)
@@ -1029,23 +1043,23 @@ class GRSDesktopApp(tk.Tk):
     ):
         """Full-width button with grey description underneath (no ? icons)."""
         wrap = tk.Frame(parent, bg=PANEL)
-        wrap.pack(fill=tk.X, padx=12, pady=(6, 2))
+        wrap.pack(fill=tk.X, padx=12, pady=(8, 3))
         if secondary:
             b = tk.Button(
                 wrap, text=text, command=cmd,
                 bg=PANEL2, fg=FG,
-                activebackground="#e5e7eb", activeforeground=FG,
+                activebackground="#dde1e8", activeforeground=FG,
                 relief=tk.FLAT, font=("Helvetica", 12, "bold"),
-                padx=12, pady=10, cursor="hand2",
+                padx=14, pady=10, cursor="hand2",
                 highlightbackground=BORDER, highlightthickness=1,
             )
         else:
             b = tk.Button(
                 wrap, text=text, command=cmd,
                 bg=color, fg=BTN_TEXT,
-                activebackground=color, activeforeground=BTN_TEXT,
+                activebackground=ACCENT_HOVER, activeforeground=BTN_TEXT,
                 relief=tk.FLAT, font=("Helvetica", 13, "bold"),
-                padx=12, pady=12, cursor="hand2",
+                padx=14, pady=13, cursor="hand2",
                 highlightbackground=BORDER, highlightthickness=1,
             )
         b.pack(fill=tk.X)
@@ -1068,7 +1082,7 @@ class GRSDesktopApp(tk.Tk):
                 pass
         else:
             self.status_var.set("● " + (status or "IDLE"))
-            self.status_lbl.configure(fg=OK if status == "DONE" else (ERR if status == "ERROR" else MUTED))
+            self.status_lbl.configure(fg=OK if status == "DONE" else (ERR if status == "ERROR" else SHADOW_BG))
             try:
                 self.prog.stop()
             except Exception:
@@ -1409,7 +1423,7 @@ class GRSDesktopApp(tk.Tk):
         p = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
-            initialfile=f"grs_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            initialfile=f"grs_result_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
         )
         if p:
             Path(p).write_text(json.dumps(self.last_package, indent=2, default=str), encoding="utf-8")
@@ -1627,7 +1641,7 @@ class GRSDesktopApp(tk.Tk):
                 use_horizons=self.horizons_var.get(),
                 use_spice=self.spice_var.get(),
             )
-            out = BASE / "outputs" / f"eph_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            out = BASE / "outputs" / f"eph_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             out.mkdir(parents=True, exist_ok=True)
             write_ephemeris_report(out / "pro_ephemeris.json", pe)
             pkg = {

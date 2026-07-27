@@ -171,8 +171,19 @@ That is a **reproducible, professional-grade auto product** on real data — not
 | GS-ORANGE + publish gates | WinJUPOS CM **table** upload/download |
 | Frozen CNN soft prior | Factory night / hard-synth / multi-epoch buttons |
 | Bundled SPICE kernels | Online SPICE auto-download |
+| Champion Ultimate + SUPERDUPER archival cards | — |
 
----
+### v6.5.0 audit fixes (2026-07-28)
+
+All P0/P1/P2 bugs from the full line-by-line audit are fixed:
+- Champion candidate now correctly preferred over GS-MAP in publish hierarchy
+- f-string None-format crashes in winjupos_plus and superduper patched
+- Server /api/synthetic now produces SUPERDUPER archival products
+- Stale version strings and User-Agent updated to 6.5.0
+- _gauss() fallback now actually performs FFT convolution
+- datetime.now() replaced with datetime.now(timezone.utc) for reproducible timestamps
+- Desktop UI polished: refined colour palette, improved metric cards
+- See docs/FULL_LINE_AUDIT_6.5.0.md for the complete audit
 
 ## License
 

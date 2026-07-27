@@ -148,8 +148,8 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
         f"GRS {definition}  λ_III={lon:.4f}°  "
         f"φ_c={lat_c:.3f}°  φ_g={lat_g:.3f}°  "
         f"EW={extent if extent is not None else length}°  "
-        f"CM={cm}° ({cm_source})  Δ={dist:.4f} AU"
-        if lon is not None and lat_c is not None
+        f"CM={cm:.4f}° ({cm_source})  Δ={dist:.4f} AU"
+        if lon is not None and lat_c is not None and lat_g is not None and cm is not None and dist is not None
         else "GRS measure incomplete"
     )
 

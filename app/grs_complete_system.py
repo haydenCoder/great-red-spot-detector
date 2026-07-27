@@ -74,7 +74,7 @@ try:
 except ImportError:
     PILImage = None
 
-__version__ = "6.2.0"
+__version__ = "6.5.0"
 __author__ = "GRS Ground Pipeline"
 
 LOG = logging.getLogger("grs_pipeline")

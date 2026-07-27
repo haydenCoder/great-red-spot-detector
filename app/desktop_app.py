@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory — native macOS desktop app (process-focused).
+Great Red Spot Detector — native macOS desktop app (process-focused).
 
 Core workflow: open image → set UTC → Process (auto + by-eye limb) → publish.
 SPIRE-Net weights are shipped frozen (inference only — no training UI).
@@ -156,7 +156,7 @@ BTN_TEXT = "#ffffff"    # text on colored buttons
 # Accurate plain-language help for every control / action (shown via ⓘ)
 HELP: Dict[str, str] = {
     "app": (
-        "GRS Observatory measures the position of Jupiter’s Great Red Spot (GRS)\n"
+        "Great Red Spot Detector measures Jupiter’s Great Red Spot (GRS)\n"
         "in System III longitude and latitude, with calibrated uncertainties.\n\n"
         "• Synthetic = fake planet image with known truth (tests accuracy).\n"
         "• Process = measure a real FITS/SER/PNG.\n"
@@ -369,7 +369,7 @@ class LogBridge:
 class GRSDesktopApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("GRS Observatory · Desktop")
+        self.title("Great Red Spot Detector")
         self.geometry("1380x880")
         self.minsize(1100, 700)
         self.configure(bg=BG)
@@ -528,7 +528,7 @@ class GRSDesktopApp(tk.Tk):
             name = PRODUCT_NAME
             tag = PRODUCT_TAGLINE
         except Exception:
-            name, ver, tag = "GRS Observatory", "6.1", "Professional GRS metrology"
+            name, ver, tag = "Great Red Spot Detector", "6.5.0", "Optical GRS metrology"
         lic_line = ""
         if self._license_status:
             lic_line = f"\nLicense: {self._license_status.plan_label}"
@@ -633,7 +633,7 @@ class GRSDesktopApp(tk.Tk):
         )
         logo.pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(
-            title_row, text="GRS Observatory", bg=BG, fg=FG,
+            title_row, text="Great Red Spot Detector", bg=BG, fg=FG,
             font=("Helvetica", 20, "bold"),
         ).pack(side=tk.LEFT)
         tk.Label(
@@ -1238,7 +1238,7 @@ class GRSDesktopApp(tk.Tk):
                     if payload.get("error"):
                         self._set_busy(False, "ERROR")
                         self._results("Error:\n" + str(payload["error"]))
-                        messagebox.showerror("GRS Observatory", str(payload["error"]))
+                        messagebox.showerror("Great Red Spot Detector", str(payload["error"]))
                     else:
                         self._set_busy(False, "DONE")
                         pkg = payload.get("package") or payload.get("result") or {}

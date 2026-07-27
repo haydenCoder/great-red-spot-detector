@@ -3,20 +3,24 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "grs-observatory"
+name = "great-red-spot-detector"
 version = "6.5.0"
-description = "Professional ground-based Jupiter GRS optical metrology (SPICE, formal error budgets, synthetic certification)"
+description = "Great Red Spot Detector — ground-based Jupiter GRS optical metrology (System III lon/lat, SPICE, GS-ORANGE)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary — see LICENSE" }
-authors = [{ name = "GRS Observatory Authors" }]
+authors = [{ name = "Great Red Spot Detector Authors" }]
 keywords = [
   "astronomy",
   "jupiter",
   "great-red-spot",
+  "grs",
+  "detector",
+  "great-red-spot-detector",
   "metrology",
   "spice",
   "planetary-imaging",
+  "winjupos",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

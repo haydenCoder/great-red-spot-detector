@@ -488,6 +488,69 @@ def planet_xyz_to_px(X, Y, Z, nav: "NavState"):
     return nav.xc + Xsky * s, nav.yc - Ysky * s, Zp
 
 
+def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
+    """Is there actually a resolved planetary disk here?
+
+    The measurement stack will happily fit a limb to almost anything -- a phone
+    snapshot of Jupiter as a point source, a spacecraft close-up crop, a frame
+    of an animated GIF -- and then report a confident GRS latitude. Those frames
+    are not measurable, and a number computed from them is fiction.
+
+    Two cheap, robust discriminators (validated on real web imagery):
+      disk_fill      fraction of the fitted ellipse covered by the bright mask.
+                     Real disks: 0.96-0.99. Non-disks: 0.66-0.85.
+      disk_contrast  mean(inside) - mean(outside) of the fitted ellipse.
+                     Real disks: 0.39-0.70. Non-disks: 0.09-0.15.
+
+    Returns the metrics plus `measurable`; the caller decides whether to refuse.
+    """
+    out: Dict[str, Any] = {"disk_fill": float("nan"),
+                           "disk_contrast": float("nan"),
+                           "measurable": True,
+                           "reasons": []}
+    try:
+        mono = to_mono(image)
+        h, w = mono.shape
+        b = nav.a_eq_px * (1.0 - nav.flattening)
+        if nav.a_eq_px <= 4 or b <= 4:
+            out["measurable"] = False
+            out["reasons"].append("degenerate limb fit")
+            return out
+        yy, xx = np.mgrid[0:h, 0:w]
+        inside = (((xx - nav.xc) / nav.a_eq_px) ** 2 + ((yy - nav.yc) / b) ** 2) <= 1.0
+        n_in = int(inside.sum())
+        if n_in < 64:
+            out["measurable"] = False
+            out["reasons"].append("fitted disk too small to measure")
+            return out
+        m = rough_disk_mask(mono)
+        fill = float((m & inside).sum() / max(n_in, 1))
+        i_in = float(mono[inside].mean())
+        i_out = float(mono[~inside].mean()) if int((~inside).sum()) else 0.0
+        contrast = i_in - i_out
+        out["disk_fill"] = fill
+        out["disk_contrast"] = contrast
+        out["disk_radius_px"] = float(nav.a_eq_px)
+        if fill < DISK_FILL_MIN:
+            out["measurable"] = False
+            out["reasons"].append(
+                f"disk_fill={fill:.2f} < {DISK_FILL_MIN} (bright region is not disk-shaped)"
+            )
+        if contrast < DISK_CONTRAST_MIN:
+            out["measurable"] = False
+            out["reasons"].append(
+                f"disk_contrast={contrast:.2f} < {DISK_CONTRAST_MIN} (no resolved disk against sky)"
+            )
+        if nav.a_eq_px < DISK_MIN_RADIUS_PX:
+            out["measurable"] = False
+            out["reasons"].append(
+                f"disk radius {nav.a_eq_px:.0f}px < {DISK_MIN_RADIUS_PX}px (under-resolved)"
+            )
+    except Exception as e:
+        out["reasons"].append(f"quality check failed: {e}")
+    return out
+
+
 def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
     """
     Image pixel → System III longitude + planetocentric latitude.
@@ -1001,6 +1064,17 @@ def _choose_size(methods: Dict[str, Dict[str, float]]) -> Tuple[float, float, st
 # Balanced weights: map_dark/template for GS-MAP-style core; moment as backup.
 # I spent a while tuning these — over-weighting map_dark alone can lock onto
 # SEB dark barges on soft stacks, which was a frustrating bug to track down.
+# A crisp template peak that no other method corroborates is usually a decoy
+# SEB oval, not the GRS. Beyond this separation we prefer the peer cluster.
+TEMPLATE_CORROBORATION_DEG = 8.0
+
+# Disk-quality gate thresholds. Calibrated on real web imagery: genuine resolved
+# Jupiter disks score fill 0.96-0.99 / contrast 0.39-0.70, while point-source
+# phone photos and spacecraft crops score fill 0.66-0.85 / contrast 0.09-0.15.
+DISK_FILL_MIN = 0.90
+DISK_CONTRAST_MIN = 0.25
+DISK_MIN_RADIUS_PX = 25.0
+
 METHOD_WEIGHTS = {
     "template": 2.6,
     "map_dark": 2.5,
@@ -1046,6 +1120,9 @@ def measure_grs_precision(
     else:
         nav.cm_iii_deg = cm_iii_deg
         nav.distance_au = distance_au
+
+    # Refuse to invent numbers from frames with no resolved disk.
+    disk_q = assess_disk_quality(image, nav)
 
     cyl = make_cylindrical(image, nav, width=map_width, height=map_height)
     raw_methods: Dict[str, Dict[str, float]] = {}
@@ -1145,11 +1222,23 @@ def measure_grs_precision(
     thr = 12.0
     keep = d <= thr
 
+    # Seeding on the template and then pruning everything >thr from it is
+    # circular when only two methods survived: the seed defines the cluster, so
+    # the seed always wins and the only independent check is deleted. Keep a
+    # lone disagreeing peer alive and let the corroboration test below decide
+    # on evidence. (Observed: template 31 deg off truth deleted a moment method
+    # that was accurate to 0.03 deg.)
+    if len(names) == 2 and int(keep.sum()) == 1:
+        keep[:] = True
+        notes.append(
+            "2-method split kept intact for corroboration (no majority to arbitrate)"
+        )
+
     # If template is high quality and moment is low quality far away, drop moment/map not template
     if tmpl is not None and mom is not None and "template" in names and "moment" in names:
         ti, mi = names.index("template"), names.index("moment")
         if abs(wrap_diff(lons[mi], lons[ti])) > 10.0:
-            if tmpl_quality >= 0.05 and mom_quality < 1.0:
+            if tmpl_quality >= 0.05 and mom_quality < 1.0 and len(names) > 2:
                 keep[mi] = False
                 keep[ti] = True
                 notes.append("dropped low-quality moment (thin/wrong); kept template")
@@ -1197,11 +1286,39 @@ def measure_grs_precision(
         tlat = usable["template"]["lat_deg"]
         tq = float(usable["template"].get("dark_contrast", 0.0))
         others = [n for n in ("map_dark", "moment") if n in usable]
-        if tq >= 0.04 or not others:
+        # A high dark_contrast means "this is a crisp dark oval", NOT "this is
+        # THE GRS" -- a decoy SEB oval scores just as well. Locking on contrast
+        # alone let the template drag the answer 31 deg off truth on frames
+        # where the surviving physics method (moment) was correct to 0.03 deg.
+        # Require corroboration: if an independent method survived and it
+        # disagrees badly, do not hand it the answer.
+        o_lons_all = [usable[n]["lon_iii_deg"] for n in others]
+        max_disagree = (
+            max(abs(wrap_diff(tlon, x)) for x in o_lons_all) if o_lons_all else 0.0
+        )
+        corroborated = (not others) or (max_disagree <= TEMPLATE_CORROBORATION_DEG)
+        if tq >= 0.04 and corroborated:
             lon = tlon
             lat = 0.80 * tlat + 0.20 * lat
             pos_tag = "template_pos"
             notes.append(f"position locked to template (dark_contrast={tq:.3f})")
+        elif not corroborated:
+            # Template is crisp but isolated: trust the peer cluster instead and
+            # flag the split so the publish gate can see it.
+            o_w = np.array([METHOD_WEIGHTS.get(n, 1.0) for n in others], dtype=np.float64)
+            lon = _circular_weighted_mean(np.array(o_lons_all, dtype=np.float64), o_w)
+            lat = float(np.average([usable[n]["lat_deg"] for n in others], weights=o_w))
+            pos_tag = "peer_cluster_template_rejected"
+            notes.append(
+                f"template REJECTED: dark_contrast={tq:.3f} but "
+                f"{max_disagree:.1f}deg from {others} (> {TEMPLATE_CORROBORATION_DEG}deg) "
+                "- probable decoy oval lock; using peer methods"
+            )
+            methods.setdefault("template", {})
+            methods["template"] = {**methods.get("template", {}),
+                                   "rejected": True,
+                                   "reject_reason": "uncorroborated_template_lock"}
+            rejected["template"] = "uncorroborated_template_lock"
         elif others:
             o_lons = np.array([usable[n]["lon_iii_deg"] for n in others], dtype=np.float64)
             o_mean = _circular_weighted_mean(o_lons, np.ones(len(o_lons)))
@@ -1269,6 +1386,8 @@ def measure_grs_precision(
     as_lat = deg_to_arcsec_on_sky(err_lat, km_per_deg_lat(lat), nav.distance_au)
     as_sky = float(math.hypot(as_lon, as_lat))
     quality = float(max(0.0, 1.0 - as_sky / 10.0))
+    if not disk_q.get("measurable", True):
+        quality = 0.0
 
     if not quiet:
         CONSOLE.ok(
@@ -1290,7 +1409,7 @@ def measure_grs_precision(
         length_deg=length,
         width_deg=width,
         method=primary,
-        methods=methods,
+        methods={**methods, "disk_quality": disk_q},
         err_lon_deg=err_lon,
         err_lat_deg=err_lat,
         err_sky_arcsec=as_sky,
@@ -1304,7 +1423,11 @@ def measure_grs_precision(
             "lat_deg is planetocentric; lat_planetographic_deg is WinJUPOS-style",
             "err_sky is method consistency (not total systematic); MC is separate",
             "truth_recovery is absolute accuracy on synthetics",
-        ],
+        ]
+        + ([] if disk_q.get("measurable", True) else [
+            "NOT MEASURABLE: " + "; ".join(disk_q.get("reasons") or [])
+            + " - no resolved planetary disk; treat lon/lat as meaningless"
+        ]),
         lat_planetographic_deg=lat_g,
         lat_kind="planetocentric",
     )

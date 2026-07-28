@@ -193,6 +193,17 @@ def reject_lon_outliers(
     med = robust_circular_median_lon(lons)
     if med is None:
         return methods, {}, None
+
+    # With only two methods there is no majority: the "median" of a disagreeing
+    # pair sits between them and whichever one it happens to favour wins, which
+    # let a decoy template lock silently delete a correct peer (observed: the
+    # template 31 deg off truth survived, the moment method accurate to 0.03 deg
+    # was discarded). Rejecting one of two candidates is not outlier removal, it
+    # is a coin flip -- so keep both and let the weighted/corroboration logic
+    # downstream arbitrate with actual evidence.
+    if len(names_ok) < 3:
+        return methods, {}, med
+
     kept: Dict[str, Dict[str, Any]] = {}
     rejected: Dict[str, str] = {}
     for name, m in methods.items():

@@ -83,7 +83,7 @@ REGION = {
 
 
 def _seed(user_time: str, region: str, err: float) -> int:
-    raw = f"{user_time}|{region}|{err}|{os.urandom(16).hex()}|{dt.datetime.now().isoformat()}|{os.getpid()}"
+    raw = f"{user_time}|{region}|{err}|{os.urandom(16).hex()}|{dt.datetime.now(dt.timezone.utc).isoformat()}|{os.getpid()}"
     return int(hashlib.sha256(raw.encode()).hexdigest()[:16], 16) % (2**31 - 1)
 
 
@@ -719,7 +719,7 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
 
     CONSOLE.ok("Photoreal render complete (soft belts, zonal streaks, soft GRS, realistic seeing)")
 
-    stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
     base_name = f"synth_{name}_{stamp}_s{seed}"
     png = out_dir / f"{base_name}.png"
     fit = out_dir / f"{base_name}.fit"

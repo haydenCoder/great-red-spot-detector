@@ -20,6 +20,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import warnings
+
 import numpy as np
 
 from all_methods import (
@@ -93,7 +95,9 @@ def _subpixel_argmax(z: np.ndarray) -> Tuple[float, float]:
 def m_fwhm_lon(cyl, nav, lon_iii, lat) -> MethodHit:
     """Centre of FWHM of 1D longitude intensity cut at lat≈−22°."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=3.0)
-    row = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        row = np.nanmean(np.where(valid, band, np.nan), axis=0)
     row = np.nan_to_num(row, nan=np.nanmedian(row))
     sm = np.convolve(row, np.ones(5) / 5, mode="same")
     i0 = int(np.argmin(sm))
@@ -117,7 +121,9 @@ def m_fwhm_lon(cyl, nav, lon_iii, lat) -> MethodHit:
 def m_fwhm_lat(cyl, nav, lon_iii, lat) -> MethodHit:
     """Centre of FWHM of 1D latitude cut through darkest lon."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=10.0)
-    col_prof = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        col_prof = np.nanmean(np.where(valid, band, np.nan), axis=0)
     col_prof = np.nan_to_num(col_prof, nan=np.nanmedian(col_prof))
     ix = int(np.argmin(col_prof))
     col = band[:, ix].copy()

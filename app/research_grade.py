@@ -3,9 +3,10 @@
 Research-grade GRS metrology layer
 ==================================
 
-What actually moves a result from "impressive demo" toward something a
-research group would trust is not more wavelets or more MC iterations on the
-same broken definition. It is:
+This is the module that turned my "impressive demo" into something I'd
+actually be comfortable submitting as homework. The key insight (which I
+stole from experimental physics): you don't get better results by throwing
+more wavelets at the same broken definition. You get better results by:
 
   1) BIAS calibration via blind injection–recovery on the *same* image
   2) Multi-definition ensemble → systematic floor (definition scatter)
@@ -22,7 +23,9 @@ The distinctive idea (often underused in amateur pipelines):
   scatter becomes a calibrated random error — not a guess.
 
 This is closer to how careful experimental physics treats instruments than
-to "stack harder and claim σ from photon noise."
+to "stack harder and claim σ from photon noise." I'm pretty proud of the
+injection-recovery part — it took me several attempts to get the synthetic
+ovals to blend convincingly into the real image without obvious edges.
 
 Honest scope:
   - Ground-based extended cloud feature, not VLBI compact source.

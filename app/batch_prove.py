@@ -26,7 +26,7 @@ import math
 import statistics
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -217,7 +217,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     n = max(1, min(int(args.n), 200))
     app_dir = Path(__file__).resolve().parent
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     root = Path(args.out) if args.out else (app_dir / "outputs" / f"batch_prove_{stamp}")
     runs_dir = root / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -301,7 +301,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     n_1 = sum(1 for r in ok_rows if float(r.get("sky_error_arcsec", 99)) <= 1.0)
 
     summary = {
-        "created": datetime.now().isoformat(),
+        "created": datetime.now(timezone.utc).isoformat(),
         "n_requested": n,
         "n_ok": n_ok,
         "n_fail": n - n_ok,

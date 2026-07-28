@@ -28,7 +28,7 @@ class ConsoleLog:
     def log(self, message: str, level: str = "INFO", verbose_only: bool = False) -> None:
         if verbose_only and not self.verbose:
             return
-        ts = dt.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        ts = dt.datetime.now(dt.timezone.utc).strftime("%H:%M:%S.%f")[:-3]
         with self._lock:
             self._seq += 1
             self._lines.append(

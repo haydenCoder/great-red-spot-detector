@@ -1005,7 +1005,7 @@ def run_process_full(
                     h["orange_grs_lat_deg"] = og["lat_deg"]
                     CONSOLE.ok(
                         f"ORANGE GRS seed lon={og['lon_iii_deg']:.3f}° lat={og['lat_deg']:.3f}° "
-                        f"(relCM={og.get('lon_rel_cm_deg'):.1f}°)"
+                        f"(relCM={og.get('lon_rel_cm_deg', 0.0):.1f}°)"
                     )
             else:
                 CONSOLE.warn(f"Orange GRS seed weak: {og}")

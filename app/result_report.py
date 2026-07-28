@@ -8,7 +8,7 @@ truth recovery, error bars, tips. Long is fine; garbage is not.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -361,7 +361,7 @@ def format_human_report(package: Dict[str, Any]) -> str:
     lines.append("║" + " GRS OBSERVATORY — FULL HUMAN REPORT".center(70) + "║")
     lines.append("║" + " your numbers · Horizons geometry · truth · tips · full dump".center(70) + "║")
     lines.append("╚" + "═" * 70 + "╝")
-    lines.append(f"Generated: {datetime.now().isoformat(timespec='seconds')}")
+    lines.append(f"Generated: {datetime.now(timezone.utc).isoformat(timespec='seconds')}")
     lines.append("")
 
     # Identity

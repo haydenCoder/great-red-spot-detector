@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -865,7 +865,7 @@ def write_gold_standard_bundle(out_dir: Path, gs: GoldStandardResult) -> Dict[st
     # WinJUPOS-compatible / notebook export (what a pro would log)
     export_lines = [
         "# GRS measure export — professional procedure",
-        f"# generated {datetime.now().isoformat(timespec='seconds')}",
+        f"# generated {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
         f"# primary_definition {gs.primary_definition}",
         f"# cm_source {gs.cm_source}",
         f"# NOT a NASA GRS catalog product",
@@ -996,7 +996,7 @@ def attach_gold_to_package(
                 )
             else:
                 CONSOLE.info(
-                    f"AI hard-case: not needed (difficulty={ah.get('difficulty'):.2f}) — "
+                    f"AI hard-case: not needed (difficulty={ah.get('difficulty', 0.0):.2f}) — "
                     f"{ah.get('note', '')[:80]}"
                 )
     except Exception as e:

@@ -23,6 +23,8 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+import warnings
+
 import numpy as np
 
 from verbose_log import CONSOLE
@@ -336,7 +338,9 @@ def m_proj_1d(cyl, nav, lon_iii, lat) -> MethodHit:
     y0, y1 = _band_slice(lat, half=5.0)
     band = im[y0 : y1 + 1, :]
     col = np.where(band > 0, band, np.nan)
-    profile = np.nanmean(col, axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        profile = np.nanmean(col, axis=0)
     if np.all(np.isnan(profile)):
         raise RuntimeError("proj empty")
     # smooth

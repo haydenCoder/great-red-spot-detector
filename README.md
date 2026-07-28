@@ -113,13 +113,14 @@ Full write-up: [`docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`](docs/TECHNIC
 
 All P0/P1/P2 bugs from the full line-by-line audit are fixed:
 - Champion candidate now correctly preferred over GS-MAP in publish hierarchy
-- f-string None-format crashes in winjupos_plus and superduper patched
+- f-string None-format crashes in winjupos_plus, superduper, winjupos_twin, desktop_pipeline, gold_standard, and server patched
 - Server /api/synthetic now produces SUPERDUPER archival products
-- Stale version strings and User-Agent updated to 6.5.0
+- Stale version strings and User-Agent updated to 6.5.0 (all two instances in server.py, plus nasa_compare.py)
 - _gauss() fallback now actually performs FFT convolution
-- datetime.now() replaced with datetime.now(timezone.utc) for reproducible timestamps
+- ALL `datetime.now()` replaced with `datetime.now(timezone.utc)` for reproducible timestamps — even the non-science ones (filenames, logs, seeds)
 - Desktop UI polished: refined colour palette, improved metric cards
-- See docs/FULL_LINE_AUDIT_6.5.0.md for the complete audit
+- Documentation humanised: student voice across README, book, essay, and all key module docstrings
+- See docs/FULL_LINE_AUDIT_6.5.0.md and docs/DEEP_AUDIT_RESULTS.md for the complete audit
 
 ## License
 

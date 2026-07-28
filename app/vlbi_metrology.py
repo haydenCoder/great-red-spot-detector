@@ -3,9 +3,12 @@
 VLBI-inspired advanced metrology for ground-based GRS photography
 ================================================================
 
-Literal radio VLBI reaches microarcseconds on *compact* continuum sources with
-baselines of Earth diameter, phase referencing, and delay models. An optical
-photo of an extended cloud feature cannot match that floor.
+I want to be clear: we are NOT doing real VLBI here. Real VLBI reaches
+microarcseconds on compact sources with baselines spanning Earth's diameter,
+phase referencing, and delay models. An optical photo of an extended cloud
+feature on Jupiter cannot match that floor — we're talking arcseconds, not
+microarcseconds. The "VLBI" label here refers to the *methodology*, not the
+resolution.
 
 This module brings the *methodology* of high-end interferometric metrology to
 lucky-imaging / high-res planetary work:

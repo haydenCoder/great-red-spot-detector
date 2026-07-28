@@ -789,8 +789,8 @@ def process():
             except Exception as e:
                 CONSOLE.warn(f"Server finalize (champion/SUPERDUPER): {e}")
             CONSOLE.ok(
-                f"HEADLINE run#{run_n:04d} (REAL): lon={report['headline'].get('lon_iii_deg_bias_corrected'):.4f}° "
-                f"lat={report['headline'].get('lat_deg_bias_corrected'):.4f}°  "
+                f"HEADLINE run#{run_n:04d} (REAL): lon={report['headline'].get('lon_iii_deg_bias_corrected', 0.0):.4f}° "
+                f"lat={report['headline'].get('lat_deg_bias_corrected', 0.0):.4f}°  "
                 f"σ_tot={rg.sigma_total_sky_arcsec:.3f}\"  {rg.grade}  "
                 f"GS={report['headline'].get('gold_primary_definition')}  "
                 f"champ={ (report.get('champion') or {}).get('grade') }"

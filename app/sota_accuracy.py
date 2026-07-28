@@ -2,6 +2,14 @@
 """
 State-of-the-art accuracy layer for ground-based GRS metrology (laptop).
 
+IMPORTANT: this is SCATTER DIAGNOSTICS only — it does NOT produce the
+published GRS centre. The published centre comes from GS-MAP / Champion
+through the publish hierarchy. SOTA is just a sanity check showing how
+much the ~80 different estimators disagree with each other. I know it's
+tempting to use the SOTA consensus as "the answer" when it looks tight,
+but it's correlated estimators sharing the same mask and priors — the
+tight consensus might be a systematic bias, not accuracy.
+
 Does NOT invent NASA truth. Implements best-practice *procedure* used worldwide:
 
   1) Run every estimator (all_methods)

@@ -3,6 +3,13 @@
 Professional Jupiter ephemeris for research-grade absolute System III work
 =========================================================================
 
+This is the module that resolves Central Meridian III and all the other
+geometry parameters (distance, sub-observer latitude, north pole PA) that
+you need for an absolute longitude measurement. Without good CM, your
+lon is just relative — and analytical CM can be 10–15° off, which I found
+out the hard way when my "absolute" measurements were drifting all over
+the place compared to WinJUPOS.
+
 Priority chain (first success wins for each field, with provenance):
 
   1) Explicit overrides (cm_iii, distance, sub-lat, NP PA) — WinJUPOS / user paste

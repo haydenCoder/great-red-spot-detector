@@ -3463,7 +3463,7 @@ CAPABILITY_STATEMENT = """
 GRS Complete Ground Pipeline — Capability Statement
 Imaging: lucky scoring, AP align, robust stack, wavelets/RL, LRGB
 Science: timing, derotation, limb nav, GRS measure, bootstrap, RTS
-Honesty: ground-based degrees/km, not VLBI μas claims
+Honesty: ground-based degrees/km, honest optical limits
 """
 
 

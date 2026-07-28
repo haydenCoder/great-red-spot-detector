@@ -28,7 +28,7 @@ injection-recovery part — it took me several attempts to get the synthetic
 ovals to blend convincingly into the real image without obvious edges.
 
 Honest scope:
-  - Ground-based extended cloud feature, not VLBI compact source.
+  - Ground-based extended cloud feature, not a compact point source.
   - Target: 1–2″ sky *with calibrated bias*, transparent systematics.
   - No institution will "endorse" software; they will check whether your
     error bars cover truth in injection tests and multi-definition scatter.
@@ -508,18 +508,18 @@ def run_research_grade(
     """
     SPIRE-M research-grade reduction for one epoch.
 
-    When max_fidelity/use_vlbi (default): VLBI-inspired optical stack
+    When max_fidelity/use_vlbi (default): advanced optical stack
     (oriented geometry, multi-scale NCC, phase-ref probes, hierarchical MC,
     formal error budget). factory_mode: heavier probe + H-MC suite.
     """
     t0 = time.time()
     im = to_mono(image)
 
-    # ---- VLBI-inspired path (default for precision) ----
+    # ---- advanced path (default for precision) ----
     if use_vlbi and max_fidelity:
         try:
             from vlbi_metrology import run_vlbi_grade, research_grade_compat
-            CONSOLE.info("Routing to VLBI-inspired optical metrology stack")
+            CONSOLE.info("Routing to advanced optical metrology stack")
             ut = (user_time_iso or "").strip()
             if not ut:
                 raise ValueError(

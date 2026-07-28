@@ -4,7 +4,7 @@ Champion GRS measure v2 — the strongest automated path I could build
 =====================================================================
 
 This is the "pro desk" measurement path that tries to match what a careful
-WinJUPOS practitioner would do manually. It runs multiple independent
+careful observer would do manually. It runs multiple independent
 methods (GS-MAP, GS-TMPL, engine, map_dark, template, moment) and picks
 the best centre using a weighted hierarchy, with outlier rejection and
 sub-pixel refinement on a cylindrical map.
@@ -23,7 +23,7 @@ more than anything else — different isophote levels shift the disk radius
 and can change absolute lon/lat by tenths of a degree. That's why the
 multi-isophote probing is so important.
 
-Ground-based optical metrology. Not HST/Juno/VLBI. Best automated laptop path.
+Ground-based optical metrology. Not spacecraft imaging. Best automated laptop path.
 """
 from __future__ import annotations
 
@@ -53,9 +53,9 @@ from precision_engine import (
 )
 
 
-# Denser limb family — these represent different WinJUPOS outline sizes
+# Denser limb family — these represent different outline sizes an observer would try
 # "outer" picks up fainter limb, "tight" is only the bright inner disk
-# I chose these fractions to cover the range a human WinJUPOS user would try
+# I chose these fractions to cover the range a human observer would try
 LIMB_FRACS: Tuple[Tuple[str, float], ...] = (
     ("outer", 0.11),
     ("soft", 0.15),
@@ -189,11 +189,11 @@ def multi_isophote_limb_consensus(
     level gives a slightly different disk radius (and centre), which shifts
     the GRS position by up to ~0.3° in longitude. By measuring the GRS
     position at each outline level and checking which ones give consistent
-    results, we can pick the "right" outline — the one a careful WinJUPOS
+    results, we can pick the "right" outline — the one a careful observer
     user would choose.
 
     The stability weighting prefers outlines whose GRS lon agrees with
-    the cluster (WinJUPOS discipline: consistent outline = consistent result).
+    the cluster (observer discipline: consistent outline = consistent result).
     """
     probes: List[Dict[str, Any]] = []
     navs: List[NavState] = []
@@ -543,7 +543,7 @@ def _pick_champion_centre(
 
     When GS-MAP and GS-TMPL agree tightly and both have dark cores, I
     force their mean — this is the "pro dual-definition lock" that mimics
-    what a careful WinJUPOS practitioner would do by cross-checking two
+    what a careful observer would do by cross-checking two
     independent definitions.
     """
     flags: List[str] = []
@@ -863,7 +863,7 @@ def _ultimate_lock_gate(
         "honesty": (
             "UNBEATABLE_AUTO = all automated gates passed on this frame. "
             "No weaker method in THIS APP may override. "
-            "Does NOT claim to beat HST, JunoCam, or a perfect human WinJUPOS desk."
+            "Does NOT claim to beat HST, JunoCam, or a perfect human manual measure."
         ),
         "dominance": (
             "In-app hierarchy when UNBEATABLE_AUTO: "
@@ -946,8 +946,8 @@ def run_champion_measure(
 ) -> ChampionResult:
     notes: List[str] = [
         "Champion v5 ULTIMATE: dual-channel + nav stability + multi-gate UNBEATABLE_AUTO.",
-        "Absolute Sys III needs trusted CM (SPICE/Horizons/WinJUPOS/override).",
-        "UNBEATABLE_AUTO ≠ better than HST/human desk — it means all automated gates passed.",
+        "Absolute Sys III needs trusted CM (SPICE/Horizons/override).",
+        "UNBEATABLE_AUTO ≠ better than spacecraft/human manual — it means all automated gates passed.",
     ]
     flags: List[str] = []
     raw = _prefer_measure_image(image, channels)
@@ -1335,7 +1335,7 @@ def run_champion_measure(
         f"σ_total sky≈{sky:.3f}″ (CM {sigma_cm:.2f}° ⊕ time {sig_time:.2f}° ⊕ "
         f"limb {sig_limb_lon:.2f}° ⊕ def {sig_def:.2f}° ⊕ meth {sig_m_lon:.2f}°)"
     )
-    notes.append("Compare φ_g to WinJUPOS; same UTC+CM for fair Δ.")
+    notes.append("Compare φ_g to manual picks; same UTC+CM for fair Δ.")
     notes.append(
         "absolute_publish_ok=True" if absolute_ok else "absolute_publish_ok=False — fix CM/limb before absolute lon"
     )
@@ -1462,7 +1462,7 @@ def attach_champion_to_package(
             f"Definition: {ch.definition}",
             f"Lon III:    {ch.lon_iii_deg:.6f} °  ± {ch.sigma_total_lon_deg:.3f} °",
             f"Lat centric:{ch.lat_planetocentric_deg:.6f} °  ± {ch.sigma_total_lat_deg:.3f} °",
-            f"Lat graphic:{ch.lat_planetographic_deg:.6f} °  (WinJUPOS-style)",
+            f"Lat graphic:{ch.lat_planetographic_deg:.6f} °  (planetographic)",
             f"EW extent:  {ch.extent_ew_deg}",
             f"σ_sky total:{ch.sigma_total_sky_arcsec:.4f} ″",
             f"CM: {ch.cm_iii_deg:.4f} ° [{ch.cm_source}]  σ_CM={ch.sigma_cm_deg:.3f} °",
@@ -1486,8 +1486,8 @@ def attach_champion_to_package(
             lines.append(f"  · {n}")
         lines.append("")
         lines.append(
-            "Honesty: best automated optical path in this app — not HST/Juno/VLBI. "
-            "Same CM+UTC as WinJUPOS for a fair comparison."
+            "Honesty: best automated optical path in this app — not spacecraft imaging. "
+            "Same CM+UTC for a fair comparison."
         )
         (out_dir / "champion.txt").write_text("\n".join(lines), encoding="utf-8")
     return ch

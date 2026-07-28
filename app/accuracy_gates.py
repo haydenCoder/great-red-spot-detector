@@ -3,12 +3,12 @@
 Accuracy gates for GRS System III metrology
 ==========================================
 
-Implements professional practice distilled from JUPOS/WinJUPOS measurer guidance,
+Implements professional practice for careful planetary measurement,
 BAA Jupiter Section timing notes, and SPICE/System III ephemeris discipline:
 
-  • Absolute lon needs trusted CM (SPICE / Horizons / WinJUPOS table / override)
+  • Absolute lon needs trusted CM (SPICE / Horizons / override)
   • Mid-exposure timing: ~1 min ≈ 0.6° System III (BAA)
-  • Limb outline quality dominates lat/lon error (JUPOS: auto limb not enough)
+  • Limb outline quality dominates lat/lon error
   • GRS lives in a SEB latitude band — reject polar / EZ locks
   • Publish one definition (GS-MAP / GS-BARY); soup is scatter only
   • Reject wrong-feature candidates far from the GRS-band consensus
@@ -62,7 +62,7 @@ METHOD_LON_CLUSTER_DEG = 18.0
 # Publish candidate vs pipeline (already used in publish_primary)
 PUBLISH_VS_PIPE_MAX_DEG = 30.0
 
-# Limb outline sky spread (arcsec) — JUPOS: limb is the dominant error source.
+# Limb outline sky spread (arcsec) — limb is the dominant error source.
 # Automated twin limb probes are noisier than careful human outline → warn first.
 LIMB_SPREAD_WARN_ARCSEC = 2.5
 LIMB_SPREAD_FAIL_ARCSEC = 10.0  # catastrophic nav only
@@ -173,7 +173,7 @@ def reject_lon_outliers(
     max_delta_deg: float = METHOD_LON_CLUSTER_DEG,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], Optional[float]]:
     """
-    JUPOS-style outlier removal: drop methods far from densest lon cluster.
+    Outlier removal: drop methods far from densest lon cluster.
     """
     lons = []
     names_ok = []
@@ -254,7 +254,7 @@ def assess_publish_quality(package: Dict[str, Any]) -> Dict[str, Any]:
     if not cm_trusted:
         flags.append("CM_UNTRUSTED")
         warnings.append(
-            f"cm_source={cm_source!r} is not SPICE/Horizons/WinJUPOS/override — "
+            f"cm_source={cm_source!r} is not SPICE/Horizons/override — "
             "absolute System III may be offset (use SPICE)."
         )
     if not lat_wide_ok:
@@ -346,7 +346,7 @@ def assess_publish_quality(package: Dict[str, Any]) -> Dict[str, Any]:
         and lat_wide_ok
         and (orange_seed_ok or not soft_fail)
     )
-    # Orange seed with core lat is publishable (still paste WinJUPOS to prove equality)
+    # Orange seed with core lat is publishable (still validate with manual picks)
     publish_ok = (not hard_fail and lat_core_ok) or orange_seed_ok
 
     if hard_fail or not lat_wide_ok:
@@ -361,10 +361,10 @@ def assess_publish_quality(package: Dict[str, Any]) -> Dict[str, Any]:
         grade = "GOOD"
 
     notes = [
-        "Sources: JUPOS Tips for Measurers (limb/outline, timing, outlier reject); "
+        "Sources: professional practice (limb/outline, timing, outlier reject); "
         "BAA Jupiter Section (transit timing ~0.6°/min); SPICE/System III absolute CM.",
         "Publish definition should be GS-MAP/GS-BARY core — not method soup.",
-        "Prefer red/IR channel for GRS contrast (JUPOS spectral priority).",
+        "Prefer red/IR channel for GRS contrast.",
     ]
 
     return {
@@ -392,7 +392,7 @@ def assess_publish_quality(package: Dict[str, Any]) -> Dict[str, Any]:
 
 def prefer_red_channel(image) -> Any:
     """
-    JUPOS: visual/red preferred for GRS; blue often weaker for belts.
+    Visual/red preferred for GRS; blue often weaker for belts.
     Accepts mono HxW, HWC RGB, or CHW RGB.
     """
     import numpy as np

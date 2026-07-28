@@ -13,7 +13,7 @@ the place compared to WinJUPOS.
 Priority chain (first success wins for each field, with provenance):
 
   1) Explicit overrides (cm_iii, distance, sub-lat, NP PA) — WinJUPOS / user paste
-  2) WinJUPOS / JUPOS CSV or JSON table at epoch
+  2) CM CSV or JSON table at epoch
   3) **SPICE auto** (spice_auto: online kernel download + spiceypy) — preferred absolute path
   4) NASA JPL Horizons full observer parse (Δ, light-time, sub-obs lon/lat, NP.ang)
   5) Analytical fallback (differentials OK; absolute CM zero may be offset)
@@ -776,7 +776,7 @@ def resolve_pro_ephemeris(
             eph.source = "horizons+" + eph.source if "horizons" not in eph.source else eph.source
             notes.append("Horizons full observer geometry applied where parsed.")
 
-    # --- WinJUPOS table (beats analytical CM; can beat Horizons CM if user trusts it) ---
+    # --- Manual CM override or table (more reliable than analytical CM) ---
     wpath = winjupos_path
     if wpath is None:
         # auto-discover

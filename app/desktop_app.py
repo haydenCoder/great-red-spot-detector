@@ -262,7 +262,7 @@ HELP: Dict[str, str] = {
         "Higher = better calibration, slower. Typical 16–32."
     ),
     "vlbi": (
-        "Use the VLBI-inspired optical stack:\n"
+        "Use the advanced multi-method measurement stack:\n"
         "multi-scale template match, oriented cylindrical map, multi-definition\n"
         "systematics, hierarchical MC, formal error budget.\n\n"
         "Recommended ON for science-quality results."
@@ -298,7 +298,7 @@ HELP: Dict[str, str] = {
         "GENERATE SYNTHETIC\n\n"
         "Creates a high-quality fake Jupiter + GRS image.\n"
         "Always picks a RANDOM UTC observation time (you are not asked).\n"
-        "If “Measure after synthetic” is on, runs the full VLBI measure and\n"
+        "If “Measure after synthetic” is on, runs the full advanced measure and\n"
         "reports truth recovery in arcseconds.\n\n"
         "Best for testing the pipeline without real data."
     ),
@@ -345,7 +345,7 @@ HELP: Dict[str, str] = {
         "FACTORY NIGHT (ALL PILLARS)\n\n"
         "One-button end-to-end self-test:\n"
         "1) Pro ephemeris (session time for geometry context)\n"
-        "2) Synthetic with RANDOM epoch + full VLBI measure\n"
+        "2) Synthetic with RANDOM epoch + full advanced measure\n"
         "3) Multi-epoch scan of all outputs\n"
         "4) Optional hard-synth suite\n\n"
         "Writes a factory_night report under outputs/."
@@ -796,7 +796,7 @@ class GRSDesktopApp(tk.Tk):
             "Fake probe injections to estimate measurement bias.",
         )
         # Fixed defaults for the simplified UI (I removed train/factory/hard-synth to keep it clean)
-        self.vlbi_var = tk.BooleanVar(value=True)       # multi-method optical stack
+        self.vlbi_var = tk.BooleanVar(value=True)       # advanced multi-method stack
         self.factory_var = tk.BooleanVar(value=False)
         self.nasa_var = tk.BooleanVar(value=True)       # geometry report only
         self.nn_var = tk.BooleanVar(value=True)       # frozen CNN ON — inference only
@@ -805,7 +805,7 @@ class GRSDesktopApp(tk.Tk):
         self.hard_in_factory_var = tk.BooleanVar(value=False)
         self.dual_var = tk.BooleanVar(value=True)
         self._check(left, "Full multi-method stack + error budget", self.vlbi_var,
-                    "Multi-method optical measure (not radio interferometry).")
+                    "Multi-method optical measure.")
         self._check(left, "Write Horizons geometry report", self.nasa_var,
                     "Planet geometry only — not an official NASA GRS longitude.")
         self._check(left, "SPIRE-Net CNN prior (frozen weights ON)", self.nn_var,

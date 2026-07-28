@@ -412,7 +412,7 @@ def robust_consensus(
                 "n_outliers": len(edge_out),
                 "n_clusters": 1,
                 "cluster_score": 0.0,
-                "cluster_note": "fallback to VLBI/pipeline seed (all map methods edge-locked)",
+                "cluster_note": "fallback to pipeline seed (all map methods edge-locked)",
                 "edge_locks_dropped": len(edge_out),
             }
         return {"ok": False, "error": "no centre methods (all edge-locked or empty)"}
@@ -655,11 +655,11 @@ def assess_quality(
         if d_pipe < 8.0:
             flags.append("PIPELINE_AGREE")
             score += 12
-            notes.append(f"SOTA agrees with VLBI/pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"SOTA agrees with pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe < 15.0:
             flags.append("PIPELINE_NEAR")
             score += 6
-            notes.append(f"SOTA near VLBI/pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"SOTA near pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe > 30.0:
             flags.append("PIPELINE_DISAGREE")
             score -= 25

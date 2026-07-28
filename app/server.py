@@ -13,7 +13,7 @@ policy, SUPERDUPER, etc. — and exposes it via REST endpoints.
 
 Target: best ground-based optical metrology I can manage (formal error
 budgets, multi-scale NCC, phase-reference probes, hierarchical MC).
-Not radio-VLBI microarcseconds — honest optical floor for an extended
+Honest optical floor for an extended cloud feature on Jupiter — arcseconds,
 cloud feature. I'm a student, not JPL.
 """
 from __future__ import annotations
@@ -345,7 +345,7 @@ def health():
             "multi-epoch differential tracking + hard-synth stress calibration"
         ),
         "ram_gb": 16,
-        "target_arcsec": "0.1-2 optical (methods from VLBI; not μas radio)",
+        "target_arcsec": "0.1-2 optical (arcseconds, not microarcseconds)",
         "modes": ["vlbi_optical", "spire_m_classic", "multi_epoch", "hard_synth", "real_image", "factory_night"],
         "pillars": [
             "pro_cm_ephemeris",
@@ -653,7 +653,7 @@ def process():
                     eb = vf.get("error_budget") or {}
                     (out / "vlbi_metrology.txt").write_text(
                         "\n".join([
-                            "VLBI-INSPIRED OPTICAL METROLOGY",
+                            "ADVANCED OPTICAL METROLOGY",
                             f"Grade: {vf.get('grade')}",
                             f"lon={vf.get('lon_iii_deg')} lat={vf.get('lat_deg')}",
                             f"σ_tot={eb.get('sigma_total_sky_arcsec')} arcsec",
@@ -728,7 +728,7 @@ def process():
                     "target_2_arcsec": rg.sigma_total_sky_arcsec <= 2.0,
                     "definition_n": rg.definition_n,
                     "injection_n": rg.injection_n,
-                    "metrology": "pro-procedure + VLBI-inspired optical" if use_vlbi and max_fidelity else "pro-procedure + SPIRE-M",
+                    "metrology": "pro-procedure + advanced optical" if use_vlbi and max_fidelity else "pro-procedure + SPIRE-M",
                 },
                 "research_grade": rg.to_dict(),
                 "nasa": nasa_rep,
@@ -940,7 +940,7 @@ def synthetic():
                 result["random_time"] = bool(truth.get("random_time", random_time))
                 result["philosophy"] = (
                     "Professional procedure + synthetic truth test. "
-                    "Known planted GRS = lab calibration, not NASA catalog."
+                    "Known planted GRS = lab calibration, self-test only."
                 )
                 result["headline"] = {
                     "source_kind": "SYNTHETIC (test image — not real data)",
@@ -959,7 +959,7 @@ def synthetic():
                     "bias_lat_deg": rg.bias_lat_deg,
                     "research_grade": rg.grade,
                     "cm_source": "synthetic_truth",
-                    "metrology": "pro-procedure + VLBI-inspired optical" if use_vlbi and max_fid else "pro-procedure",
+                    "metrology": "pro-procedure + advanced optical" if use_vlbi and max_fid else "pro-procedure",
                 }
                 result["research_grade"] = rg.to_dict()
                 # Gold-standard professional definitions (primary product)
@@ -970,7 +970,7 @@ def synthetic():
                     data=data, out=out, channels=channels,
                 )
                 # Finalize: champion → publish → WinJUPOS+ → SUPERDUPER → completeness
-                # (parity with desktop Process — was previously missing on server synth)
+                # (matching desktop Process — was previously missing on server synth)
                 try:
                     from job_finalize import finalize_science_package
                     finalize_science_package(

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JPL Horizons Jupiter *geometry* only (not a NASA GRS longitude catalog).
+JPL Horizons Jupiter geometry only — planet orientation, not a GRS position catalog.
 
 Reports YOUR measured GRS lon/lat/size as-is, plus real Horizons fields
 (distance, CM III, sub-observer lat, NP PA, light time). Does **not** invent

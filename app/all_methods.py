@@ -7,7 +7,7 @@ name, lon/lat, optional size, and weight. Consensus / scatter = systematic
 knowledge. No single method is "NASA truth".
 
 Groups:
-  A) Map (cylindrical deprojection) — WinJUPOS-desk family
+  A) Map (cylindrical deprojection) — cylindrical-map family
   B) Image-plane — limb-nav coordinates
   C) Template / correlation
   D) Threshold / morphology
@@ -201,7 +201,7 @@ def m_multiscale_ncc(cyl, nav, lon_iii, lat) -> MethodHit:
         return MethodHit(
             "MS_NCC", "template", float(t["lon_iii_deg"]), float(t["lat_deg"]),
             t.get("length_deg"), t.get("width_deg"), float(t.get("score") or 0), 3.5,
-            note="VLBI multiscale NCC",
+            note="Multiscale NCC",
         )
     except Exception:
         # fallback: 3 template sizes
@@ -644,7 +644,7 @@ def m_rgb_methods(
 
 
 def m_edges_extent(cyl, nav, lon_iii, lat) -> List[MethodHit]:
-    """West/east edges + midpoint + oval (WinJUPOS-like extent)."""
+    """West/east edges + midpoint + oval (oval extent)."""
     out: List[MethodHit] = []
     im = _mono_cyl(cyl)
     y0, y1 = _band_slice(lat)
@@ -842,8 +842,8 @@ METHOD_CATALOG: List[Dict[str, str]] = [
     {"id": "CHROM_RG", "family": "spectral", "desc": "R−G chromatic"},
     {"id": "RB_BLEND", "family": "spectral", "desc": "R+B blend"},
     {"id": "OVAL", "family": "extent", "desc": "Oval fit center"},
-    {"id": "EDGE_W", "family": "edge", "desc": "West/high lon edge (JUPOS-like)"},
-    {"id": "EDGE_E", "family": "edge", "desc": "East/low lon edge (JUPOS-like)"},
+    {"id": "EDGE_W", "family": "edge", "desc": "West/high lon edge (oval-style)"},
+    {"id": "EDGE_E", "family": "edge", "desc": "East/low lon edge (oval-style)"},
     {"id": "MID", "family": "extent", "desc": "Edge midpoint"},
     # literature / extra
     {"id": "FWHM_LON", "family": "profile", "desc": "FWHM centre of 1D lon cut"},
@@ -851,7 +851,7 @@ METHOD_CATALOG: List[Dict[str, str]] = [
     {"id": "GAUSS_1D", "family": "profile", "desc": "Gaussian fit lon profile"},
     {"id": "MULTI_ISO", "family": "isophote", "desc": "Multi-level isophote mean (IRAF-style)"},
     {"id": "ISO_P08", "family": "isophote", "desc": "Isophote p8"},
-    {"id": "BOX_C", "family": "extent", "desc": "Bounding-box centre (JUPOS extent)"},
+    {"id": "BOX_C", "family": "extent", "desc": "Bounding-box centre (oval extent)"},
     {"id": "EDGE_N", "family": "edge", "desc": "Northern edge"},
     {"id": "EDGE_S", "family": "edge", "desc": "Southern edge"},
     {"id": "GEOM_MED", "family": "robust", "desc": "Geometric median dark pixels"},
@@ -946,7 +946,7 @@ def run_all_methods(
     hits.extend(m_rgb_methods(channels, nav, lambda x: make_cylindrical(x, nav, map_width, map_height)))
     hits.extend(m_edges_extent(cyl, nav, lon_iii, lat))
 
-    # Literature + classical extras (JUPOS, CIV-style, isophotes, FWHM, mean-shift, …)
+    # Classical extras (CIV-style, isophotes, FWHM, mean-shift, …)
     try:
         from all_methods_extra import run_extra_methods, LITERATURE_NOTES
         extra = run_extra_methods(cyl, nav, lon_iii, lat)
@@ -1015,7 +1015,7 @@ def run_all_methods(
         "literature_notes": lit,
         "note": (
             "Exhaustive laptop GRS localization suite: classical CV + map photometry + "
-            "JUPOS/WinJUPOS-style edges + CIV-window correlation + isophote ladders + "
+            "classical edges + CIV-window correlation + isophote ladders + "
             "robust geometry + ensembles. Primary prefers robust ensemble. "
             "Not NASA truth — professional multi-method procedure."
         ),

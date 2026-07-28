@@ -549,7 +549,7 @@ def run_gold_standard(
     im = to_mono(image)
     steps: List[str] = []
     notes: List[str] = [
-        "This module replicates professional *procedure*, not a NASA GRS catalog.",
+        "This module replicates professional measurement procedure, not an official GRS position.",
         "Primary product is a NAMED definition (e.g. GS-MAP) + CM source + scatter.",
         "WinJUPOS = geometry + human measuring desk, not an auto detector.",
         "JPL Horizons/SPICE = Jupiter geometry only, not official GRS longitude.",

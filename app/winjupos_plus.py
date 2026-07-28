@@ -169,7 +169,7 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     block = {
-        "mode": "winjupos_plus",
+        "mode": "measure_plus",
         "ok": lon is not None and lat_c is not None,
         "publish_definition": definition,
         "lon_iii_deg": lon,
@@ -222,7 +222,7 @@ def format_winjupos_plus_txt(block: Dict[str, Any]) -> str:
     log or email it to your supervisor without having to decode JSON.
     """
     lines = [
-        "WINJUPOS+  — automated desk-parity report",
+        "MEASURE+  — automated validation report",
         "=" * 56,
         f"Grade:  {block.get('desk_grade')}  (score {block.get('desk_score_0_100')}/100)",
         f"Flags:  {', '.join(block.get('desk_flags') or []) or '—'}",
@@ -278,7 +278,7 @@ def attach_winjupos_plus(package: Dict[str, Any], out_dir: Optional[Path] = None
     the JSON + TXT files to the output directory.
     """
     block = build_winjupos_plus_block(package)
-    package["winjupos_plus"] = block
+    package["measure_plus"] = block
     h = package.setdefault("headline", {})
     h["desk_grade"] = block.get("desk_grade")
     h["desk_score"] = block.get("desk_score_0_100")

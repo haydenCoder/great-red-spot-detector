@@ -8,22 +8,22 @@
 
 ## 0. What this software is
 
-GRS Observatory takes a high-resolution Jupiter image (FITS / SER / PNG / JPEG) and tries to measure the Great Red Spot's **System III longitude and latitude** with calibrated uncertainties. I built it because I got frustrated with eyeballing my WinJUPOS picks and not having a repeatable number I could actually trust — so I ended up writing this whole thing over a couple of weekends (and many late nights). Turns out measuring a cloud band on a planet half a billion km away is harder than I thought!
+GRS Observatory takes a high-resolution Jupiter image (FITS / SER / PNG / JPEG) and tries to measure the Great Red Spot's **System III longitude and latitude** with calibrated uncertainties. I built it because I got frustrated with eyeballing my manual measurement picks and not having a repeatable number I could actually trust — so I ended up writing this whole thing over a couple of weekends (and many late nights). Turns out measuring a cloud band on a planet half a billion km away is harder than I thought!
 
 Key features (the ones I'm actually proud of):
 
-- **SPICE** (auto kernels) and/or **JPL Horizons** and/or **WinJUPOS CM** for planet geometry — the CM source is *everything* for absolute lon, I learned that the hard way  
+- **SPICE** (auto kernels) and/or **JPL Horizons** and/or **CM table** for planet geometry — the CM source is *everything* for absolute lon, I learned that the hard way  
 - **Limb navigation** (multi-isophote) + oriented cylindrical map — the outline choice is the single biggest source of systematic error, so we probe multiple isophotes (this took ages to get right)  
 - **Champion Ultimate** path: dark-core lock, dual-channel, nav stability, full error budget  
 - **SUPERDUPER** card: one file that says *what number to report tonight* — I named it that because I was tired of guessing which number to use  
 - **Publish hierarchy:** UNBEATABLE_AUTO / Champion → GS-MAP → GS-BARY → pipeline — this was broken for a while (GS-MAP always won over champion), took me a day to figure out why  
 - ~80 soup estimators + SOTA = **scatter only**, not the published centre — seriously, don't report SOTA as your answer, it's just a sanity check  
-- Optional paste of **your WinJUPOS GRS lon/lat** → equality Δsky — this is how you actually validate your pipeline  
+- Optional paste of **your manual GRS lon/lat** → equality Δsky — this is how you actually validate your pipeline  
 - Synthetic planets for truth-recovery self-tests  
 - SPIRE-Net CNN weights **bundled** under `app/models/` (soft prior only — physics methods are authoritative)
 
-**Ground-based optical metrology.** This is **not** radio VLBI microarcseconds and **not** an official NASA GRS longitude catalog.  
-**UNBEATABLE_AUTO** means: every automated gate in *this app* passed on that frame — **not** that the result beats HST, JunoCam, or a perfect human WinJUPOS desk.
+**Ground-based optical metrology.** This is **not** professional radio observatories (microarcseconds) and **not** an official NASA GRS longitude catalog.  
+**UNBEATABLE_AUTO** means: every automated gate in *this app* passed on that frame — **not** that the result beats professional observatories, JunoCam, or a perfect human manual desk.
 
 ---
 
@@ -75,10 +75,11 @@ python3 cli.py synth --mode metrology --res 1080p
 | **1b** | **Champion** (GS-MAP / engine, absolute OK) | Best automated optical path |
 | **2** | **GS-MAP** twin / gold | Pro fixed definition (dark core on map) |
 | **3** | **GS-BARY** | Fallback centre |
+
 | **4** | Pipeline / research-grade stack | Secondary / bias-corrected stack |
 | — | **SOTA + method soup (~80)** | Scatter / confidence **only** |
 | — | **W/E edges** | Size (EW extent), not “the” lon |
-| — | **vs WinJUPOS paste** | Equality Δsky ″ |
+| — | **vs manual measurement paste** | Equality Δsky ″ |
 | — | **Dual auto + human** | Official = human when dual is on |
 
 ### Files to open after Process
@@ -89,9 +90,9 @@ python3 cli.py synth --mode metrology --res 1080p
 | **`REPORT_THIS_ONE_LINE.txt`** | Citation line to paste |
 | `publish.json` / `publish.txt` | Official publish block |
 | `champion.txt` / `champion.json` | Ultimate gates, full σ budget, dark score |
-| `winjupos_plus.*` | Desk-parity vs WinJUPOS practice |
+| `measure_plus.*` | Validation vs manual picks |
 | `dual_measure.*` | Auto vs human (when dual enabled) |
-| `winjupos_twin.*` | Limb outline + definition sensitivity |
+| `outline_twin.*` | Limb outline + definition sensitivity |
 | `gold_standard.*` | Named GS definitions |
 | `pro_ephemeris.*` | CM + distance + provenance |
 | `FULL_REPORT` / human report | Long text (starts with SUPERDUPER) |
@@ -107,49 +108,49 @@ python3 cli.py synth --mode metrology --res 1080p
 
 **Keys:** arrows move · PgUp/PgDn size · R reset cyan→green · drag centre  
 
-### Tips (JUPOS / WinJUPOS / BAA / SPICE)
+### Tips (practical measurement / BAA / SPICE)
 
 These are the things I kept messing up at first, so I wrote them down:
 
 1. Mid-exposure **UTC** only — ~**0.6° System III per minute** of time error (BAA). I once used the start time instead of mid-exposure and my lon was off by ~2°.  
-2. Trusted **CM**: SPICE / Horizons / WJ CML / override — **not** analytical for absolute publish. Analytical CM can be 10–15° off, which I learned the painful way.  
+2. Trusted **CM**: SPICE / Horizons / CM overrideL / override — **not** analytical for absolute publish. Analytical CM can be 10–15° off, which I learned the painful way.  
 3. Prefer **red** for GRS contrast — the spot shows up way better in red than in green or blue.  
 4. Publish **dark core** (GS-MAP / Champion), not random rim, unless you choose outline on purpose. The rim is the *edge*, not the *centre*.  
-5. Same definition every night when comparing to WinJUPOS — mixing core vs edge definitions gives fake “drift”.  
-6. Paste WJ lon/lat → **Δsky ″** is the real equality test. If you’re not pasting your WJ numbers, you’re not really validating.  
+5. Same definition every night when comparing to manual measurement — mixing core vs edge definitions gives fake “drift”.  
+6. Paste your manual lon/lat → **Δsky ″** is the real equality test. If you’re not pasting your numbers, you’re not really validating.  
 7. Horizons ≠ GRS lon catalog (geometry only) — it gives you Jupiter’s orientation, not where the GRS is.  
 8. Soup/SOTA = scatter only — never the published centre. I know it’s tempting when SOTA looks tight, but it’s just a sanity check.  
 9. If `absolute_publish_ok` is false: do not claim absolute System III.  
-10. If `UNBEATABLE_AUTO` is true: in-app hierarchy is locked; still not HST. It’s the best *my code* can do, not the best *anyone* can do.  
+10. If `UNBEATABLE_AUTO` is true: in-app hierarchy is locked; still not professional observatories. It’s the best *my code* can do, not the best *anyone* can do.  
 
 **How to cite (example):**
 
 ```text
-GRS GS-MAP λ_III=…°  φ_c=…°  φ_g=…°  (CM III=…° source=spice|horizons|winjupos|override)
+GRS GS-MAP λ_III=…°  φ_c=…°  φ_g=…°  (CM III=…° source=spice|horizons|override)
 σ_sky≈…″  grade=CHAMPION|UNBEATABLE_AUTO
 Method soup not used for the published centre.
 ```
 
-Use **φ_g (planetographic)** when matching WinJUPOS latitude language.
+Use **φ_g (planetographic)** when matching manual measurement latitude language.
 
-### When is it “EQUAL_TO_WINJUPOS”?
+### When is it “EQUAL_TO_MANUAL”?
 
 Only if **all** hold:
 
-1. You paste **your** WinJUPOS GRS lon (and ideally lat)  
-2. CM source is trusted: `winjupos`, `override`, `spice`, or `horizons`  
+1. You paste **your** manual measurement GRS lon (and ideally lat)  
+2. CM source is trusted: `override`, `spice`, or `horizons`  
 3. Δsky ≤ **1 arcsecond** between publish and your paste  
 
 ---
 
-## 3. Absolute System III: SPICE, Horizons, WinJUPOS CM
+## 3. Absolute System III: SPICE, Horizons, CM table
 
 Absolute longitude needs **time + CM**. Feature detection alone is not enough.
 
 ### Priority chain (code)
 
-1. **CM III override** (paste from WinJUPOS) — highest for that frame  
-2. **WinJUPOS / JUPOS CML table**  
+1. **CM III override** (paste from manual measurement) — highest for that frame  
+2. **CML table**  
 3. **SPICE auto** (`app/ephemeris_data/spice/`)  
 4. **JPL Horizons** (Δ, light-time, sub-obs lon/lat, NP.ang)  
 5. **Analytical fallback** — relative only; weak for absolute zero  
@@ -172,7 +173,7 @@ Module: `app/champion_measure.py` (runs on every Process / Synthetic). I spent a
 
 | Step | What it does |
 |------|----------------|
-| Red prefer | JUPOS: red/visual-red for GRS |
+| Red prefer | red/visual-red for GRS |
 | Multi-isophote limb | Stability-weighted outlines |
 | SEB contrast | Local enhance for dark oval |
 | Estimators | GS-MAP, multi-size GS-TMPL, engine, map, bary |
@@ -202,12 +203,12 @@ Details and fail list: **`champion.txt`**.
 
 1. **Open** FITS / SER / PNG / JPEG  
 2. **Observation time UTC** (if FITS has no date)  
-3. Geometry: SPICE ON, Horizons ON, optional CM override / WJ table  
-4. Optional: paste WinJUPOS GRS lon/lat  
+3. Geometry: SPICE ON, Horizons ON, optional CM override  
+4. Optional: paste manual GRS lon/lat  
 5. **Process**  
 6. Open job folder → **`SUPERDUPER_BEST_ANSWER.txt`**  
 7. Check `champion.txt` grade + absolute_ok  
-8. If you pasted WJ: equality Δsky  
+8. If you pasted your manual numbers: equality Δsky  
 
 ### Synthetic / Factory
 
@@ -264,10 +265,10 @@ I want to be upfront about what this can and can’t do. I’m a student measuri
 | Claim | Truth |
 |-------|--------|
 | Official NASA GRS lon product | **No** — and I wouldn’t claim that |
-| Radio VLBI μas | **No** — we’re talking arcseconds, not microarcseconds |
+| Professional radio observatories (microarcseconds) | **No** — we’re talking arcseconds, not microarcseconds |
 | Always 0.1″ on any photo | **No** — that’s only on perfect synthetics with known truth |
-| Match careful WinJUPOS on good data | **Often can** (same CM + definition) — this is the real benchmark |
-| Beat HST / Juno | **No** — obviously not |
+| Match careful manual on good data | **Often can** (same CM + definition) — this is the real benchmark |
+| Match professional observatories | **No** — obviously not |
 | Best automated path *in this app* when gates pass | **Yes (UNBEATABLE_AUTO)** — but that’s just “best within my code”, not “best in the world” |
 
 Typical real-night class: **~0.5–2″** when geometry is right. Synthetics can look tighter because we literally planted the answer.
@@ -297,13 +298,13 @@ numpy, scipy, Pillow, astropy, certifi, spiceypy, flask.
 I run through this every time before I share a result. Skipping steps is how you end up with a lon that’s 5° off.
 
 - [ ] Mid-exposure UTC correct — wrong time = wrong lon, ~36°/hour rotation
-- [ ] SPICE and/or Horizons ON, or WJ CM paste — analytical CM shifts 10–15°, don’t trust it for absolute
+- [ ] SPICE and/or Horizons ON, or CM override — analytical CM shifts 10–15°, don’t trust it for absolute
 - [ ] Read **SUPERDUPER_BEST_ANSWER.txt** — that’s the one number
 - [ ] Note Champion grade / ultimate gates — HOLD means don’t publish
 - [ ] Note limb / dark-core flags if any — outline choice shifts lon ~0.3°
-- [ ] Optional: paste WJ → equality — Δsky ≤ 1″ is the real test
+- [ ] Optional: paste your manual picks → equality — Δsky ≤ 1″ is the real test
 - [ ] Do **not** publish soup/SOTA lon — it’s scatter, not the answer
-- [ ] Report φ_g when comparing to WinJUPOS lat — wrong convention = 1.5° fake offset  
+- [ ] Report φ_g when comparing to manual measurement lat — wrong convention = 1.5° fake offset  
 
 ---
 

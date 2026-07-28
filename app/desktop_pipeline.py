@@ -952,7 +952,7 @@ def run_process_full(
         )
     except Exception as e:
         CONSOLE.warn(f"WinJUPOS twin: {e}")
-    # Colour-first orange GRS seed (beats moon/belt dark locks on RGB stacks)
+    # Colour-first orange GRS seed (better than moon/belt dark locks on RGB stacks)
     try:
         from grs_image_prep import orange_grs_lonlat, suggest_ns_flip_for_grs
         rgb_for_orange = None
@@ -1113,7 +1113,7 @@ def apply_dual_human_pass(
     see the Δsky and decide which to publish.
 
     If the human choice changes the limb outline or flips the image, we
-    do a light remeasure (precision + gold + twin, not the full VLBI/MC
+    do a light remeasure (precision + gold + twin, not the full MC
     stack — that would take too long for interactive use).
     """
     from human_choice import (
@@ -1161,7 +1161,7 @@ def apply_dual_human_pass(
             work_nav = adjust_nav_like_outline(nav, choice)
             work_nav.cm_iii_deg = cm_iii_deg
             work_nav.distance_au = distance_au
-            # Light remeasure: precision + gold + twin (not full VLBI MC stack)
+            # Light remeasure: precision + gold + twin (not full MC stack)
             from precision_engine import measure_grs_precision
             res = measure_grs_precision(
                 work_meas, cm_iii_deg=cm_iii_deg, distance_au=distance_au, nav=work_nav, quiet=True

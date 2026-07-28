@@ -3,7 +3,7 @@
 Extra GRS localization methods from planetary imaging literature + classical CV.
 
 Sources informing these estimators (methodology, not code copy):
-  · JUPOS / WinJUPOS practice — centre pick, W/E edges, map measure (Jacquesson 2008)
+  · Classical practice — centre pick, W/E edges, map measure
   · Asay-Davis et al. ACCIV/CIV — correlation window matching for cloud features
   · Simon / Hubble GRS size & drift series — multi-epoch isophote/size consistency
   · IRAF ellipse / isophote fitting tradition — multi-level elliptical isophotes
@@ -37,7 +37,7 @@ from precision_engine import NavState, wrap_deg, wrap_diff
 
 
 LITERATURE_NOTES = [
-    "JUPOS/WinJUPOS: measure centre and/or west–east edges on projected map (community gold workflow).",
+    "Classical: measure centre and/or west–east edges on projected map.",
     "Asay-Davis et al. (Icarus 2009): ACCIV/CIV — correlation image velocimetry for cloud tracking.",
     "Simon et al. / Hubble OPAL: multi-year GRS size & drift; careful isophote/size definitions.",
     "IRAF STSDAS ellipse: multi-level elliptical isophote fitting (galaxy tradition applied to oval).",
@@ -51,7 +51,7 @@ LITERATURE_NOTES = [
     "Morphological bottom-hat / top-hat: enhance dark (or bright) compact features.",
     "Watershed on inverted band: catchment basin of GRS bowl.",
     "Multi-percentile ladder: definition sensitivity (small but real systematic).",
-    "N/S edges + W/E edges: full box extent (JUPOS-like length & width).",
+    "N/S edges + W/E edges: full box extent (oval length & width).",
     "Bounding box / convex hull centroids: discrete geometry alternatives.",
     "Hu / spatial moments order 0–2: shape-invariant centre estimates.",
     "Subpixel parabolic peak fit: standard refine after coarse argmin/argmax.",
@@ -197,7 +197,7 @@ def m_multi_isophote(cyl, nav, lon_iii, lat) -> List[MethodHit]:
     return hits
 
 
-# ---------- N/S edges + box extent (JUPOS teaching lab) ----------
+# ---------- N/S edges + box extent ----------
 
 def m_box_extent(cyl, nav, lon_iii, lat) -> List[MethodHit]:
     """W/E/N/S edges of dark mask; box centre; length & width in deg."""
@@ -225,7 +225,7 @@ def m_box_extent(cyl, nav, lon_iii, lat) -> List[MethodHit]:
         MethodHit("EDGE_N", "edge", mid_lon, lat_n, weight=1.2, note="Northern lat edge of dark mask"),
         MethodHit("EDGE_S", "edge", mid_lon, lat_s, weight=1.2, note="Southern lat edge of dark mask"),
         MethodHit("BOX_C", "extent", mid_lon, mid_lat, L, W, weight=2.2,
-                  note="Bounding-box centre of dark mask (JUPOS-like extent)"),
+                  note="Bounding-box centre of dark mask (oval extent)"),
         MethodHit("BOX_LEN", "extent", mid_lon, mid_lat, L, W, weight=1.0,
                   note=f"Extent length={L:.3f}° width={W:.3f}° (logged as position=box centre)"),
     ]

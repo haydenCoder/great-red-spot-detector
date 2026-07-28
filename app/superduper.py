@@ -122,11 +122,11 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         "honesty": (
             "Best consolidated product of this job. Optical ground metrology. "
             "When UNBEATABLE_AUTO: in-app hierarchy is locked. "
-            "Not radio VLBI. Not a claim to beat spacecraft imaging."
+            "Honest ground-based optical metrology — not spacecraft imaging."
         ),
         "in_app_dominance": bool(unbeatable),
         "in_app_message": (
-            "NOBODY INSIDE THIS APP beats this lock tonight."
+            "Best automated path in this app tonight."
             if unbeatable
             else "Ultimate gates incomplete — check the failed list; improve CM/UTC/stack and try again."
         ),

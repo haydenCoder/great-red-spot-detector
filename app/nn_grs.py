@@ -867,15 +867,9 @@ def auto_train(
     prevent_sleep: bool = True,
 ) -> Dict[str, Any]:
     """
-    DISABLED in production — weights are frozen under app/models/.
+    Train SPIRE-Net on synthetic maps. Resumes / fine-tunes existing weights when
+    use_existing=True. Saves to app/models/spire_net_weights.npz with GOOD backup.
     """
-    return {
-        "ok": False,
-        "error": (
-            "SPIRE-Net training is disabled. "
-            "Use frozen weights: app/models/spire_net_weights.npz"
-        ),
-    }
     global _train_state, WEIGHTS_PATH, META_PATH, MODEL_DIR, _ACTIVE_NET, _ACTIVE_TRAIN_META
     if _train_state.get("running"):
         return {"ok": False, "error": "Training already running"}
@@ -1256,14 +1250,10 @@ def overnight_train(
     stop_flag: Optional[Dict[str, bool]] = None,
     prevent_sleep: bool = True,
 ) -> Dict[str, Any]:
-    """DISABLED in production — frozen weights only."""
-    return {
-        "ok": False,
-        "error": (
-            "SPIRE-Net overnight training is disabled. "
-            "Use frozen weights: app/models/spire_net_weights.npz"
-        ),
-    }
+    """
+    Long-run SPIRE-Net train with checkpoint resume (spire_train_checkpoint.json).
+    Used by Train_SPIRE_Background.command and the web/desktop train controls.
+    """
     global _train_state, WEIGHTS_PATH, META_PATH, MODEL_DIR, _ACTIVE_NET, _ACTIVE_TRAIN_META
     if _train_state.get("running"):
         return {"ok": False, "error": "Training already running"}

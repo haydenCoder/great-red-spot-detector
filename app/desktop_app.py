@@ -799,7 +799,14 @@ class GRSDesktopApp(tk.Tk):
         self.vlbi_var = tk.BooleanVar(value=True)       # advanced multi-method stack
         self.factory_var = tk.BooleanVar(value=False)
         self.nasa_var = tk.BooleanVar(value=True)       # geometry report only
-        self.nn_var = tk.BooleanVar(value=True)       # frozen CNN ON — inference only
+        self.nn_var = tk.BooleanVar(value=True)  # CNN prior ON
+        self.nn_epochs_var = tk.StringVar(value="25")
+        self.nn_samples_var = tk.StringVar(value="16")
+        self.nn_lr_var = tk.StringVar(value="0.01")
+        self.nn_hours_var = tk.StringVar(value="8")
+        self.nn_cache_var = tk.StringVar(value="128")
+        self.nn_overnight_var = tk.BooleanVar(value=False)
+        self.nn_resume_var = tk.BooleanVar(value=True)
         self.imaging_var = tk.BooleanVar(value=False)
         self.synth_process_var = tk.BooleanVar(value=False)
         self.hard_in_factory_var = tk.BooleanVar(value=False)
@@ -808,9 +815,9 @@ class GRSDesktopApp(tk.Tk):
                     "Multi-method optical measure.")
         self._check(left, "Write Horizons geometry report", self.nasa_var,
                     "Planet geometry only — not an official NASA GRS longitude.")
-        self._check(left, "SPIRE-Net CNN prior (frozen weights ON)", self.nn_var,
-                    "Uses shipped app/models/spire_net_weights.npz as a soft hint. "
-                    "Training is permanently disabled in this release.")
+        self._check(left, "SPIRE-Net CNN prior (weights ON)", self.nn_var,
+                    "Uses app/models/spire_net_weights.npz as a soft hint. "
+                    "Train with Train_SPIRE_Background.command or the train buttons below.")
 
         self._section(left, "4 · Process (main)")
         self._action_btn(
@@ -837,7 +844,7 @@ class GRSDesktopApp(tk.Tk):
 
         self._section(left, "5 · Results")
         self.nn_lbl = tk.Label(
-            left, text="SPIRE-Net: ON · frozen weights only · training locked",
+            left, text="SPIRE-Net: ON · weights + checkpoint restored under app/models/",
             bg=PANEL, fg=MUTED, font=("Helvetica", 11), wraplength=340, justify=tk.LEFT,
         )
         self.nn_lbl.pack(anchor=tk.W, padx=14, pady=2)
@@ -846,6 +853,16 @@ class GRSDesktopApp(tk.Tk):
             bg=PANEL, fg=FG, font=("Helvetica", 11), wraplength=340, justify=tk.LEFT,
         )
         self.nn_gain_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
+        self._action_btn(
+            left, "Train SPIRE-Net (quick / overnight)", self.on_nn_train,
+            "Fine-tune CNN on synthetic maps. Resumes from spire_train_checkpoint.json when overnight+resume.",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "Stop SPIRE-Net train", self.on_nn_stop,
+            "Ask training to stop after the current step and save weights.",
+            secondary=True,
+        )
         self._action_btn(
             left, "Open outputs folder", self.on_open_outputs,
             "Job folders with publish.txt / SUPERDUPER_BEST_ANSWER.txt.",
@@ -1806,14 +1823,6 @@ class GRSDesktopApp(tk.Tk):
             messagebox.showerror("Stop training", str(e))
 
     def on_nn_train(self):
-        messagebox.showinfo(
-            "Training removed",
-            "SPIRE-Net training is disabled in this release.\n"
-            "Frozen weights in app/models/spire_net_weights.npz are used as-is.",
-        )
-        return
-        # legacy train path retained below but unreachable
-
         epochs = self._nn_epochs()
         samples = self._nn_samples()
         lr = self._nn_lr()

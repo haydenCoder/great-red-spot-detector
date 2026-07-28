@@ -1,0 +1,17 @@
+{
+  "engaged": false,
+  "difficulty": 0.28,
+  "reasons": [
+    "soft_image",
+    "method_span_106deg"
+  ],
+  "nn_used": false,
+  "nn_confidence": 0.0,
+  "blend_weight": 0.0,
+  "lon_before": 337.3016152830128,
+  "lat_before": -22.384027656247444,
+  "lon_after": 337.3016152830128,
+  "lat_after": -22.384027656247444,
+  "methods_boosted": [],
+  "note": "Easy case \u2014 classical methods trusted; AI not needed."
+}

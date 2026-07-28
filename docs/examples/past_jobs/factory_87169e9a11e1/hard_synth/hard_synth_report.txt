@@ -1,0 +1,36 @@
+HARD SYNTHETIC STRESS SUITE — CALIBRATION REPORT
+========================================================
+Grade: CALIBRATION_FAIR
+Overall median sky error: 17.4266"
+Coverage 1σ: 46.15%  2σ: 61.54%
+N ok: 13 / 13  elapsed=103.1s
+
+BY FAMILY:
+  control       n=1  med=1.0665"  cov2=100.00%
+  cm_error      n=3  med=1.2796"  cov2=100.00%
+  seeing        n=2  med=22.9679"  cov2=0.00%
+  noise         n=2  med=22.1355"  cov2=50.00%
+  orientation   n=2  med=1.0595"  cov2=100.00%
+  near_limb     n=1  med=17.4266"  cov2=100.00%
+  combined      n=2  med=29.6044"  cov2=0.00%
+
+CASES:
+  control           sky=1.0665"  σ=10.3400"  cov1=True cov2=True  NEEDS_WORK
+  cm_err_0.5        sky=1.2892"  σ=10.7062"  cov1=True cov2=True  NEEDS_WORK
+  cm_err_1.0        sky=0.8800"  σ=10.3865"  cov1=True cov2=True  NEEDS_WORK
+  cm_err_2.0        sky=1.2796"  σ=10.6577"  cov1=True cov2=True  NEEDS_WORK
+  seeing_1.5px      sky=23.0614"  σ=0.7301"  cov1=False cov2=False  VLBI_METHOD_GOOD
+  seeing_3.0px      sky=22.8744"  σ=0.5664"  cov1=False cov2=False  VLBI_METHOD_EXCELLENT
+  noise_0.02        sky=22.3346"  σ=14.9478"  cov1=False cov2=True  NEEDS_WORK
+  noise_0.05        sky=21.9364"  σ=0.7851"  cov1=False cov2=False  VLBI_METHOD_GOOD
+  sublat_err_1      sky=0.8045"  σ=10.7212"  cov1=True cov2=True  NEEDS_WORK
+  pa_err_5          sky=1.3144"  σ=10.3425"  cov1=True cov2=True  NEEDS_WORK
+  near_limb_cm      sky=17.4266"  σ=10.3399"  cov1=False cov2=True  NEEDS_WORK
+  combined_mild     sky=36.9467"  σ=1.6114"  cov1=False cov2=False  RESEARCH_GOOD
+  combined_harsh    sky=22.2621"  σ=0.7364"  cov1=False cov2=False  VLBI_METHOD_GOOD
+
+NOTES:
+- Coverage: fraction of cases where |error| ≤ k × reported σ.
+- CM-error family uses feature-relative sky after removing injected CM bias.
+- Friendly control should be ≪1″; harsh combined tests the real floor.
+- Harvard-style: error bars must cover truth under mismatch, not only on easy synths.

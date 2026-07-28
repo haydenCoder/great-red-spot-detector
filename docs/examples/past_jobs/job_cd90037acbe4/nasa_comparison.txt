@@ -1,0 +1,55 @@
+
+────────────────────────────────────────────────────────────────────────
+  YOUR GRS MEASURE + JPL HORIZONS GEOMETRY
+────────────────────────────────────────────────────────────────────────
+
+  HOW TO READ THIS
+  · YOUR GRS = measured on your image (this software)
+  · HORIZONS = real NASA/JPL Jupiter geometry (CM, distance, orientation)
+  · There is NO NASA “official GRS lon” column (removed — was misleading)
+  · Validate GRS lon with WinJUPOS / same-CM peer measure, not a fake REF
+
+  YOUR GRS MEASUREMENT
+  ┌────────────────────┬──────────────────┐
+  │ quantity           │ YOUR answer      │
+  ├────────────────────┼──────────────────┤
+  │ Longitude III      │ 313.017446 °     │
+  │ Latitude           │ -17.956278 °     │
+  │ Length (oval)      │ 12.720000 °      │
+  │ Width (oval)       │ 8.000000 °       │
+  └────────────────────┴──────────────────┘
+
+  JUPITER GEOMETRY (JPL Horizons — not GRS centre)
+  ┌────────────────────────────┬──────────────────┐
+  │ quantity                   │ value            │
+  ├────────────────────────────┼──────────────────┤
+  │ CM III (geometry)          │ 110.203635 °    │
+  │ Distance Earth–Jupiter     │ 4.231701 AU   │
+  │ Apparent diameter          │ 46.587798 ″    │
+  │ Sub-observer latitude      │ 0.259636 °    │
+  │ Sub-observer longitude     │ 110.203635 °    │
+  │ North pole PA              │ 268.057700 °    │
+  │ Light time                 │ 2795.268000 s    │
+  └────────────────────────────┴──────────────────┘
+
+  PLAIN ENGLISH
+  · Your GRS lon/lat above is from the image pipeline — not from NASA.
+  · Horizons CM III orients the planet; it is not the GRS longitude.
+  · Geometry status: GEOMETRY_OK (Horizons Jupiter geometry; no NASA GRS lon product)
+  · Source: Horizons_geometry
+  · Epoch used: 2026-01-09T15:40:00
+
+  NOTES
+  · YOUR GRS lon/lat/size = measured on your image (this software).
+  · JPL Horizons = Jupiter geometry only (distance, CM III, orientation) — NOT GRS centre.
+  · NASA does not publish a continuous GRS System III lon catalog for arbitrary epochs.
+  · Validate absolute lon with SPICE/WinJUPOS CM + same definition (e.g. GS-MAP core).
+  · On synthetics, use truth_recovery sky_error_arcsec as the accuracy metric.
+
+  COPY-PASTE NUMBERS
+  YOUR_LON_III_DEG      = 313.01744571
+  YOUR_LAT_DEG          = -17.95627816
+  YOUR_LENGTH_DEG       = 12.72000000
+  YOUR_WIDTH_DEG        = 8.00000000
+  HORIZONS_CM_III_DEG   = 110.20363460  # geometry only
+  HORIZONS_DISTANCE_AU  = 4.23170102

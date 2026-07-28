@@ -1,0 +1,52 @@
+
+────────────────────────────────────────────────────────────────────────
+  YOUR MEASUREMENT  vs  NASA / REFERENCE
+────────────────────────────────────────────────────────────────────────
+
+  HOW TO READ THIS
+  · YOUR = what this software measured on your image (bias-corrected when available)
+  · NASA/REF = offline GRS trend model + JPL Horizons Jupiter geometry
+  · Δ (delta) = YOUR − NASA/REF   (lon is wrap-aware, −180…+180°)
+  · |Δ| small = closer agreement (lat is more trustworthy than lon on the schematic model)
+
+  ┌────────────────────┬──────────────────┬──────────────────┬──────────────────┐
+  │ quantity           │ YOUR answer      │ NASA / REF       │ DIFFERENCE (Δ)   │
+  ├────────────────────┼──────────────────┼──────────────────┼──────────────────┤
+  │ Longitude III      │ 189.115593 °     │ 348.160542 °     │ -159.044949 °    │
+  │ Latitude           │ -18.566104 °     │ -22.000000 °     │ +3.433896 °      │
+  │ Length (oval)      │ 10.558122 °      │ 14.360740 °      │ -3.802619 °      │
+  │ Width (oval)       │ 8.642734 °       │ 9.470699 °       │ -0.827964 °      │
+  └────────────────────┴──────────────────┴──────────────────┴──────────────────┘
+
+  PLAIN ENGLISH
+  · Your lon is 159.0449° west of the NASA/model lon (YOUR=189.1156°  REF=348.1605°)
+  · Your lat is 3.4339° north of the NASA/model lat (YOUR=-18.5661°  REF=-22.0000°)
+  · NASA compare grade: POOR / CHECK DEFINITION
+  · Source: literature_trend+Horizons_geometry
+  · Epoch used: 2026-01-10T15:39:26
+
+  JUPITER GEOMETRY FROM NASA HORIZONS (not GRS longitude)
+  Distance Earth–Jupiter               4.231960 AU
+  Apparent diameter                    46.584949 arcsec
+  Sub-observer latitude                0.261914 °
+  North pole PA                        64.496690 °
+  Horizons CM III (if present)         64.496690 °
+  Light time                           2795.097000 s
+
+  NASA MODULE NOTES
+  · JPL Horizons = Jupiter geometry (Δ, orientation, CM III) — NOT an official GRS longitude catalog.
+  · GRS lon/size reference is a literature-aligned schematic (Simon-like drift/shrink) for sanity only.
+  · For absolute System III: use SPICE or WinJUPOS CM + your fixed measurement definition.
+  · On synthetics, trust truth_recovery arcsec over this schematic lon Δ.
+  · Target: research-grade optical metrology (~0.5–2″ good real data; tighter on synth).
+
+  COPY-PASTE NUMBERS
+  YOUR_LON_III_DEG      = 189.11559273
+  YOUR_LAT_DEG          = -18.56610363
+  TREND_LON_III_DEG     = 348.16054182  # schematic, not NASA catalog
+  TREND_LAT_DEG         = -22.00000000
+  HORIZONS_CM_III_DEG   = 64.49669000  # geometry only
+  DELTA_LON_DEG         = -159.04494909
+  DELTA_LAT_DEG         = 3.43389637
+  DELTA_LENGTH_DEG      = -3.80261866
+  DELTA_WIDTH_DEG       = -0.82796420

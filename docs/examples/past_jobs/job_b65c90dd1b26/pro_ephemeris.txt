@@ -1,0 +1,20 @@
+PROFESSIONAL JUPITER EPHEMERIS
+========================================
+Epoch: 2026-01-09T15:40:00
+CM III: 310.428325°  [spice_auto]  σ=159.77530961223442°
+Distance: 4.23170102 AU  [horizons]
+App. diam: 46.5878″
+Sub-obs lat: 0.2596°
+Sub-obs lon: 310.4283°
+North PA: 0.0000°
+Light time: 2795.268 s
+Apply orientation in projector: True
+Source chain: horizons+spice_auto+analytical
+
+NOTES:
+- Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).
+- SPICE auto geometry (4 kernels; online download if needed).
+- Horizons full observer geometry applied where parsed.
+- North PA override.
+- SPICE↔Horizons |ΔCM|=159.775° > 0.25° — prefer WinJUPOS/override for absolute lon.
+- PROVENANCE: cm=spice_auto σ=159.77530961223442° | dist=horizons | ori=override+horizons apply_ori=True

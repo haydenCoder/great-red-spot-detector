@@ -1,0 +1,22 @@
+{
+  "engaged": true,
+  "difficulty": 0.6399999999999999,
+  "reasons": [
+    "soft_image",
+    "forced_hard_large_span",
+    "few_inliers",
+    "sota_grade_fair",
+    "chaos_outliers",
+    "method_span_155deg",
+    "nn_too_far_from_physics"
+  ],
+  "nn_used": false,
+  "nn_confidence": 0.8851094222535048,
+  "blend_weight": 0.0,
+  "lon_before": 310.56872831410897,
+  "lat_before": -21.978251818657995,
+  "lon_after": 310.56872831410897,
+  "lat_after": -21.978251818657995,
+  "methods_boosted": [],
+  "note": "Hard case (diff=0.64) but NN disagrees too much (\u0394lon=-43.47\u00b0 \u0394lat=62.60\u00b0) \u2014 kept physics."
+}

@@ -1,0 +1,113 @@
+{
+  "ok": true,
+  "mode": "winjupos_twin",
+  "twin_primary_definition": "GS-MAP",
+  "twin_lon_iii_deg": 13.200570638830328,
+  "twin_lat_deg": -28.66501268525957,
+  "gs_map_lon": 13.200570638830328,
+  "gs_map_lat": -28.66501268525957,
+  "gs_bary_lon": 67.95899259752821,
+  "gs_bary_lat": -22.98018981292875,
+  "cm_iii_deg": 100.75546025533211,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23195983918294,
+  "limb_probes": [
+    {
+      "name": "outer_large_outline",
+      "isophote_frac": 0.12,
+      "a_eq_px": 219.89692542456797,
+      "xc": 254.11648141577996,
+      "yc": 251.56261724628862,
+      "lon_iii_deg": 13.211985190169898,
+      "lat_deg": -30.402590591858214,
+      "note": "Fainter limb (larger disk) \u2014 soft seeing edge"
+    },
+    {
+      "name": "nominal",
+      "isophote_frac": 0.18,
+      "a_eq_px": 217.03252430351006,
+      "xc": 253.68023865712868,
+      "yc": 251.6075175350743,
+      "lon_iii_deg": 13.200570638830328,
+      "lat_deg": -28.66501268525957,
+      "note": "Default pipeline isophote"
+    },
+    {
+      "name": "inner_small_outline",
+      "isophote_frac": 0.3,
+      "a_eq_px": 210.3322922113852,
+      "xc": 253.5249977064918,
+      "yc": 251.47042505872906,
+      "lon_iii_deg": 13.101209436231613,
+      "lat_deg": -20.90419104268726,
+      "note": "Brighter limb (smaller disk) \u2014 tight outline"
+    }
+  ],
+  "limb_radius_spread_px": 9.56463321318276,
+  "limb_lon_spread_deg": 0.11077575393829875,
+  "limb_lat_spread_deg": 9.498399549170955,
+  "limb_sky_spread_arcsec": 3.611091609700143,
+  "limb_note": "YES: larger vs smaller limb outline changes absolute GRS lon/lat. Spread below is a systematic floor from outline size alone (same feature pick). Always use one consistent outline style night-to-night (WinJUPOS discipline).",
+  "definition_table": [
+    {
+      "definition": "GS-MAP (dark map core)",
+      "role": "core",
+      "lon_iii_deg": 13.200570638830328,
+      "lat_deg": -28.66501268525957,
+      "note": "Closest automated analog to a careful dark-core pick on the map"
+    },
+    {
+      "definition": "GS-BARY (image barycentre)",
+      "role": "core",
+      "lon_iii_deg": 67.95899259752821,
+      "lat_deg": -22.98018981292875,
+      "note": "Intensity-weighted dark core in image plane"
+    },
+    {
+      "definition": "GS-OVAL (ellipse centre)",
+      "role": "core",
+      "lon_iii_deg": 190.0049390600576,
+      "lat_deg": -22.155771905424203,
+      "length_deg": 4.0,
+      "width_deg": 13.0
+    },
+    {
+      "definition": "GS-EDGE-W (higher-lon edge)",
+      "role": "edge",
+      "lon_iii_deg": 190.630373389453,
+      "lat_deg": -22.155771905424203,
+      "note": "Not a centre \u2014 extent. Differs from core by ~half the oval length."
+    },
+    {
+      "definition": "GS-EDGE-E (lower-lon edge)",
+      "role": "edge",
+      "lon_iii_deg": 189.50459159654127,
+      "lat_deg": -22.155771905424203,
+      "note": "Not a centre \u2014 extent."
+    },
+    {
+      "definition": "GS-MID (mid of W/E edges)",
+      "role": "extent_mid",
+      "lon_iii_deg": 190.06748249299716,
+      "lat_deg": -22.155771905424203,
+      "length_deg": 1.125781792911738,
+      "note": "Often close to core but not identical if oval is asymmetric."
+    }
+  ],
+  "definition_lon_spread_deg": 177.42980275062268,
+  "definition_lat_spread_deg": 6.509240779835366,
+  "west_edge_lon": 190.630373389453,
+  "east_edge_lon": 189.50459159654127,
+  "mid_edge_lon": 190.06748249299716,
+  "extent_lon_deg": 1.125781792911738,
+  "winjupos_manual": null,
+  "notes": [
+    "WinJUPOS twin: CM locked from your source; primary = GS-MAP then GS-BARY.",
+    "Limb outline size (larger/smaller edge) is a real systematic \u2014 see limb_probes.",
+    "GRS edge vs core definitions differ \u2014 report which one you publish.",
+    "Not a NASA GRS longitude catalog.",
+    "Limb outline larger\u2194smaller sky spread \u2248 3.611\u2033 (lon spread 0.111\u00b0).",
+    "W\u2013E extent \u2248 1.13\u00b0 \u2014 edges are not the core position."
+  ],
+  "grade": "TWIN_FAIR"
+}

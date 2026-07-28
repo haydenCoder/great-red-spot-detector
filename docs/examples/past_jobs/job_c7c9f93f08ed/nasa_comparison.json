@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "source": "Horizons_geometry",
+  "user_time_iso": "2026-01-10T15:39:26",
+  "measured": {
+    "lon_iii_deg": 185.5038208419981,
+    "lat_deg": -14.929983775369246,
+    "length_deg": 11.291387722682833,
+    "width_deg": 8.305251069112602
+  },
+  "reference": {
+    "kind": "horizons_jupiter_geometry_only",
+    "note": "NASA/JPL Horizons provides Jupiter geometry (CM, distance, orientation). There is no official NASA GRS longitude product for this table.",
+    "jupiter_distance_au": 4.23195983918294,
+    "jupiter_app_diam_arcsec": 46.584949158247575,
+    "sub_obs_lat_deg": 0.2619141,
+    "north_pa_deg": 64.49669,
+    "horizons_cm_iii_deg": 64.49669,
+    "light_time_s": 2795.0969999999998,
+    "sub_obs_lon_deg": 64.49669
+  },
+  "deltas": {},
+  "flags": [],
+  "notes": [
+    "YOUR GRS lon/lat/size = measured on your image (this software).",
+    "JPL Horizons = Jupiter geometry only (distance, CM III, orientation) \u2014 NOT GRS centre.",
+    "NASA does not publish a continuous GRS System III lon catalog for arbitrary epochs.",
+    "Validate absolute lon with SPICE/WinJUPOS CM + same definition (e.g. GS-MAP core).",
+    "On synthetics, use truth_recovery sky_error_arcsec as the accuracy metric."
+  ],
+  "grade": "GEOMETRY_OK (Horizons Jupiter geometry; no NASA GRS lon product)"
+}

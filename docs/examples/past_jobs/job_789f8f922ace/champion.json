@@ -1,0 +1,233 @@
+{
+  "ok": true,
+  "lon_iii_deg": 34.40001124234383,
+  "lat_planetocentric_deg": -29.236788911765323,
+  "lat_planetographic_deg": -32.62248352649595,
+  "length_deg": 12.0,
+  "width_deg": 8.0,
+  "extent_ew_deg": 3.6018009004502574,
+  "definition": "GS-MAP",
+  "cm_iii_deg": 310.42832498776556,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23170102126672,
+  "sigma_cm_deg": 159.77530961223442,
+  "sigma_timing_lon_deg": 0.0,
+  "sigma_limb_lon_deg": 71.15273100403687,
+  "sigma_limb_lat_deg": 6.195320975061437,
+  "sigma_definition_lon_deg": 94.34357180173372,
+  "sigma_method_lon_deg": 0.7897605783621718,
+  "sigma_method_lat_deg": 4.327512380802765,
+  "sigma_total_lon_deg": 198.72642993094357,
+  "sigma_total_lat_deg": 7.558026553938363,
+  "sigma_total_sky_arcsec": 70.55943844049284,
+  "limb_sky_spread_arcsec": 67.10389718592255,
+  "absolute_publish_ok": false,
+  "grade": "STRONG",
+  "flags": [
+    "engine_map_edge",
+    "map_dark_map_edge",
+    "template_map_edge",
+    "moment_low_dark",
+    "LIMB_UNSTABLE",
+    "DEFINITION_LOOSE",
+    "LAT_OUTSIDE_CORE"
+  ],
+  "notes": [
+    "Champion v5 ULTIMATE: dual-channel + nav stability + multi-gate UNBEATABLE_AUTO.",
+    "Absolute Sys III needs trusted CM (SPICE/Horizons/WinJUPOS/override).",
+    "UNBEATABLE_AUTO \u2260 better than HST/human desk \u2014 it means all automated gates passed.",
+    "Stable GRS across 6 limb outlines.",
+    "Ultimate lock incomplete: failed cm_crosscheck, lat_core, limb_stable, def_tight, nav_stable, dual_agree",
+    "\u03c3_total sky\u224870.559\u2033 (CM 159.78\u00b0 \u2295 time 0.00\u00b0 \u2295 limb 71.15\u00b0 \u2295 def 94.34\u00b0 \u2295 meth 0.79\u00b0)",
+    "Compare \u03c6_g to WinJUPOS; same UTC+CM for fair \u0394.",
+    "absolute_publish_ok=False \u2014 fix CM/limb before absolute lon"
+  ],
+  "estimators": {
+    "gs_map": {
+      "lon_iii_deg": 33.99877853865411,
+      "lat_deg": -31.43534201558407,
+      "length_deg": NaN,
+      "width_deg": NaN,
+      "score": 0.6504105896762912,
+      "method": "map_dark_centroid",
+      "size_definition": "unmeasured",
+      "definition": "GS-MAP",
+      "dark_score": 0.9479923099613327
+    },
+    "gs_tmpl": {
+      "lon_iii_deg": 35.11566865960151,
+      "lat_deg": -25.315315315315317,
+      "length_deg": 11.0,
+      "width_deg": 7.5,
+      "score": 0.6609235156336924,
+      "method": "dark_profile",
+      "definition": "GS-TMPL",
+      "dark_score": 2.0
+    },
+    "map_dark": {
+      "lon_iii_deg": 222.47710124498022,
+      "lat_deg": -20.450948751206994,
+      "length_deg": NaN,
+      "width_deg": NaN,
+      "score": 0.4957523442063367,
+      "method": "map_dark_centroid",
+      "size_definition": "unmeasured",
+      "dark_score": 0.0
+    },
+    "template": {
+      "lon_iii_deg": 222.2292254379907,
+      "lat_deg": -20.45045045045046,
+      "length_deg": 12.5,
+      "width_deg": 8.0,
+      "score": 0.5018802201446522,
+      "method": "dark_profile",
+      "dark_score": 0.0
+    },
+    "moment": {
+      "lon_iii_deg": 319.09318245907383,
+      "lat_deg": -26.508500126502973,
+      "length_deg": 19.517338416032267,
+      "width_deg": 6.668710572802742,
+      "score": -20.031996112426334,
+      "method": "moment_mask",
+      "size_definition": "map_4sigma_or_image_approx",
+      "dark_score": 0.0
+    },
+    "engine": {
+      "lon_iii_deg": 222.22914354165368,
+      "lat_deg": -20.39071446616775,
+      "length_deg": 12.0,
+      "width_deg": 8.0,
+      "score": 0.993491808305464,
+      "method": "template_pos+template_prior_size_not_isophote",
+      "dark_score": 0.0
+    }
+  },
+  "limb_consensus": {
+    "ok": true,
+    "probes": [
+      {
+        "name": "outer",
+        "isophote_frac": 0.11,
+        "xc": 253.7379583257718,
+        "yc": 251.70463955321168,
+        "a_eq_px": 218.99732015728478,
+        "grs_lon_iii_deg": 37.44903982164681,
+        "grs_lat_deg": -30.84297327819705,
+        "stability_w": 0.0
+      },
+      {
+        "name": "soft",
+        "isophote_frac": 0.15,
+        "xc": 253.72418660140258,
+        "yc": 251.66891473714324,
+        "a_eq_px": 217.62879974101452,
+        "grs_lon_iii_deg": 223.15224354227587,
+        "grs_lat_deg": -14.963328652579051,
+        "stability_w": 0.9616940380179648
+      },
+      {
+        "name": "nominal",
+        "isophote_frac": 0.18,
+        "xc": 253.69640029724158,
+        "yc": 251.67342100436818,
+        "a_eq_px": 216.5700089750144,
+        "grs_lon_iii_deg": 223.1737762432177,
+        "grs_lat_deg": -20.379360551136415,
+        "stability_w": 0.9932841985079149
+      },
+      {
+        "name": "mid",
+        "isophote_frac": 0.22,
+        "xc": 253.64932419900234,
+        "yc": 251.67346430972592,
+        "a_eq_px": 215.06835776012718,
+        "grs_lon_iii_deg": 223.17384905770126,
+        "grs_lat_deg": -20.378331647792336,
+        "stability_w": 0.9932841010081689
+      },
+      {
+        "name": "inner",
+        "isophote_frac": 0.28,
+        "xc": 253.55094573408695,
+        "yc": 251.63695637941316,
+        "a_eq_px": 212.52813276438224,
+        "grs_lon_iii_deg": 223.15249313305583,
+        "grs_lat_deg": -14.962939321081151,
+        "stability_w": 0.8788102442204031
+      },
+      {
+        "name": "tight",
+        "isophote_frac": 0.34,
+        "xc": 253.40968397805568,
+        "yc": 251.6440748933209,
+        "a_eq_px": 209.1703486746772,
+        "grs_lon_iii_deg": 223.15342250818117,
+        "grs_lat_deg": -14.963571520843658,
+        "stability_w": 0.5902102477066413
+      }
+    ],
+    "xc_spread_px": 0.32827434771613184,
+    "yc_spread_px": 0.06768317379851396,
+    "a_spread_px": 9.826971482607576,
+    "n_probes": 6,
+    "n_stable_grs": 6,
+    "note": "stability-weighted limb (best isophote\u2248nominal, seed GRS lon=223.152\u00b0)"
+  },
+  "world_class_score": 70.0,
+  "refine": {
+    "ok": false,
+    "passes": [],
+    "reason": "map_edge",
+    "dark_score_final": 2.0,
+    "bootstrap": {
+      "ok": false,
+      "n": 0
+    }
+  },
+  "ultimate_lock": {
+    "nav_stability": {
+      "ok": false,
+      "n": 0,
+      "stable": false
+    },
+    "dual_channel": {
+      "ok": false,
+      "agree": false,
+      "channels": {}
+    },
+    "unbeatable_auto": false,
+    "checks": {
+      "trusted_cm": true,
+      "cm_crosscheck": false,
+      "finite_pos": true,
+      "lat_core": false,
+      "no_map_edge": true,
+      "limb_stable": false,
+      "def_tight": false,
+      "dark_core": true,
+      "nav_stable": false,
+      "dual_agree": false,
+      "score_high": false,
+      "gs_or_strong": false,
+      "sigma_sky_tight": false
+    },
+    "failed_checks": [
+      "cm_crosscheck",
+      "lat_core",
+      "limb_stable",
+      "def_tight",
+      "nav_stable",
+      "dual_agree",
+      "score_high",
+      "gs_or_strong",
+      "sigma_sky_tight"
+    ],
+    "n_pass": 4,
+    "n_total": 13,
+    "spice_horizons_dcm_deg": 159.77530961223442,
+    "honesty": "UNBEATABLE_AUTO = all automated gates passed on this frame. No weaker method in THIS APP may override. Does NOT claim to beat HST, JunoCam, or a perfect human WinJUPOS desk.",
+    "dominance": "In-app hierarchy when UNBEATABLE_AUTO: this lock > Champion > GS-MAP twin > pipeline > SOTA/soup (scatter only)."
+  },
+  "unbeatable_auto": false
+}

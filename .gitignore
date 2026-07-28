@@ -11,7 +11,7 @@ __pycache__/
 .DS_Store
 **/.DS_Store
 
-# Local runtime (regenerated)
+# Local runtime (regenerated when you run the app)
 app/outputs/
 app/uploads/
 app/logs/
@@ -20,13 +20,9 @@ app/nasa_cache/
 app/owner_access/
 app/session.json
 app/admin_session.json
-OWNER_SHARED_LOGS/
 
-# Temp weight copies (keep primary .npz)
-app/models/*.tmp.npz
-app/models/train_logs/
-app/models/spire_train_checkpoint.json
-app/outputs/nn_train_cache/
+# Owner device telemetry stays local (privacy)
+OWNER_SHARED_LOGS/
 
 # Packaging
 dist/
@@ -38,10 +34,11 @@ build/
 .idea/
 .vscode/
 *.swp
-Train_SPIRE_Background.command
-*.bak*
 
 # local runtime accounts
 app/accounts.json
 app/session.json
 app/admin_session.json
+
+# NOTE: training weights + checkpoint + Train_SPIRE_Background.command
+# are TRACKED on purpose (restored from past project history).

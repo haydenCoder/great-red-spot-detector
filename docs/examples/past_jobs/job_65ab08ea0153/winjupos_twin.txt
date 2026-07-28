@@ -1,0 +1,35 @@
+WINJUPOS TWIN + LIMB / DEFINITION SENSITIVITY
+========================================================
+Grade: TWIN_CHECK_LIMB
+CM III = 310.4283°  source=spice_auto
+Twin primary (GS-MAP): lon=222.7737°  lat=-19.6511°
+GS-MAP:  lon=222.7737°  lat=-19.6511°
+GS-BARY: lon=293.2271°  lat=-23.1807°
+
+LIMB OUTLINE (larger vs smaller edge) — YES this matters
+  Radius spread: 9.51 px
+  Lon spread:    175.3090°
+  Lat spread:    1.2522°
+  Sky spread:    67.0175″
+  · outer_large_outline: isophote=0.12  a=219.9px  lon=38.0827°  lat=-19.9028°
+  · nominal: isophote=0.18  a=217.1px  lon=222.7737°  lat=-19.6511°
+  · inner_small_outline: isophote=0.3  a=210.4px  lon=222.7738°  lat=-18.6506°
+
+GRS DEFINITION (core vs edges) — YES this matters
+  Lon spread (all defs): 177.5295°
+  Extent W–E: 1.1257817929117664
+  · GS-MAP (dark map core): lon=222.77373545157894  lat=-19.651055289089882  [core]
+  · GS-BARY (image barycentre): lon=293.22708154015714  lat=-23.18068687284503  [core]
+  · GS-OVAL (ellipse centre): lon=39.67780379249109  lat=-22.155771905424203  [core]
+  · GS-EDGE-W (higher-lon edge): lon=40.303238121886466  lat=-22.155771905424203  [edge]
+  · GS-EDGE-E (lower-lon edge): lon=39.1774563289747  lat=-22.155771905424203  [edge]
+  · GS-MID (mid of W/E edges): lon=39.74034722543058  lat=-22.155771905424203  [extent_mid]
+
+NOTES
+  · WinJUPOS twin: CM locked from your source; primary = GS-MAP then GS-BARY.
+  · Limb outline size (larger/smaller edge) is a real systematic — see limb_probes.
+  · GRS edge vs core definitions differ — report which one you publish.
+  · Not a NASA GRS longitude catalog.
+  · Limb outline larger↔smaller sky spread ≈ 67.017″ (lon spread 175.309°).
+  · W–E extent ≈ 1.13° — edges are not the core position.
+  · YES: larger vs smaller limb outline changes absolute GRS lon/lat. Spread below is a systematic floor from outline size alone (same feature pick). Always use one consistent outline style night-to-night (WinJUPOS discipline).

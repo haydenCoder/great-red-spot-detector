@@ -1,0 +1,19 @@
+# GRS measure export — professional procedure
+# generated 2026-07-16T22:23:07
+# primary_definition GS-BARY
+# cm_source spice_auto
+# NOT a NASA GRS catalog product
+utc=2026-01-10 15:39:26
+cm_iii_deg=100.755460
+distance_au=4.231960
+grs_lon_iii_deg=83.844867
+grs_lat_deg=-29.191260
+grs_length_deg=1.6008781472779838
+grs_width_deg=0.29122842912470026
+definition=GS-BARY
+definition_scatter_lon_deg=5.58886
+definition_scatter_lat_deg=2.16299
+west_edge_lon_iii_deg=190.673604866519
+east_edge_lon_iii_deg=189.44577403432257
+extent_lon_deg=1.227830832196446
+procedure_grade=PRO_LOOSE+M83

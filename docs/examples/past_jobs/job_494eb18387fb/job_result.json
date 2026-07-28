@@ -1,0 +1,5602 @@
+{
+  "job_id": "494eb18387fb",
+  "mode": "process_full_advanced",
+  "path": "/Users/haydenchung/Downloads/AS_P5/2026-01-09-1540_4-U-RGB-Jup_lapl6_ap141.fit",
+  "output_dir": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb",
+  "pro_ephemeris": {
+    "t_utc_iso": "2026-01-10T15:39:26",
+    "distance_au": 4.23195983918294,
+    "cm_iii_deg": 100.75546025533211,
+    "sub_obs_lat_deg": 0.2619141,
+    "sub_obs_lon_deg": 100.75546025533211,
+    "north_pa_deg": 64.49669,
+    "apparent_diameter_arcsec": 46.584949158247575,
+    "light_time_s": 2795.0969999999998,
+    "source": "horizons+spice_auto+analytical",
+    "cm_source": "spice_auto",
+    "orientation_source": "horizons",
+    "distance_source": "horizons",
+    "sigma_cm_deg": 0.01,
+    "sigma_distance_frac": 0.001,
+    "sigma_pa_deg": 0.2,
+    "sigma_sublat_deg": 0.1,
+    "apply_orientation": true,
+    "notes": [
+      "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+      "SPICE auto geometry (4 kernels; online download if needed).",
+      "Horizons full observer geometry applied where parsed.",
+      "PROVENANCE: cm=spice_auto \u03c3=0.01\u00b0 | dist=horizons | ori=horizons apply_ori=True"
+    ],
+    "raw": {
+      "analytical": {
+        "distance_au": 5.596957536399352,
+        "cm_iii_deg": 100.509814620018,
+        "sub_obs_lat_deg": 2.819250611486442,
+        "sub_obs_lon_deg": 100.509814620018,
+        "north_pa_deg": 0.0,
+        "apparent_diameter_arcsec": 35.2237144316287,
+        "light_time_s": 2792.908585591105
+      },
+      "spice": {
+        "distance_au": 4.231959987994408,
+        "light_time_s": 2111.768279012413,
+        "apparent_diameter_arcsec": 46.58494752014734,
+        "source": "spice_auto",
+        "kernels": [
+          "naif0012.tls",
+          "gm_de440.tpc",
+          "pck00011.tpc",
+          "de440s.bsp"
+        ],
+        "notes": [
+          "body frame via pxform(J2000\u2192IAU_JUPITER) on barycenter LOS (de440s-safe)",
+          "north_pa from pole projection"
+        ],
+        "north_pa_deg": 350.1894445265277,
+        "cm_iii_deg": 100.75546025533211,
+        "sub_obs_lon_deg": 100.75546025533211,
+        "sub_obs_lat_deg": 1.3900899915262959
+      },
+      "horizons": {
+        "parser": "horizons_observer_v1",
+        "distance_au": 4.23195983918294,
+        "light_time_s": 2795.0969999999998,
+        "sub_obs_lat_deg": 0.2619141,
+        "sub_obs_lon_deg": 64.49669,
+        "cm_iii_deg": 64.49669,
+        "north_pa_deg": 64.49669,
+        "apparent_diameter_arcsec": 46.584949158247575,
+        "floats_found": [
+          111.356418442,
+          22.249575792,
+          46.58495,
+          100.501642,
+          1.58973,
+          4.23195983918294,
+          0.725178,
+          110.0687354,
+          0.2619141,
+          268.0577,
+          64.49669
+        ],
+        "data_line": "2026-Jan-10 15:39, , , 111.356418442,  22.249575792,  46.58495,  100.501642,   1.589730,  4.23195983918294,  0.7251780,  110.0687354,  0.2619141,  268.05770,  64.49669,",
+        "ok": true,
+        "excerpt": "API VERSION: 1.2\nAPI SOURCE: NASA/JPL Horizons API\n\n\n\n*******************************************************************************\nEphemeris / API_USER Wed Jul 15 05:54:23 2026 Pasadena, USA      / Horizons    \n*******************************************************************************\nTarget body name: Jupiter (599)                   {source: jup365_merged}\nCenter body name: Earth (399)                     {source: DE441}\nCenter-site name: GEOCENTRIC\n*******************************************************************************\nStart time      : A.D. 2026-Jan-10 15:39:00.0000 UT      \nStop  time      : A.D. 2026-Jan-10 15:40:00.0000 UT      \nStep-size       : 1 minutes\n*******************************************************************************\nTarget pole/equ : IAU_JUPITER                     {West-longitude positive}\nTarget radii    : 71492.0, 71492.0, 66854.0 km    {Equator_a, b, pole_c}       \nCenter geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}\nCenter cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}\nCenter pole/equ : ITRF93                          {East-longitude positive}\nCenter radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       \nTarget primary  : Sun\nVis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}\nRel. light bend : Sun                             {source: jup365_merged}\nRel. lght bnd GM: 1.3271E+11 km^3/s^2                                          \nAtmos refraction: NO (AIRLESS)\nRA format       : DEG\nTime format     : CAL \nCalendar mode   : Mixed Julian/Gregorian\nEOP file        : eop.260714.p261010                                           \nEOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-JUL-14. PREDICTS-> 2026-OCT-09\nUnits conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s \nTable cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )\nTable cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )\nTable cut-offs 3: RA/DEC angular rate (     0.0=NO )                           \nTable format    : Comma Separated Values (spreadsheet)\n*************************************************************************************************************************************************************************\n Date__(UT)__HR:MN, , , R.A.___(ICRF), DEC____(ICRF),  Ang-diam,  ObsSub-LON, ObsSub-LAT,             delta,     deldot,     ObsEcLon,   ObsEcLat,  N.Pole-RA, N.Pole-DC,\n*****************************",
+        "query_time": "2026-01-10T15:39:26"
+      }
+    }
+  },
+  "research_grade": {
+    "lon_iii_deg": 189.19241753216434,
+    "lat_deg": -18.575399583043776,
+    "length_deg": 10.558121756571804,
+    "width_deg": 8.642734460502165,
+    "lon_bias_corrected_deg": 189.11559273224148,
+    "lat_bias_corrected_deg": -18.56610362687233,
+    "bias_lon_deg": 0.07682479992286062,
+    "bias_lat_deg": -0.009295956171445852,
+    "sigma_random_sky_arcsec": 10.613958450085669,
+    "sigma_systematic_sky_arcsec": 0.12919015357025448,
+    "sigma_total_sky_arcsec": 10.665687191210676,
+    "sigma_random_lon_deg": 27.441687766804154,
+    "sigma_systematic_lon_deg": 0.11137311151486336,
+    "injection_n": 31,
+    "injection_mean_sky_arcsec": 0.0829415831125308,
+    "definition_n": 3,
+    "filter_closure_arcsec": 2.082382467109247,
+    "grade": "NEEDS_WORK",
+    "methods": {
+      "primary": {
+        "lon_iii_deg": 189.19241753216434,
+        "lat_deg": -18.575399583043776,
+        "length_deg": 10.558121756571804,
+        "width_deg": 8.642734460502165,
+        "method": "vlbi_multiscale_ncc",
+        "methods": {
+          "multiscale_ncc": {
+            "lon_iii_deg": 189.19241753216434,
+            "lat_deg": -18.575399583043776,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "score": 16304.344650155803,
+            "method": "template_override_ncc",
+            "ncc_rejected": {
+              "lon_iii_deg": 107.41576151719548,
+              "lat_deg": -26.50052729813119,
+              "length_deg": 15.0,
+              "width_deg": 6.5,
+              "score": 0.6546587078946253,
+              "ncc": 0.7221666173665932,
+              "method": "multiscale_ncc",
+              "map_x": 1546.027818516137,
+              "map_y": 931.3569932333932
+            }
+          },
+          "template": {
+            "lon_iii_deg": 189.19241753216434,
+            "lat_deg": -18.575399583043776,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "score": 16304.344650155803,
+            "method": "dark_profile"
+          }
+        },
+        "err_lon_deg": 0.044149851795812566,
+        "err_lat_deg": 0.04339930388455401,
+        "err_sky_arcsec": 0.023699211272171006,
+        "err_lon_arcsec": 0.017013246163643272,
+        "err_lat_arcsec": 0.016498547508743754,
+        "quality": 0.9952601577455658,
+        "notes": [
+          "map_dark: map_dark too near map edge",
+          "moment rejected (pathological)",
+          "soft lock multiscale\u2295template (agreement <1.5\u00b0)",
+          "Primary: multi-scale normalized cross-correlation on \u03bc-corrected cylindrical map",
+          "Size: isophote ellipse on map (moment sizes rejected if pathological)",
+          "Internal \u03c3 is method scatter only \u2014 use hierarchical MC + error budget for total"
+        ]
+      },
+      "closure": {
+        "filters": [
+          {
+            "filter": "R",
+            "lam": 620.0,
+            "lon": 188.95445969946775,
+            "lat": -18.52057842046719
+          },
+          {
+            "filter": "G",
+            "lam": 530.0,
+            "lon": 189.05451528590467,
+            "lat": -14.516129032258078
+          },
+          {
+            "filter": "B",
+            "lam": 470.0,
+            "lon": 188.85440411303082,
+            "lat": -29.532814238042278
+          }
+        ],
+        "residual_lon_deg_rms": 0.08652408939102706,
+        "residual_lat_deg_rms": 5.47700881295371,
+        "closure_sky_arcsec": 2.082382467109247
+      },
+      "probes": [
+        {
+          "true_lon": 158.02606433960278,
+          "true_lat": -17.2844470713628,
+          "rec_lon": 158.24902675957568,
+          "rec_lat": -17.23913054940877,
+          "dlon": 0.22296241997290167,
+          "dlat": 0.04531652195402813,
+          "sky_arcsec": 0.08824568971806834
+        },
+        {
+          "true_lon": 143.3894678667063,
+          "true_lat": -18.057485150753383,
+          "rec_lon": 143.75191893364547,
+          "rec_lat": -18.16166283041541,
+          "dlon": 0.3624510669391725,
+          "dlat": -0.10417767966202618,
+          "sky_arcsec": 0.1455803976660403
+        },
+        {
+          "true_lon": 165.50827675963578,
+          "true_lat": -19.90768216383608,
+          "rec_lon": 165.18266018590253,
+          "rec_lat": -19.95240652067764,
+          "dlon": -0.3256165737332424,
+          "dlat": -0.04472435684156295,
+          "sky_arcsec": 0.12561867630152984
+        },
+        {
+          "true_lon": 158.07785996599443,
+          "true_lat": -17.377758077235562,
+          "rec_lon": 157.88902191290455,
+          "rec_lat": -17.283368963661772,
+          "dlon": -0.18883805308988144,
+          "dlat": 0.09438911357378998,
+          "sky_arcsec": 0.08157965974490673
+        },
+        {
+          "true_lon": 159.5680661612591,
+          "true_lat": -19.337418408894898,
+          "rec_lon": 159.86970721662055,
+          "rec_lat": -19.434756863250968,
+          "dlon": 0.3016410553614435,
+          "dlat": -0.0973384543560698,
+          "sky_arcsec": 0.12148124806482243
+        },
+        {
+          "true_lon": 152.1508679321466,
+          "true_lat": -18.38251374067499,
+          "rec_lon": 152.4863002355349,
+          "rec_lat": -18.391809696846437,
+          "dlon": 0.335432303388302,
+          "dlat": -0.009295956171445852,
+          "sky_arcsec": 0.12945335264785163
+        },
+        {
+          "true_lon": 162.75090077150443,
+          "true_lat": -19.318462055083714,
+          "rec_lon": 162.66103661892032,
+          "rec_lat": -19.370261080539265,
+          "dlon": -0.08986415258411284,
+          "dlat": -0.05179902545555137,
+          "sky_arcsec": 0.039702985880817956
+        },
+        {
+          "true_lon": 149.52163701427082,
+          "true_lat": -18.71264155413878,
+          "rec_lon": 149.51547147295034,
+          "rec_lat": -18.754809957489897,
+          "dlon": -0.0061655413204846354,
+          "dlat": -0.04216840335111627,
+          "sky_arcsec": 0.016205441500467585
+        },
+        {
+          "true_lon": 150.30280627983225,
+          "true_lat": -18.769236990977266,
+          "rec_lon": 150.2352952265152,
+          "rec_lat": -18.802926491333565,
+          "dlon": -0.06751105331704821,
+          "dlat": -0.03368950035629936,
+          "sky_arcsec": 0.02897049034857602
+        },
+        {
+          "true_lon": 142.3354875956789,
+          "true_lat": -17.10450909649639,
+          "rec_lon": 142.5816277535189,
+          "rec_lat": -17.079383554680987,
+          "dlon": 0.24614015783998866,
+          "dlat": 0.025125541815402386,
+          "sky_arcsec": 0.09611342478872056
+        },
+        {
+          "true_lon": 149.68571185739447,
+          "true_lat": -18.757698175326137,
+          "rec_lon": 149.7846231762932,
+          "rec_lat": -18.78420558337166,
+          "dlon": 0.09891131889872895,
+          "dlat": -0.02650740804552143,
+          "sky_arcsec": 0.03938568755144022
+        },
+        {
+          "true_lon": 145.4939890093931,
+          "true_lat": -17.64472927563702,
+          "rec_lon": 145.64318883460282,
+          "rec_lat": -17.645818775909206,
+          "dlon": 0.14919982520973463,
+          "dlat": -0.001089500272186683,
+          "sky_arcsec": 0.05780222381174355
+        },
+        {
+          "true_lon": 151.69701948551975,
+          "true_lat": -20.071400026940175,
+          "rec_lon": 151.67637071512186,
+          "rec_lat": -20.16897970593405,
+          "dlon": -0.02064877039788371,
+          "dlat": -0.0975796789938741,
+          "sky_arcsec": 0.037924251906959076
+        },
+        {
+          "true_lon": 143.43881398086043,
+          "true_lat": -18.283579480122356,
+          "rec_lon": 143.6611281712432,
+          "rec_lat": -18.393581340819395,
+          "dlon": 0.22231419038277522,
+          "dlat": -0.11000186069703943,
+          "sky_arcsec": 0.09546163214534735
+        },
+        {
+          "true_lon": 156.72331442387733,
+          "true_lat": -17.557552764942745,
+          "rec_lon": 156.62827616047295,
+          "rec_lat": -17.442932216956763,
+          "dlon": -0.09503826340437627,
+          "dlat": 0.11462054798598231,
+          "sky_arcsec": 0.05705761562121295
+        },
+        {
+          "true_lon": 155.57224545801822,
+          "true_lat": -18.79531832594561,
+          "rec_lon": 155.45671087098444,
+          "rec_lat": -18.803573680407894,
+          "dlon": -0.11553458703377828,
+          "dlat": -0.008255354462285425,
+          "sky_arcsec": 0.04457437762578072
+        },
+        {
+          "true_lon": 151.02521474097,
+          "true_lat": -19.362957961223344,
+          "rec_lon": 151.22495404429026,
+          "rec_lat": -19.474612944713982,
+          "dlon": 0.19973930332025702,
+          "dlat": -0.11165498349063796,
+          "sky_arcsec": 0.08758059107412106
+        },
+        {
+          "true_lon": 143.7120621780361,
+          "true_lat": -19.546629215822204,
+          "rec_lon": 143.74983873336058,
+          "rec_lat": -19.697864300684202,
+          "dlon": 0.03777655532448421,
+          "dlat": -0.1512350848619981,
+          "sky_arcsec": 0.0592865892721465
+        },
+        {
+          "true_lon": 146.29872523819193,
+          "true_lat": -17.46569428361229,
+          "rec_lon": 146.53927890460184,
+          "rec_lat": -17.22715030908408,
+          "dlon": 0.24055366640990883,
+          "dlat": 0.2385439745282092,
+          "sky_arcsec": 0.13009799775111708
+        },
+        {
+          "true_lon": 141.42115061048924,
+          "true_lat": -17.165361424526086,
+          "rec_lon": 141.769477845409,
+          "rec_lat": -16.945290166796056,
+          "dlon": 0.3483272349197648,
+          "dlat": 0.2200712577300301,
+          "sky_arcsec": 0.15907492226753459
+        },
+        {
+          "true_lon": 155.62666672057088,
+          "true_lat": -19.23805499645292,
+          "rec_lon": 155.45823662801985,
+          "rec_lat": -19.300074625010907,
+          "dlon": -0.16843009255103425,
+          "dlat": -0.06201962855798726,
+          "sky_arcsec": 0.06881343812400186
+        },
+        {
+          "true_lon": 143.08802301615097,
+          "true_lat": -19.50790551302331,
+          "rec_lon": 143.11981580701226,
+          "rec_lat": -19.783950343300504,
+          "dlon": 0.03179279086128872,
+          "dlat": -0.2760448302771934,
+          "sky_arcsec": 0.10564516325160295
+        },
+        {
+          "true_lon": 167.2377509985687,
+          "true_lat": -17.93582835803749,
+          "rec_lon": 166.89349098247845,
+          "rec_lat": -17.86185234874975,
+          "dlon": -0.34426001609026,
+          "dlat": 0.0739760092877404,
+          "sky_arcsec": 0.13608820595905902
+        },
+        {
+          "true_lon": 159.26507171741613,
+          "true_lat": -19.291984292632392,
+          "rec_lon": 159.3302907514849,
+          "rec_lat": -19.391186449193967,
+          "dlon": 0.06521903406877527,
+          "dlat": -0.09920215656157438,
+          "sky_arcsec": 0.045259921285566516
+        },
+        {
+          "true_lon": 154.5364762623596,
+          "true_lat": -18.09308918099187,
+          "rec_lon": 154.46762042078544,
+          "rec_lat": -18.04526832310023,
+          "dlon": -0.06885584157416247,
+          "dlat": 0.047820857891640145,
+          "sky_arcsec": 0.03222531364480406
+        },
+        {
+          "true_lon": 153.31114093513315,
+          "true_lat": -17.016515985283014,
+          "rec_lon": 153.387965735056,
+          "rec_lat": -16.83524361451657,
+          "dlon": 0.07682479992286062,
+          "dlat": 0.1812723707664432,
+          "sky_arcsec": 0.0751048218495565
+        },
+        {
+          "true_lon": 147.2879048824095,
+          "true_lat": -19.537892911964615,
+          "rec_lon": 147.44454300157344,
+          "rec_lat": -19.658430134849638,
+          "dlon": 0.15663811916394366,
+          "dlat": -0.120537222885023,
+          "sky_arcsec": 0.07550592774028592
+        },
+        {
+          "true_lon": 158.41595494095904,
+          "true_lat": -18.028447890955867,
+          "rec_lon": 158.51917801285776,
+          "rec_lat": -17.99228503756794,
+          "dlon": 0.10322307189872504,
+          "dlat": 0.03616285338792835,
+          "sky_arcsec": 0.04220483384240315
+        },
+        {
+          "true_lon": 164.0925466422369,
+          "true_lat": -17.68974817416737,
+          "rec_lon": 164.46202893861292,
+          "rec_lat": -17.665964397734058,
+          "dlon": 0.36948229637602026,
+          "dlat": 0.023783776433312198,
+          "sky_arcsec": 0.14338877344031092
+        },
+        {
+          "true_lon": 166.8072202063834,
+          "true_lat": -17.406608497400946,
+          "rec_lon": 166.44293489281904,
+          "rec_lat": -17.354865907667644,
+          "dlon": -0.364285313564352,
+          "dlat": 0.05174258973330126,
+          "sky_arcsec": 0.1426737160111457
+        },
+        {
+          "true_lon": 144.94226926512607,
+          "true_lat": -17.311325726483833,
+          "rec_lon": 145.1025179156204,
+          "rec_lat": -17.28360075737099,
+          "dlon": 0.16024865049433856,
+          "dlat": 0.0277249691128425,
+          "sky_arcsec": 0.06308170565051437
+        }
+      ],
+      "vlbi_full": {
+        "lon_iii_deg": 189.11559273224148,
+        "lat_deg": -18.56610362687233,
+        "lat_planetographic_deg": -21.01170585383933,
+        "length_deg": 10.558121756571804,
+        "width_deg": 8.642734460502165,
+        "lon_raw_deg": 189.19241753216434,
+        "lat_raw_deg": -18.575399583043776,
+        "bias_lon_deg": 0.07682479992286062,
+        "bias_lat_deg": -0.009295956171445852,
+        "primary_method": "vlbi_multiscale_ncc",
+        "error_budget": {
+          "sigma_random_lon_deg": 27.441687766804154,
+          "sigma_random_lat_deg": 2.3809695919465983,
+          "sigma_definition_lon_deg": 0.11137311151486336,
+          "sigma_definition_lat_deg": 0.06801263977225436,
+          "sigma_nav_lon_deg": 0.2527142451696375,
+          "sigma_nav_lat_deg": 0.17390296887592124,
+          "sigma_time_lon_deg": 0.0,
+          "sigma_ephem_lon_deg": 0.02,
+          "sigma_bias_lon_deg": 0.03744442830144327,
+          "sigma_bias_lat_deg": 0.019780259930826348,
+          "sigma_total_lon_deg": 27.443110210682384,
+          "sigma_total_lat_deg": 2.388362497237371,
+          "sigma_random_sky_arcsec": 10.613958450085669,
+          "sigma_systematic_sky_arcsec": 0.12919015357025448,
+          "sigma_total_sky_arcsec": 10.665687191210676,
+          "components_sky_arcsec": {
+            "random": 10.613958450085669,
+            "definition": 0.05010639923416057,
+            "navigation": 0.11770840152531367,
+            "time": 0.0,
+            "ephemeris_cm": 0.007707465768075128,
+            "bias_uncertainty": 0.01627180743133124,
+            "filter_closure_half": 1.0411912335546234,
+            "total": 10.665687191210676
+          }
+        },
+        "grade": "NEEDS_WORK",
+        "optical_floor_arcsec": 0.3241307142857143,
+        "injection_n": 31,
+        "injection_mean_sky_arcsec": 0.0829415831125308,
+        "definition_n": 3,
+        "filter_closure_arcsec": 2.082382467109247,
+        "hierarchical_mc": {
+          "n_success": 80,
+          "n_iter": 80,
+          "elapsed_s": 9.466663122177124,
+          "mode": "hierarchical_limb_map_template_cm",
+          "mean": {
+            "lon_iii_deg": 188.9178373967567,
+            "lat_deg": -19.070272926995653
+          },
+          "std_deg": {
+            "lon_iii_deg": 40.90700352800033,
+            "lat_deg": 3.5472509660394067
+          },
+          "std_arcsec": {
+            "lon": 15.717264308413563,
+            "lat": 1.3485121499717747,
+            "sky": 15.775008157181801
+          },
+          "target_0_5_arcsec": false,
+          "target_1_arcsec": false,
+          "target_2_arcsec": false
+        },
+        "definitions": [
+          {
+            "name": "multiscale_ncc",
+            "lon_iii_deg": 189.10477246875436,
+            "lat_deg": -18.54045037531276,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "weight": 4.0
+          },
+          {
+            "name": "template",
+            "lon_iii_deg": 189.10477246875436,
+            "lat_deg": -18.54045037531276,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "weight": 3.0
+          },
+          {
+            "name": "engine_vlbi",
+            "lon_iii_deg": 189.04460482761826,
+            "lat_deg": -18.46846846846846,
+            "length_deg": 10.530351496399806,
+            "width_deg": 8.681518952760335,
+            "weight": 3.5
+          }
+        ],
+        "methods": {
+          "primary": {
+            "lon_iii_deg": 189.19241753216434,
+            "lat_deg": -18.575399583043776,
+            "length_deg": 10.558121756571804,
+            "width_deg": 8.642734460502165,
+            "method": "vlbi_multiscale_ncc",
+            "methods": {
+              "multiscale_ncc": {
+                "lon_iii_deg": 189.19241753216434,
+                "lat_deg": -18.575399583043776,
+                "length_deg": 12.0,
+                "width_deg": 8.0,
+                "score": 16304.344650155803,
+                "method": "template_override_ncc",
+                "ncc_rejected": {
+                  "lon_iii_deg": 107.41576151719548,
+                  "lat_deg": -26.50052729813119,
+                  "length_deg": 15.0,
+                  "width_deg": 6.5,
+                  "score": 0.6546587078946253,
+                  "ncc": 0.7221666173665932,
+                  "method": "multiscale_ncc",
+                  "map_x": 1546.027818516137,
+                  "map_y": 931.3569932333932
+                }
+              },
+              "template": {
+                "lon_iii_deg": 189.19241753216434,
+                "lat_deg": -18.575399583043776,
+                "length_deg": 12.0,
+                "width_deg": 8.0,
+                "score": 16304.344650155803,
+                "method": "dark_profile"
+              }
+            },
+            "err_lon_deg": 0.044149851795812566,
+            "err_lat_deg": 0.04339930388455401,
+            "err_sky_arcsec": 0.023699211272171006,
+            "err_lon_arcsec": 0.017013246163643272,
+            "err_lat_arcsec": 0.016498547508743754,
+            "quality": 0.9952601577455658,
+            "notes": [
+              "map_dark: map_dark too near map edge",
+              "moment rejected (pathological)",
+              "soft lock multiscale\u2295template (agreement <1.5\u00b0)",
+              "Primary: multi-scale normalized cross-correlation on \u03bc-corrected cylindrical map",
+              "Size: isophote ellipse on map (moment sizes rejected if pathological)",
+              "Internal \u03c3 is method scatter only \u2014 use hierarchical MC + error budget for total"
+            ]
+          },
+          "closure": {
+            "filters": [
+              {
+                "filter": "R",
+                "lam": 620.0,
+                "lon": 188.95445969946775,
+                "lat": -18.52057842046719
+              },
+              {
+                "filter": "G",
+                "lam": 530.0,
+                "lon": 189.05451528590467,
+                "lat": -14.516129032258078
+              },
+              {
+                "filter": "B",
+                "lam": 470.0,
+                "lon": 188.85440411303082,
+                "lat": -29.532814238042278
+              }
+            ],
+            "residual_lon_deg_rms": 0.08652408939102706,
+            "residual_lat_deg_rms": 5.47700881295371,
+            "closure_sky_arcsec": 2.082382467109247
+          },
+          "probes": [
+            {
+              "true_lon": 158.02606433960278,
+              "true_lat": -17.2844470713628,
+              "rec_lon": 158.24902675957568,
+              "rec_lat": -17.23913054940877,
+              "dlon": 0.22296241997290167,
+              "dlat": 0.04531652195402813,
+              "sky_arcsec": 0.08824568971806834
+            },
+            {
+              "true_lon": 143.3894678667063,
+              "true_lat": -18.057485150753383,
+              "rec_lon": 143.75191893364547,
+              "rec_lat": -18.16166283041541,
+              "dlon": 0.3624510669391725,
+              "dlat": -0.10417767966202618,
+              "sky_arcsec": 0.1455803976660403
+            },
+            {
+              "true_lon": 165.50827675963578,
+              "true_lat": -19.90768216383608,
+              "rec_lon": 165.18266018590253,
+              "rec_lat": -19.95240652067764,
+              "dlon": -0.3256165737332424,
+              "dlat": -0.04472435684156295,
+              "sky_arcsec": 0.12561867630152984
+            },
+            {
+              "true_lon": 158.07785996599443,
+              "true_lat": -17.377758077235562,
+              "rec_lon": 157.88902191290455,
+              "rec_lat": -17.283368963661772,
+              "dlon": -0.18883805308988144,
+              "dlat": 0.09438911357378998,
+              "sky_arcsec": 0.08157965974490673
+            },
+            {
+              "true_lon": 159.5680661612591,
+              "true_lat": -19.337418408894898,
+              "rec_lon": 159.86970721662055,
+              "rec_lat": -19.434756863250968,
+              "dlon": 0.3016410553614435,
+              "dlat": -0.0973384543560698,
+              "sky_arcsec": 0.12148124806482243
+            },
+            {
+              "true_lon": 152.1508679321466,
+              "true_lat": -18.38251374067499,
+              "rec_lon": 152.4863002355349,
+              "rec_lat": -18.391809696846437,
+              "dlon": 0.335432303388302,
+              "dlat": -0.009295956171445852,
+              "sky_arcsec": 0.12945335264785163
+            },
+            {
+              "true_lon": 162.75090077150443,
+              "true_lat": -19.318462055083714,
+              "rec_lon": 162.66103661892032,
+              "rec_lat": -19.370261080539265,
+              "dlon": -0.08986415258411284,
+              "dlat": -0.05179902545555137,
+              "sky_arcsec": 0.039702985880817956
+            },
+            {
+              "true_lon": 149.52163701427082,
+              "true_lat": -18.71264155413878,
+              "rec_lon": 149.51547147295034,
+              "rec_lat": -18.754809957489897,
+              "dlon": -0.0061655413204846354,
+              "dlat": -0.04216840335111627,
+              "sky_arcsec": 0.016205441500467585
+            },
+            {
+              "true_lon": 150.30280627983225,
+              "true_lat": -18.769236990977266,
+              "rec_lon": 150.2352952265152,
+              "rec_lat": -18.802926491333565,
+              "dlon": -0.06751105331704821,
+              "dlat": -0.03368950035629936,
+              "sky_arcsec": 0.02897049034857602
+            },
+            {
+              "true_lon": 142.3354875956789,
+              "true_lat": -17.10450909649639,
+              "rec_lon": 142.5816277535189,
+              "rec_lat": -17.079383554680987,
+              "dlon": 0.24614015783998866,
+              "dlat": 0.025125541815402386,
+              "sky_arcsec": 0.09611342478872056
+            },
+            {
+              "true_lon": 149.68571185739447,
+              "true_lat": -18.757698175326137,
+              "rec_lon": 149.7846231762932,
+              "rec_lat": -18.78420558337166,
+              "dlon": 0.09891131889872895,
+              "dlat": -0.02650740804552143,
+              "sky_arcsec": 0.03938568755144022
+            },
+            {
+              "true_lon": 145.4939890093931,
+              "true_lat": -17.64472927563702,
+              "rec_lon": 145.64318883460282,
+              "rec_lat": -17.645818775909206,
+              "dlon": 0.14919982520973463,
+              "dlat": -0.001089500272186683,
+              "sky_arcsec": 0.05780222381174355
+            },
+            {
+              "true_lon": 151.69701948551975,
+              "true_lat": -20.071400026940175,
+              "rec_lon": 151.67637071512186,
+              "rec_lat": -20.16897970593405,
+              "dlon": -0.02064877039788371,
+              "dlat": -0.0975796789938741,
+              "sky_arcsec": 0.037924251906959076
+            },
+            {
+              "true_lon": 143.43881398086043,
+              "true_lat": -18.283579480122356,
+              "rec_lon": 143.6611281712432,
+              "rec_lat": -18.393581340819395,
+              "dlon": 0.22231419038277522,
+              "dlat": -0.11000186069703943,
+              "sky_arcsec": 0.09546163214534735
+            },
+            {
+              "true_lon": 156.72331442387733,
+              "true_lat": -17.557552764942745,
+              "rec_lon": 156.62827616047295,
+              "rec_lat": -17.442932216956763,
+              "dlon": -0.09503826340437627,
+              "dlat": 0.11462054798598231,
+              "sky_arcsec": 0.05705761562121295
+            },
+            {
+              "true_lon": 155.57224545801822,
+              "true_lat": -18.79531832594561,
+              "rec_lon": 155.45671087098444,
+              "rec_lat": -18.803573680407894,
+              "dlon": -0.11553458703377828,
+              "dlat": -0.008255354462285425,
+              "sky_arcsec": 0.04457437762578072
+            },
+            {
+              "true_lon": 151.02521474097,
+              "true_lat": -19.362957961223344,
+              "rec_lon": 151.22495404429026,
+              "rec_lat": -19.474612944713982,
+              "dlon": 0.19973930332025702,
+              "dlat": -0.11165498349063796,
+              "sky_arcsec": 0.08758059107412106
+            },
+            {
+              "true_lon": 143.7120621780361,
+              "true_lat": -19.546629215822204,
+              "rec_lon": 143.74983873336058,
+              "rec_lat": -19.697864300684202,
+              "dlon": 0.03777655532448421,
+              "dlat": -0.1512350848619981,
+              "sky_arcsec": 0.0592865892721465
+            },
+            {
+              "true_lon": 146.29872523819193,
+              "true_lat": -17.46569428361229,
+              "rec_lon": 146.53927890460184,
+              "rec_lat": -17.22715030908408,
+              "dlon": 0.24055366640990883,
+              "dlat": 0.2385439745282092,
+              "sky_arcsec": 0.13009799775111708
+            },
+            {
+              "true_lon": 141.42115061048924,
+              "true_lat": -17.165361424526086,
+              "rec_lon": 141.769477845409,
+              "rec_lat": -16.945290166796056,
+              "dlon": 0.3483272349197648,
+              "dlat": 0.2200712577300301,
+              "sky_arcsec": 0.15907492226753459
+            },
+            {
+              "true_lon": 155.62666672057088,
+              "true_lat": -19.23805499645292,
+              "rec_lon": 155.45823662801985,
+              "rec_lat": -19.300074625010907,
+              "dlon": -0.16843009255103425,
+              "dlat": -0.06201962855798726,
+              "sky_arcsec": 0.06881343812400186
+            },
+            {
+              "true_lon": 143.08802301615097,
+              "true_lat": -19.50790551302331,
+              "rec_lon": 143.11981580701226,
+              "rec_lat": -19.783950343300504,
+              "dlon": 0.03179279086128872,
+              "dlat": -0.2760448302771934,
+              "sky_arcsec": 0.10564516325160295
+            },
+            {
+              "true_lon": 167.2377509985687,
+              "true_lat": -17.93582835803749,
+              "rec_lon": 166.89349098247845,
+              "rec_lat": -17.86185234874975,
+              "dlon": -0.34426001609026,
+              "dlat": 0.0739760092877404,
+              "sky_arcsec": 0.13608820595905902
+            },
+            {
+              "true_lon": 159.26507171741613,
+              "true_lat": -19.291984292632392,
+              "rec_lon": 159.3302907514849,
+              "rec_lat": -19.391186449193967,
+              "dlon": 0.06521903406877527,
+              "dlat": -0.09920215656157438,
+              "sky_arcsec": 0.045259921285566516
+            },
+            {
+              "true_lon": 154.5364762623596,
+              "true_lat": -18.09308918099187,
+              "rec_lon": 154.46762042078544,
+              "rec_lat": -18.04526832310023,
+              "dlon": -0.06885584157416247,
+              "dlat": 0.047820857891640145,
+              "sky_arcsec": 0.03222531364480406
+            },
+            {
+              "true_lon": 153.31114093513315,
+              "true_lat": -17.016515985283014,
+              "rec_lon": 153.387965735056,
+              "rec_lat": -16.83524361451657,
+              "dlon": 0.07682479992286062,
+              "dlat": 0.1812723707664432,
+              "sky_arcsec": 0.0751048218495565
+            },
+            {
+              "true_lon": 147.2879048824095,
+              "true_lat": -19.537892911964615,
+              "rec_lon": 147.44454300157344,
+              "rec_lat": -19.658430134849638,
+              "dlon": 0.15663811916394366,
+              "dlat": -0.120537222885023,
+              "sky_arcsec": 0.07550592774028592
+            },
+            {
+              "true_lon": 158.41595494095904,
+              "true_lat": -18.028447890955867,
+              "rec_lon": 158.51917801285776,
+              "rec_lat": -17.99228503756794,
+              "dlon": 0.10322307189872504,
+              "dlat": 0.03616285338792835,
+              "sky_arcsec": 0.04220483384240315
+            },
+            {
+              "true_lon": 164.0925466422369,
+              "true_lat": -17.68974817416737,
+              "rec_lon": 164.46202893861292,
+              "rec_lat": -17.665964397734058,
+              "dlon": 0.36948229637602026,
+              "dlat": 0.023783776433312198,
+              "sky_arcsec": 0.14338877344031092
+            },
+            {
+              "true_lon": 166.8072202063834,
+              "true_lat": -17.406608497400946,
+              "rec_lon": 166.44293489281904,
+              "rec_lat": -17.354865907667644,
+              "dlon": -0.364285313564352,
+              "dlat": 0.05174258973330126,
+              "sky_arcsec": 0.1426737160111457
+            },
+            {
+              "true_lon": 144.94226926512607,
+              "true_lat": -17.311325726483833,
+              "rec_lon": 145.1025179156204,
+              "rec_lat": -17.28360075737099,
+              "dlon": 0.16024865049433856,
+              "dlat": 0.0277249691128425,
+              "sky_arcsec": 0.06308170565051437
+            }
+          ]
+        },
+        "ephemeris": {
+          "t_utc_iso": "2026-01-10T15:39:26",
+          "distance_au": 4.23195983918294,
+          "cm_iii_deg": 100.75546025533211,
+          "sub_obs_lat_deg": 0.0,
+          "sub_obs_lon_deg": 100.75546025533211,
+          "north_pa_deg": 0.0,
+          "apparent_diameter_arcsec": 46.584949158247575,
+          "light_time_s": 2111.7682047547783,
+          "source": "horizons+spice_auto+analytical",
+          "sigma_cm_deg": 0.02,
+          "sigma_distance_frac": 0.0005,
+          "sigma_pa_deg": 0.2,
+          "sigma_sublat_deg": 0.1,
+          "notes": [
+            "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+            "SPICE auto geometry (4 kernels; online download if needed).",
+            "Horizons full observer geometry applied where parsed.",
+            "Distance override applied.",
+            "CM III override applied (no light-time re-shift).",
+            "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+            "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False"
+          ],
+          "pro": {
+            "t_utc_iso": "2026-01-10T15:39:26",
+            "distance_au": 4.23195983918294,
+            "cm_iii_deg": 100.75546025533211,
+            "sub_obs_lat_deg": 0.0,
+            "sub_obs_lon_deg": 100.75546025533211,
+            "north_pa_deg": 0.0,
+            "apparent_diameter_arcsec": 46.584949158247575,
+            "light_time_s": 2111.7682047547783,
+            "source": "horizons+spice_auto+analytical",
+            "cm_source": "override",
+            "orientation_source": "disabled_for_cm_override",
+            "distance_source": "override",
+            "sigma_cm_deg": 0.02,
+            "sigma_distance_frac": 0.0005,
+            "sigma_pa_deg": 0.2,
+            "sigma_sublat_deg": 0.1,
+            "apply_orientation": false,
+            "notes": [
+              "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+              "SPICE auto geometry (4 kernels; online download if needed).",
+              "Horizons full observer geometry applied where parsed.",
+              "Distance override applied.",
+              "CM III override applied (no light-time re-shift).",
+              "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+              "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False"
+            ],
+            "raw": {
+              "analytical": {
+                "distance_au": 5.596957536399352,
+                "cm_iii_deg": 100.509814620018,
+                "sub_obs_lat_deg": 2.819250611486442,
+                "sub_obs_lon_deg": 100.509814620018,
+                "north_pa_deg": 0.0,
+                "apparent_diameter_arcsec": 35.2237144316287,
+                "light_time_s": 2792.908585591105
+              },
+              "spice": {
+                "distance_au": 4.231959987994408,
+                "light_time_s": 2111.768279012413,
+                "apparent_diameter_arcsec": 46.58494752014734,
+                "source": "spice_auto",
+                "kernels": [
+                  "naif0012.tls",
+                  "gm_de440.tpc",
+                  "pck00011.tpc",
+                  "de440s.bsp"
+                ],
+                "notes": [
+                  "body frame via pxform(J2000\u2192IAU_JUPITER) on barycenter LOS (de440s-safe)",
+                  "north_pa from pole projection"
+                ],
+                "north_pa_deg": 350.1894445265277,
+                "cm_iii_deg": 100.75546025533211,
+                "sub_obs_lon_deg": 100.75546025533211,
+                "sub_obs_lat_deg": 1.3900899915262959
+              },
+              "horizons": {
+                "parser": "horizons_observer_v1",
+                "distance_au": 4.23195983918294,
+                "light_time_s": 2795.0969999999998,
+                "sub_obs_lat_deg": 0.2619141,
+                "sub_obs_lon_deg": 64.49669,
+                "cm_iii_deg": 64.49669,
+                "north_pa_deg": 64.49669,
+                "apparent_diameter_arcsec": 46.584949158247575,
+                "floats_found": [
+                  111.356418442,
+                  22.249575792,
+                  46.58495,
+                  100.501642,
+                  1.58973,
+                  4.23195983918294,
+                  0.725178,
+                  110.0687354,
+                  0.2619141,
+                  268.0577,
+                  64.49669
+                ],
+                "data_line": "2026-Jan-10 15:39, , , 111.356418442,  22.249575792,  46.58495,  100.501642,   1.589730,  4.23195983918294,  0.7251780,  110.0687354,  0.2619141,  268.05770,  64.49669,",
+                "ok": true,
+                "excerpt": "API VERSION: 1.2\nAPI SOURCE: NASA/JPL Horizons API\n\n\n\n*******************************************************************************\nEphemeris / API_USER Wed Jul 15 05:54:23 2026 Pasadena, USA      / Horizons    \n*******************************************************************************\nTarget body name: Jupiter (599)                   {source: jup365_merged}\nCenter body name: Earth (399)                     {source: DE441}\nCenter-site name: GEOCENTRIC\n*******************************************************************************\nStart time      : A.D. 2026-Jan-10 15:39:00.0000 UT      \nStop  time      : A.D. 2026-Jan-10 15:40:00.0000 UT      \nStep-size       : 1 minutes\n*******************************************************************************\nTarget pole/equ : IAU_JUPITER                     {West-longitude positive}\nTarget radii    : 71492.0, 71492.0, 66854.0 km    {Equator_a, b, pole_c}       \nCenter geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}\nCenter cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}\nCenter pole/equ : ITRF93                          {East-longitude positive}\nCenter radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       \nTarget primary  : Sun\nVis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}\nRel. light bend : Sun                             {source: jup365_merged}\nRel. lght bnd GM: 1.3271E+11 km^3/s^2                                          \nAtmos refraction: NO (AIRLESS)\nRA format       : DEG\nTime format     : CAL \nCalendar mode   : Mixed Julian/Gregorian\nEOP file        : eop.260714.p261010                                           \nEOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-JUL-14. PREDICTS-> 2026-OCT-09\nUnits conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s \nTable cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )\nTable cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )\nTable cut-offs 3: RA/DEC angular rate (     0.0=NO )                           \nTable format    : Comma Separated Values (spreadsheet)\n*************************************************************************************************************************************************************************\n Date__(UT)__HR:MN, , , R.A.___(ICRF), DEC____(ICRF),  Ang-diam,  ObsSub-LON, ObsSub-LAT,             delta,     deldot,     ObsEcLon,   ObsEcLat,  N.Pole-RA, N.Pole-DC,\n*****************************",
+                "query_time": "2026-01-10T15:39:26"
+              }
+            }
+          }
+        },
+        "nav": {
+          "xc": 254.330556401904,
+          "yc": 251.63701845343465,
+          "a_eq_px": 217.7401406273563,
+          "flattening": 0.06487439154031216,
+          "cm_iii_deg": 100.75546025533211,
+          "distance_au": 4.23195983918294,
+          "sub_lat_deg": 0.0,
+          "north_pa_deg": 0.0,
+          "sigma_xc": 0.6704842539182232,
+          "sigma_yc": 0.6590639407283457,
+          "sigma_a": 0.09793073146527019,
+          "limb_n_rays": 900,
+          "limb_rms_px": 0.8941145804796,
+          "b_pol_px": 203.61438149025457
+        },
+        "notes": [
+          "VLBI-inspired optical metrology \u2014 methods, not microarcsecond claims.",
+          "Primary centre: multi-scale NCC on \u03bc-corrected oriented cylindrical map.",
+          "Phase-reference probes use the same correlator; bias capped if unphysical.",
+          "Formal \u03c3 = random \u2295 definition \u2295 nav \u2295 time \u2295 ephemeris_CM \u2295 bias_unc (\u00b1\u00bd closure).",
+          "Diffraction floor (~\u03bb/D) for 0.35m @550nm \u2248 0.324\"; extended-feature floor higher.",
+          "image_hash=889d70889e11c64d",
+          "For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.",
+          "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+          "SPICE auto geometry (4 kernels; online download if needed).",
+          "Horizons full observer geometry applied where parsed.",
+          "Distance override applied.",
+          "CM III override applied (no light-time re-shift).",
+          "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+          "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False",
+          "Multi-\u03bb closure residual \u03c3_sky\u22482.0824\""
+        ],
+        "elapsed_s": 27.2625150680542,
+        "mode": "VLBI_INSPIRED_OPTICAL"
+      },
+      "hierarchical_mc": {
+        "n_success": 80,
+        "n_iter": 80,
+        "elapsed_s": 9.466663122177124,
+        "mode": "hierarchical_limb_map_template_cm",
+        "mean": {
+          "lon_iii_deg": 188.9178373967567,
+          "lat_deg": -19.070272926995653
+        },
+        "std_deg": {
+          "lon_iii_deg": 40.90700352800033,
+          "lat_deg": 3.5472509660394067
+        },
+        "std_arcsec": {
+          "lon": 15.717264308413563,
+          "lat": 1.3485121499717747,
+          "sky": 15.775008157181801
+        },
+        "target_0_5_arcsec": false,
+        "target_1_arcsec": false,
+        "target_2_arcsec": false
+      },
+      "error_budget": {
+        "sigma_random_lon_deg": 27.441687766804154,
+        "sigma_random_lat_deg": 2.3809695919465983,
+        "sigma_definition_lon_deg": 0.11137311151486336,
+        "sigma_definition_lat_deg": 0.06801263977225436,
+        "sigma_nav_lon_deg": 0.2527142451696375,
+        "sigma_nav_lat_deg": 0.17390296887592124,
+        "sigma_time_lon_deg": 0.0,
+        "sigma_ephem_lon_deg": 0.02,
+        "sigma_bias_lon_deg": 0.03744442830144327,
+        "sigma_bias_lat_deg": 0.019780259930826348,
+        "sigma_total_lon_deg": 27.443110210682384,
+        "sigma_total_lat_deg": 2.388362497237371,
+        "sigma_random_sky_arcsec": 10.613958450085669,
+        "sigma_systematic_sky_arcsec": 0.12919015357025448,
+        "sigma_total_sky_arcsec": 10.665687191210676,
+        "components_sky_arcsec": {
+          "random": 10.613958450085669,
+          "definition": 0.05010639923416057,
+          "navigation": 0.11770840152531367,
+          "time": 0.0,
+          "ephemeris_cm": 0.007707465768075128,
+          "bias_uncertainty": 0.01627180743133124,
+          "filter_closure_half": 1.0411912335546234,
+          "total": 10.665687191210676
+        }
+      },
+      "optical_floor_arcsec": 0.3241307142857143
+    },
+    "definitions": [
+      {
+        "name": "multiscale_ncc",
+        "lon_iii_deg": 189.10477246875436,
+        "lat_deg": -18.54045037531276,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 4.0
+      },
+      {
+        "name": "template",
+        "lon_iii_deg": 189.10477246875436,
+        "lat_deg": -18.54045037531276,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 3.0
+      },
+      {
+        "name": "engine_vlbi",
+        "lon_iii_deg": 189.04460482761826,
+        "lat_deg": -18.46846846846846,
+        "length_deg": 10.530351496399806,
+        "width_deg": 8.681518952760335,
+        "weight": 3.5
+      }
+    ],
+    "injections": [
+      {
+        "true_lon": 158.02606433960278,
+        "true_lat": -17.2844470713628,
+        "rec_lon": 158.24902675957568,
+        "rec_lat": -17.23913054940877,
+        "dlon": 0.22296241997290167,
+        "dlat": 0.04531652195402813,
+        "sky_arcsec": 0.08824568971806834
+      },
+      {
+        "true_lon": 143.3894678667063,
+        "true_lat": -18.057485150753383,
+        "rec_lon": 143.75191893364547,
+        "rec_lat": -18.16166283041541,
+        "dlon": 0.3624510669391725,
+        "dlat": -0.10417767966202618,
+        "sky_arcsec": 0.1455803976660403
+      },
+      {
+        "true_lon": 165.50827675963578,
+        "true_lat": -19.90768216383608,
+        "rec_lon": 165.18266018590253,
+        "rec_lat": -19.95240652067764,
+        "dlon": -0.3256165737332424,
+        "dlat": -0.04472435684156295,
+        "sky_arcsec": 0.12561867630152984
+      },
+      {
+        "true_lon": 158.07785996599443,
+        "true_lat": -17.377758077235562,
+        "rec_lon": 157.88902191290455,
+        "rec_lat": -17.283368963661772,
+        "dlon": -0.18883805308988144,
+        "dlat": 0.09438911357378998,
+        "sky_arcsec": 0.08157965974490673
+      },
+      {
+        "true_lon": 159.5680661612591,
+        "true_lat": -19.337418408894898,
+        "rec_lon": 159.86970721662055,
+        "rec_lat": -19.434756863250968,
+        "dlon": 0.3016410553614435,
+        "dlat": -0.0973384543560698,
+        "sky_arcsec": 0.12148124806482243
+      },
+      {
+        "true_lon": 152.1508679321466,
+        "true_lat": -18.38251374067499,
+        "rec_lon": 152.4863002355349,
+        "rec_lat": -18.391809696846437,
+        "dlon": 0.335432303388302,
+        "dlat": -0.009295956171445852,
+        "sky_arcsec": 0.12945335264785163
+      },
+      {
+        "true_lon": 162.75090077150443,
+        "true_lat": -19.318462055083714,
+        "rec_lon": 162.66103661892032,
+        "rec_lat": -19.370261080539265,
+        "dlon": -0.08986415258411284,
+        "dlat": -0.05179902545555137,
+        "sky_arcsec": 0.039702985880817956
+      },
+      {
+        "true_lon": 149.52163701427082,
+        "true_lat": -18.71264155413878,
+        "rec_lon": 149.51547147295034,
+        "rec_lat": -18.754809957489897,
+        "dlon": -0.0061655413204846354,
+        "dlat": -0.04216840335111627,
+        "sky_arcsec": 0.016205441500467585
+      },
+      {
+        "true_lon": 150.30280627983225,
+        "true_lat": -18.769236990977266,
+        "rec_lon": 150.2352952265152,
+        "rec_lat": -18.802926491333565,
+        "dlon": -0.06751105331704821,
+        "dlat": -0.03368950035629936,
+        "sky_arcsec": 0.02897049034857602
+      },
+      {
+        "true_lon": 142.3354875956789,
+        "true_lat": -17.10450909649639,
+        "rec_lon": 142.5816277535189,
+        "rec_lat": -17.079383554680987,
+        "dlon": 0.24614015783998866,
+        "dlat": 0.025125541815402386,
+        "sky_arcsec": 0.09611342478872056
+      },
+      {
+        "true_lon": 149.68571185739447,
+        "true_lat": -18.757698175326137,
+        "rec_lon": 149.7846231762932,
+        "rec_lat": -18.78420558337166,
+        "dlon": 0.09891131889872895,
+        "dlat": -0.02650740804552143,
+        "sky_arcsec": 0.03938568755144022
+      },
+      {
+        "true_lon": 145.4939890093931,
+        "true_lat": -17.64472927563702,
+        "rec_lon": 145.64318883460282,
+        "rec_lat": -17.645818775909206,
+        "dlon": 0.14919982520973463,
+        "dlat": -0.001089500272186683,
+        "sky_arcsec": 0.05780222381174355
+      },
+      {
+        "true_lon": 151.69701948551975,
+        "true_lat": -20.071400026940175,
+        "rec_lon": 151.67637071512186,
+        "rec_lat": -20.16897970593405,
+        "dlon": -0.02064877039788371,
+        "dlat": -0.0975796789938741,
+        "sky_arcsec": 0.037924251906959076
+      },
+      {
+        "true_lon": 143.43881398086043,
+        "true_lat": -18.283579480122356,
+        "rec_lon": 143.6611281712432,
+        "rec_lat": -18.393581340819395,
+        "dlon": 0.22231419038277522,
+        "dlat": -0.11000186069703943,
+        "sky_arcsec": 0.09546163214534735
+      },
+      {
+        "true_lon": 156.72331442387733,
+        "true_lat": -17.557552764942745,
+        "rec_lon": 156.62827616047295,
+        "rec_lat": -17.442932216956763,
+        "dlon": -0.09503826340437627,
+        "dlat": 0.11462054798598231,
+        "sky_arcsec": 0.05705761562121295
+      },
+      {
+        "true_lon": 155.57224545801822,
+        "true_lat": -18.79531832594561,
+        "rec_lon": 155.45671087098444,
+        "rec_lat": -18.803573680407894,
+        "dlon": -0.11553458703377828,
+        "dlat": -0.008255354462285425,
+        "sky_arcsec": 0.04457437762578072
+      },
+      {
+        "true_lon": 151.02521474097,
+        "true_lat": -19.362957961223344,
+        "rec_lon": 151.22495404429026,
+        "rec_lat": -19.474612944713982,
+        "dlon": 0.19973930332025702,
+        "dlat": -0.11165498349063796,
+        "sky_arcsec": 0.08758059107412106
+      },
+      {
+        "true_lon": 143.7120621780361,
+        "true_lat": -19.546629215822204,
+        "rec_lon": 143.74983873336058,
+        "rec_lat": -19.697864300684202,
+        "dlon": 0.03777655532448421,
+        "dlat": -0.1512350848619981,
+        "sky_arcsec": 0.0592865892721465
+      },
+      {
+        "true_lon": 146.29872523819193,
+        "true_lat": -17.46569428361229,
+        "rec_lon": 146.53927890460184,
+        "rec_lat": -17.22715030908408,
+        "dlon": 0.24055366640990883,
+        "dlat": 0.2385439745282092,
+        "sky_arcsec": 0.13009799775111708
+      },
+      {
+        "true_lon": 141.42115061048924,
+        "true_lat": -17.165361424526086,
+        "rec_lon": 141.769477845409,
+        "rec_lat": -16.945290166796056,
+        "dlon": 0.3483272349197648,
+        "dlat": 0.2200712577300301,
+        "sky_arcsec": 0.15907492226753459
+      },
+      {
+        "true_lon": 155.62666672057088,
+        "true_lat": -19.23805499645292,
+        "rec_lon": 155.45823662801985,
+        "rec_lat": -19.300074625010907,
+        "dlon": -0.16843009255103425,
+        "dlat": -0.06201962855798726,
+        "sky_arcsec": 0.06881343812400186
+      },
+      {
+        "true_lon": 143.08802301615097,
+        "true_lat": -19.50790551302331,
+        "rec_lon": 143.11981580701226,
+        "rec_lat": -19.783950343300504,
+        "dlon": 0.03179279086128872,
+        "dlat": -0.2760448302771934,
+        "sky_arcsec": 0.10564516325160295
+      },
+      {
+        "true_lon": 167.2377509985687,
+        "true_lat": -17.93582835803749,
+        "rec_lon": 166.89349098247845,
+        "rec_lat": -17.86185234874975,
+        "dlon": -0.34426001609026,
+        "dlat": 0.0739760092877404,
+        "sky_arcsec": 0.13608820595905902
+      },
+      {
+        "true_lon": 159.26507171741613,
+        "true_lat": -19.291984292632392,
+        "rec_lon": 159.3302907514849,
+        "rec_lat": -19.391186449193967,
+        "dlon": 0.06521903406877527,
+        "dlat": -0.09920215656157438,
+        "sky_arcsec": 0.045259921285566516
+      },
+      {
+        "true_lon": 154.5364762623596,
+        "true_lat": -18.09308918099187,
+        "rec_lon": 154.46762042078544,
+        "rec_lat": -18.04526832310023,
+        "dlon": -0.06885584157416247,
+        "dlat": 0.047820857891640145,
+        "sky_arcsec": 0.03222531364480406
+      },
+      {
+        "true_lon": 153.31114093513315,
+        "true_lat": -17.016515985283014,
+        "rec_lon": 153.387965735056,
+        "rec_lat": -16.83524361451657,
+        "dlon": 0.07682479992286062,
+        "dlat": 0.1812723707664432,
+        "sky_arcsec": 0.0751048218495565
+      },
+      {
+        "true_lon": 147.2879048824095,
+        "true_lat": -19.537892911964615,
+        "rec_lon": 147.44454300157344,
+        "rec_lat": -19.658430134849638,
+        "dlon": 0.15663811916394366,
+        "dlat": -0.120537222885023,
+        "sky_arcsec": 0.07550592774028592
+      },
+      {
+        "true_lon": 158.41595494095904,
+        "true_lat": -18.028447890955867,
+        "rec_lon": 158.51917801285776,
+        "rec_lat": -17.99228503756794,
+        "dlon": 0.10322307189872504,
+        "dlat": 0.03616285338792835,
+        "sky_arcsec": 0.04220483384240315
+      },
+      {
+        "true_lon": 164.0925466422369,
+        "true_lat": -17.68974817416737,
+        "rec_lon": 164.46202893861292,
+        "rec_lat": -17.665964397734058,
+        "dlon": 0.36948229637602026,
+        "dlat": 0.023783776433312198,
+        "sky_arcsec": 0.14338877344031092
+      },
+      {
+        "true_lon": 166.8072202063834,
+        "true_lat": -17.406608497400946,
+        "rec_lon": 166.44293489281904,
+        "rec_lat": -17.354865907667644,
+        "dlon": -0.364285313564352,
+        "dlat": 0.05174258973330126,
+        "sky_arcsec": 0.1426737160111457
+      },
+      {
+        "true_lon": 144.94226926512607,
+        "true_lat": -17.311325726483833,
+        "rec_lon": 145.1025179156204,
+        "rec_lat": -17.28360075737099,
+        "dlon": 0.16024865049433856,
+        "dlat": 0.0277249691128425,
+        "sky_arcsec": 0.06308170565051437
+      }
+    ],
+    "notes": [
+      "VLBI-inspired optical metrology \u2014 methods, not microarcsecond claims.",
+      "Primary centre: multi-scale NCC on \u03bc-corrected oriented cylindrical map.",
+      "Phase-reference probes use the same correlator; bias capped if unphysical.",
+      "Formal \u03c3 = random \u2295 definition \u2295 nav \u2295 time \u2295 ephemeris_CM \u2295 bias_unc (\u00b1\u00bd closure).",
+      "Diffraction floor (~\u03bb/D) for 0.35m @550nm \u2248 0.324\"; extended-feature floor higher.",
+      "image_hash=889d70889e11c64d",
+      "For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.",
+      "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+      "SPICE auto geometry (4 kernels; online download if needed).",
+      "Horizons full observer geometry applied where parsed.",
+      "Distance override applied.",
+      "CM III override applied (no light-time re-shift).",
+      "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+      "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False",
+      "Multi-\u03bb closure residual \u03c3_sky\u22482.0824\""
+    ],
+    "elapsed_s": 27.2625150680542,
+    "extra": {
+      "user_time": "2026-01-10 15:39:26",
+      "path": "/Users/haydenchung/Downloads/AS_P5/2026-01-09-1540_4-U-RGB-Jup_lapl6_ap141.fit",
+      "desktop": true,
+      "max_stack": true
+    }
+  },
+  "error_budget": {
+    "sigma_random_lon_deg": 27.441687766804154,
+    "sigma_random_lat_deg": 2.3809695919465983,
+    "sigma_definition_lon_deg": 0.11137311151486336,
+    "sigma_definition_lat_deg": 0.06801263977225436,
+    "sigma_nav_lon_deg": 0.2527142451696375,
+    "sigma_nav_lat_deg": 0.17390296887592124,
+    "sigma_time_lon_deg": 0.0,
+    "sigma_ephem_lon_deg": 0.02,
+    "sigma_bias_lon_deg": 0.03744442830144327,
+    "sigma_bias_lat_deg": 0.019780259930826348,
+    "sigma_total_lon_deg": 27.443110210682384,
+    "sigma_total_lat_deg": 2.388362497237371,
+    "sigma_random_sky_arcsec": 10.613958450085669,
+    "sigma_systematic_sky_arcsec": 0.12919015357025448,
+    "sigma_total_sky_arcsec": 10.665687191210676,
+    "components_sky_arcsec": {
+      "random": 10.613958450085669,
+      "definition": 0.05010639923416057,
+      "navigation": 0.11770840152531367,
+      "time": 0.0,
+      "ephemeris_cm": 0.007707465768075128,
+      "bias_uncertainty": 0.01627180743133124,
+      "filter_closure_half": 1.0411912335546234,
+      "total": 10.665687191210676
+    }
+  },
+  "nasa": {
+    "ok": true,
+    "source": "model+Horizons",
+    "user_time_iso": "2026-01-10T15:39:26",
+    "measured": {
+      "lon_iii_deg": 189.11559273224148,
+      "lat_deg": -18.56610362687233,
+      "length_deg": 10.558121756571804,
+      "width_deg": 8.642734460502165
+    },
+    "reference": {
+      "lon_iii_deg": 167.49176112435043,
+      "lat_deg": -22.0,
+      "length_deg": 18.962128871190767,
+      "width_deg": 8.694469523148149,
+      "jupiter_distance_au": 4.23195983918294,
+      "jupiter_app_diam_arcsec": 46.584949158247575,
+      "sub_obs_lat_deg": 0.2619141,
+      "north_pa_deg": 64.49669,
+      "horizons_cm_iii_deg": 64.49669,
+      "light_time_s": 2795.0969999999998
+    },
+    "deltas": {
+      "lon_iii_deg": 21.62383160789105,
+      "lat_deg": 3.43389637312767,
+      "length_deg": -8.404007114618963,
+      "width_deg": -0.051735062645983376
+    },
+    "flags": [],
+    "notes": [
+      "NASA/JPL Horizons is used for Jupiter geometry (\u0394, orientation), not an official GRS longitude product.",
+      "Offline GRS lon model is schematic \u2014 for synthetic tests use truth_recovery arcsec.",
+      "Absolute System III: use WinJUPOS/SPICE CM override or Horizons sub-observer lon via ephemeris_pro.",
+      "Target science accuracy: 0.1\u20132 arcsec on-sky depending on regime."
+    ],
+    "grade": "POOR / CHECK DEFINITION"
+  },
+  "imaging_pipeline": true,
+  "headline": {
+    "mode": "process_full_advanced",
+    "grade": "NEEDS_WORK",
+    "user_time": "2026-01-10 15:39:26",
+    "lon_iii_deg": 189.11559273224148,
+    "lat_deg": -18.56610362687233,
+    "lat_planetographic_deg": -21.01170585383933,
+    "length_deg": 10.558121756571804,
+    "width_deg": 8.642734460502165,
+    "sigma_total_sky_arcsec": 10.665687191210676,
+    "sigma_random_sky_arcsec": 10.613958450085669,
+    "sigma_systematic_sky_arcsec": 0.12919015357025448,
+    "cm_iii_deg": 100.75546025533211,
+    "cm_source": "spice_auto",
+    "distance_au": 4.23195983918294,
+    "injection_n": 31,
+    "definition_n": 3,
+    "filter_closure_arcsec": 2.082382467109247,
+    "bias_lon_deg": 0.07682479992286062,
+    "bias_lat_deg": -0.009295956171445852,
+    "optical_floor_arcsec": 0.3241307142857143,
+    "primary_method": "vlbi_multiscale_ncc",
+    "output_dir": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb",
+    "gold_primary_definition": "SOTA_ROBUST",
+    "gold_lon_iii_deg": 186.57288010706372,
+    "gold_lat_deg": -20.47471188233863,
+    "gold_procedure_grade": "SOTA_FAIR",
+    "gold_scatter_lon_deg": 2.8243984831624562,
+    "n_methods_ok": 82,
+    "n_methods_total": 83,
+    "sota_lon_iii_deg": 186.57288010706372,
+    "sota_lat_deg": -20.47471188233863,
+    "sota_quality": "SOTA_FAIR",
+    "sota_score": 61.0,
+    "sota_sigma_lon_deg": 1.1342499319905506,
+    "sota_sigma_lat_deg": 0.7999564339664086,
+    "sota_n_inliers": 5,
+    "lon_iii_deg_bias_corrected": 189.11559273224148,
+    "lat_deg_bias_corrected": -18.56610362687233,
+    "pipeline_lon_iii_deg": 189.11559273224148,
+    "pipeline_lat_deg": -18.56610362687233,
+    "pipeline_lon_bias_corrected_deg": 189.11559273224148,
+    "pipeline_lat_bias_corrected_deg": -18.56610362687233
+  },
+  "gold_standard": {
+    "ok": true,
+    "primary_definition": "SOTA_ROBUST",
+    "primary_lon_iii_deg": 186.57288010706372,
+    "primary_lat_deg": -20.47471188233863,
+    "primary_length_deg": null,
+    "primary_width_deg": null,
+    "cm_iii_deg": 100.75546025533211,
+    "cm_source": "spice_auto",
+    "distance_au": 4.23195983918294,
+    "user_time_iso": "2026-01-10 15:39:26",
+    "measures": [
+      {
+        "definition_id": "GS-MAP",
+        "lon_iii_deg": NaN,
+        "lat_deg": NaN,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.0,
+        "ok": false,
+        "note": "map_dark too near map edge"
+      },
+      {
+        "definition_id": "GS-BARY",
+        "lon_iii_deg": 139.81521109328688,
+        "lat_deg": -27.00977264667281,
+        "length_deg": 284.268179299146,
+        "width_deg": 62.72042734175201,
+        "weight": 3.0,
+        "ok": true,
+        "note": "Intensity-weighted dark barycentre in GRS latitude band"
+      },
+      {
+        "definition_id": "GS-TMPL",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.331210191082803,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 3.0,
+        "ok": true,
+        "note": "Dark-oval template match on cylindrical map"
+      },
+      {
+        "definition_id": "GS-ENGINE",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.336947456213522,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Multi-method precision engine consensus"
+      },
+      {
+        "definition_id": "GS-OVAL",
+        "lon_iii_deg": 290.57364207351395,
+        "lat_deg": -21.70154686078253,
+        "length_deg": 31.09090909090909,
+        "width_deg": 12.927272727272728,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Ellipse fit to dark mask (center + length/width)"
+      },
+      {
+        "definition_id": "GS-MID",
+        "lon_iii_deg": 292.37364207351396,
+        "lat_deg": -21.70154686078253,
+        "length_deg": 20.618181818181824,
+        "width_deg": 12.927272727272728,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Mid-longitude of west/east edges (extent midpoint)"
+      },
+      {
+        "definition_id": "GS-EDGE-W",
+        "lon_iii_deg": 302.6827329826049,
+        "lat_deg": -21.70154686078253,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Higher-lon edge of dark oval (extent). WinJUPOS-like longitude extent (west). Not a 'center'."
+      },
+      {
+        "definition_id": "GS-EDGE-E",
+        "lon_iii_deg": 282.06455116442305,
+        "lat_deg": -21.70154686078253,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Lower-lon edge of dark oval (extent). WinJUPOS-like longitude extent (east). Not a 'center'."
+      },
+      {
+        "definition_id": "BARY_IMG",
+        "lon_iii_deg": 139.81521109328688,
+        "lat_deg": -27.00977264667281,
+        "length_deg": 284.268179299146,
+        "width_deg": 62.72042734175201,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[image] Image-plane intensity-weighted dark barycentre"
+      },
+      {
+        "definition_id": "ENGINE",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.336947456213522,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[ensemble] Precision engine multi-method"
+      },
+      {
+        "definition_id": "MS_NCC",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.46351931330472,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[template] fallback multi-template mean"
+      },
+      {
+        "definition_id": "TMPL_10x7",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -15.32188841201716,
+        "length_deg": 10,
+        "width_deg": 7,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[template] NCC template L=10 W=7"
+      },
+      {
+        "definition_id": "TMPL_12x8",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.291845493562235,
+        "length_deg": 12,
+        "width_deg": 8,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[template] NCC template L=12 W=8"
+      },
+      {
+        "definition_id": "TMPL_14x9",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -13.776824034334766,
+        "length_deg": 14,
+        "width_deg": 9,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[template] NCC template L=14 W=9"
+      },
+      {
+        "definition_id": "PERC08",
+        "lon_iii_deg": 96.94999220402742,
+        "lat_deg": -21.64804580709416,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Map dark percentile \u2264p8 barycentre"
+      },
+      {
+        "definition_id": "PERC12",
+        "lon_iii_deg": 99.26891803518298,
+        "lat_deg": -21.90154939037334,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Map dark percentile \u2264p12 barycentre"
+      },
+      {
+        "definition_id": "PERC18",
+        "lon_iii_deg": 100.39639975362512,
+        "lat_deg": -22.014983963936558,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Map dark percentile \u2264p18 barycentre"
+      },
+      {
+        "definition_id": "OTSU",
+        "lon_iii_deg": 101.05270821685946,
+        "lat_deg": -22.09984599701599,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Otsu dark class barycentre"
+      },
+      {
+        "definition_id": "HP_PEAK",
+        "lon_iii_deg": 98.11857266672142,
+        "lat_deg": -28.588480921691687,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[map] High-pass darkest peak"
+      },
+      {
+        "definition_id": "DOG_BARY",
+        "lon_iii_deg": 94.38911091904403,
+        "lat_deg": -27.551822201582894,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[map] Difference-of-Gaussians dark bary"
+      },
+      {
+        "definition_id": "LOG_BLOB",
+        "lon_iii_deg": 93.7433087185201,
+        "lat_deg": -17.381974248927037,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.8,
+        "ok": true,
+        "note": "[map] Laplacian-of-Gaussian blob"
+      },
+      {
+        "definition_id": "PROJ_1D",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[map] 1D lon scan min intensity in SEB band"
+      },
+      {
+        "definition_id": "LAT_TRACK",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[map] Per-latitude darkest lon near \u221222\u00b0"
+      },
+      {
+        "definition_id": "PHASE_CORR",
+        "lon_iii_deg": 188.05353030536784,
+        "lat_deg": -15.064377682403432,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[template] Phase-only correlation with dark ellipse"
+      },
+      {
+        "definition_id": "ISOPHOTE",
+        "lon_iii_deg": 182.61101145480495,
+        "lat_deg": -22.081070916408677,
+        "length_deg": 17.099999999999998,
+        "width_deg": 13.628571428571426,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[edge] Isophote dark contour centroid"
+      },
+      {
+        "definition_id": "QUAD_MOM",
+        "lon_iii_deg": 99.9823137579542,
+        "lat_deg": -21.97571108292301,
+        "length_deg": 340.21111066473804,
+        "width_deg": 16.424271023981195,
+        "weight": 2.3,
+        "ok": true,
+        "note": "[map] Weighted second-moment ellipse center"
+      },
+      {
+        "definition_id": "MORPH",
+        "lon_iii_deg": 184.3956426007854,
+        "lat_deg": -22.056897909931838,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Morphological open/close dark component"
+      },
+      {
+        "definition_id": "ADAPTIVE",
+        "lon_iii_deg": 99.03079455119178,
+        "lat_deg": -24.836886672179524,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[threshold] Local adaptive dark (band < local mean)"
+      },
+      {
+        "definition_id": "SEED_GROW",
+        "lon_iii_deg": 17.957177393881796,
+        "lat_deg": -22.029107120009495,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.1,
+        "ok": true,
+        "note": "[threshold] Region grow from darkest seed"
+      },
+      {
+        "definition_id": "SOBEL_RING",
+        "lon_iii_deg": 98.33241893639374,
+        "lat_deg": -22.02376233208851,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[edge] Gradient-magnitude ring centroid"
+      },
+      {
+        "definition_id": "FLUX_P1",
+        "lon_iii_deg": 100.58186372263654,
+        "lat_deg": -22.03087597934698,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[map] Inverse-flux moment power=1.0"
+      },
+      {
+        "definition_id": "FLUX_P2",
+        "lon_iii_deg": 100.00121618371239,
+        "lat_deg": -21.974676999271882,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[map] Inverse-flux moment power=2.0"
+      },
+      {
+        "definition_id": "FLUX_P4",
+        "lon_iii_deg": 98.88514557410107,
+        "lat_deg": -21.860256361864767,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[map] Inverse-flux moment power=4.0"
+      },
+      {
+        "definition_id": "SYMMETRY",
+        "lon_iii_deg": 101.16474332394328,
+        "lat_deg": -22.110540103673152,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[map] High inverse-intensity mass center (symmetry proxy)"
+      },
+      {
+        "definition_id": "MIN_PIX",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -18.154506437768234,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.0,
+        "ok": true,
+        "note": "[map] Single darkest pixel (noisy but unbiased seed)"
+      },
+      {
+        "definition_id": "OVAL",
+        "lon_iii_deg": 185.9953481564805,
+        "lat_deg": -21.980034915317454,
+        "length_deg": 13.114285714285714,
+        "width_deg": 13.114285714285714,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[extent] Dark oval barycentre"
+      },
+      {
+        "definition_id": "EDGE_W",
+        "lon_iii_deg": 189.98348026962805,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[edge] Higher-lon extent edge"
+      },
+      {
+        "definition_id": "EDGE_E",
+        "lon_iii_deg": 179.0470971388203,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[edge] Lower-lon extent edge"
+      },
+      {
+        "definition_id": "MID",
+        "lon_iii_deg": 184.5152887042242,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 10.93638313080774,
+        "width_deg": 13.114285714285714,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[extent] Edge midpoint"
+      },
+      {
+        "definition_id": "FWHM_LON",
+        "lon_iii_deg": 26.902708289642334,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 32.271428571428565,
+        "width_deg": null,
+        "weight": 2.4,
+        "ok": true,
+        "note": "[profile] FWHM centre of 1D lon intensity cut (photometry)"
+      },
+      {
+        "definition_id": "FWHM_LAT",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -12.360515021459221,
+        "length_deg": null,
+        "width_deg": 0.2571428571428571,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[profile] FWHM centre of 1D lat cut (photometry)"
+      },
+      {
+        "definition_id": "GAUSS_1D",
+        "lon_iii_deg": 102.16369694424877,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 168.25273466259324,
+        "width_deg": null,
+        "weight": 2.3,
+        "ok": true,
+        "note": "[profile] Gaussian fit to inverted lon profile"
+      },
+      {
+        "definition_id": "ISO_P08",
+        "lon_iii_deg": 99.76051256542375,
+        "lat_deg": -21.963491444178135,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[isophote] Isophote centroid at p8"
+      },
+      {
+        "definition_id": "ISO_P12",
+        "lon_iii_deg": 100.60056297248629,
+        "lat_deg": -22.039880720138225,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[isophote] Isophote centroid at p12"
+      },
+      {
+        "definition_id": "ISO_P16",
+        "lon_iii_deg": 100.98788972721835,
+        "lat_deg": -22.07680034557717,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[isophote] Isophote centroid at p16"
+      },
+      {
+        "definition_id": "ISO_P22",
+        "lon_iii_deg": 101.13529810544094,
+        "lat_deg": -22.092946070706507,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[isophote] Isophote centroid at p22"
+      },
+      {
+        "definition_id": "ISO_P28",
+        "lon_iii_deg": 101.18164261988883,
+        "lat_deg": -22.10409516908597,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.5,
+        "ok": true,
+        "note": "[isophote] Isophote centroid at p28"
+      },
+      {
+        "definition_id": "MULTI_ISO",
+        "lon_iii_deg": 100.7331888220397,
+        "lat_deg": -22.0554427499372,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.8,
+        "ok": true,
+        "note": "[isophote] Mean of multi-level isophote centres (IRAF-style ladder)"
+      },
+      {
+        "definition_id": "EDGE_N",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -13.004291845493555,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[edge] Northern lat edge of dark mask"
+      },
+      {
+        "definition_id": "EDGE_S",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -30.772532188841197,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[edge] Southern lat edge of dark mask"
+      },
+      {
+        "definition_id": "BOX_C",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -21.888412017167376,
+        "length_deg": 180.0,
+        "width_deg": 17.768240343347642,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[extent] Bounding-box centre of dark mask (JUPOS-like extent)"
+      },
+      {
+        "definition_id": "BOX_LEN",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -21.888412017167376,
+        "length_deg": 180.0,
+        "width_deg": 17.768240343347642,
+        "weight": 1.0,
+        "ok": true,
+        "note": "[extent] Extent length=180.000\u00b0 width=17.768\u00b0 (logged as position=box centre)"
+      },
+      {
+        "definition_id": "GEOM_MED",
+        "lon_iii_deg": 106.55905441096004,
+        "lat_deg": -22.072608394039985,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.6,
+        "ok": true,
+        "note": "[robust] Geometric median of dark pixels (Weiszfeld)"
+      },
+      {
+        "definition_id": "PCA_ELL",
+        "lon_iii_deg": 95.66765336915725,
+        "lat_deg": -21.506670101832245,
+        "length_deg": 174.9682793712747,
+        "width_deg": 8.172110657091547,
+        "weight": 2.4,
+        "ok": true,
+        "note": "[extent] PCA inertia ellipse centre of dark mask"
+      },
+      {
+        "definition_id": "HULL_C",
+        "lon_iii_deg": 100.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.8,
+        "ok": true,
+        "note": "[extent] Convex-hull centroid of dark mask"
+      },
+      {
+        "definition_id": "DIST_PEAK",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -28.96995708154506,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[map] Distance-transform medial peak (skeleton centre)"
+      },
+      {
+        "definition_id": "MEAN_SHIFT",
+        "lon_iii_deg": 183.59038037350572,
+        "lat_deg": -22.075467230230572,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.7,
+        "ok": true,
+        "note": "[robust] Mean-shift density mode of dark pixels"
+      },
+      {
+        "definition_id": "RANSAC_ELL",
+        "lon_iii_deg": 100.94845525175813,
+        "lat_deg": -19.978540772532174,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[extent] RANSAC circle/ellipse centre (inliers\u2248672)"
+      },
+      {
+        "definition_id": "CIV_WIN",
+        "lon_iii_deg": 25.680406645610873,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[template] CIV-style window ZNCC dark kernel (Asay-Davis family)"
+      },
+      {
+        "definition_id": "SAD_TMPL",
+        "lon_iii_deg": 100.81979192080745,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[template] Sum-abs-diff matched dark template"
+      },
+      {
+        "definition_id": "SSD_TMPL",
+        "lon_iii_deg": 105.96632515883461,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[template] Sum-sq-diff matched dark template"
+      },
+      {
+        "definition_id": "SPOMF",
+        "lon_iii_deg": 186.61554058155954,
+        "lat_deg": -15.064377682403432,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.3,
+        "ok": true,
+        "note": "[template] Symmetric phase-only matched filter"
+      },
+      {
+        "definition_id": "BOTTOM_HAT",
+        "lon_iii_deg": 100.75546025533208,
+        "lat_deg": -22.0171673819742,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.1,
+        "ok": true,
+        "note": "[morph] Morphological bottom-hat dark enhance + bary"
+      },
+      {
+        "definition_id": "TOPHAT_INV",
+        "lon_iii_deg": 103.50678674540747,
+        "lat_deg": -19.65705873130971,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[morph] Top-hat on inverted band (dark-as-bright)"
+      },
+      {
+        "definition_id": "WATERSHED",
+        "lon_iii_deg": 21.555765699086326,
+        "lat_deg": -22.08418008369191,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[morph] Watershed/basin of inverted GRS bowl"
+      },
+      {
+        "definition_id": "STRUCT_T",
+        "lon_iii_deg": 101.15316362415771,
+        "lat_deg": -21.99228582576222,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.7,
+        "ok": true,
+        "note": "[edge] Structure-tensor energy \u00d7 dark mass"
+      },
+      {
+        "definition_id": "RAD_SYM",
+        "lon_iii_deg": 22.904279843415658,
+        "lat_deg": -16.92314835889958,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.1,
+        "ok": true,
+        "note": "[map] Simplified radial symmetry transform"
+      },
+      {
+        "definition_id": "HU_MOM",
+        "lon_iii_deg": 100.77686267550772,
+        "lat_deg": -22.056547754564903,
+        "length_deg": 334.2002666454652,
+        "width_deg": 16.425353394882794,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[map] Spatial moments centre (Hu/raw m10/m00)"
+      },
+      {
+        "definition_id": "P05",
+        "lon_iii_deg": 70.18307725729106,
+        "lat_deg": -19.025860658743664,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p5"
+      },
+      {
+        "definition_id": "P10",
+        "lon_iii_deg": 90.47997253752087,
+        "lat_deg": -20.948756809294682,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p10"
+      },
+      {
+        "definition_id": "P15",
+        "lon_iii_deg": 96.36195658640335,
+        "lat_deg": -21.58283633128562,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p15"
+      },
+      {
+        "definition_id": "P20",
+        "lon_iii_deg": 98.43638870223324,
+        "lat_deg": -21.813145588354182,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p20"
+      },
+      {
+        "definition_id": "P25",
+        "lon_iii_deg": 99.42293305515538,
+        "lat_deg": -21.917763574129665,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p25"
+      },
+      {
+        "definition_id": "P30",
+        "lon_iii_deg": 99.98223540082643,
+        "lat_deg": -21.97570311095878,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p30"
+      },
+      {
+        "definition_id": "P35",
+        "lon_iii_deg": 100.33795358682268,
+        "lat_deg": -22.01005921375564,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.2,
+        "ok": true,
+        "note": "[threshold] Dark bary at percentile \u2264p35"
+      },
+      {
+        "definition_id": "P_LADDER",
+        "lon_iii_deg": 98.43638870223324,
+        "lat_deg": -21.813145588354182,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.6,
+        "ok": true,
+        "note": "[threshold] Median of percentile ladder (definition sensitivity)"
+      },
+      {
+        "definition_id": "BILATERAL",
+        "lon_iii_deg": 95.6608820859955,
+        "lat_deg": -21.50768709401311,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[map] Edge-preserving smooth + dark bary"
+      },
+      {
+        "definition_id": "UNSHARP",
+        "lon_iii_deg": 10.828544286725407,
+        "lat_deg": -18.152924082101542,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 1.6,
+        "ok": true,
+        "note": "[map] Unsharp-mask enhanced darkest peak"
+      },
+      {
+        "definition_id": "ROLL_BALL",
+        "lon_iii_deg": 100.754625746308,
+        "lat_deg": -24.375822228664685,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.2,
+        "ok": true,
+        "note": "[morph] Rolling-ball background subtract + dark bary"
+      },
+      {
+        "definition_id": "KDE_MODE",
+        "lon_iii_deg": 11.88046025533211,
+        "lat_deg": -28.796137339055782,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.4,
+        "ok": true,
+        "note": "[robust] 2D KDE mode of dark pixel cloud"
+      },
+      {
+        "definition_id": "GMM2_LON",
+        "lon_iii_deg": 17.43617817613665,
+        "lat_deg": -22.06464941243034,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[robust] 2-GMM on lon of dark pixels (darker component)"
+      },
+      {
+        "definition_id": "RING_TMPL",
+        "lon_iii_deg": 100.83684132341547,
+        "lat_deg": -22.91269028279395,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.0,
+        "ok": true,
+        "note": "[template] Annular ring template phase correlation"
+      },
+      {
+        "definition_id": "MEC",
+        "lon_iii_deg": 16.99134302874169,
+        "lat_deg": -22.059201166808137,
+        "length_deg": 360.0107447376128,
+        "width_deg": null,
+        "weight": 1.9,
+        "ok": true,
+        "note": "[extent] Min enclosing circle centre of dark mask"
+      },
+      {
+        "definition_id": "ENS_WMEAN",
+        "lon_iii_deg": 82.49663527990197,
+        "lat_deg": -21.200152802607178,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 3.5,
+        "ok": true,
+        "note": "[ensemble] Weighted mean of 70 methods"
+      },
+      {
+        "definition_id": "ENS_MEDIAN",
+        "lon_iii_deg": 99.3459255451692,
+        "lat_deg": -22.017167381974225,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 3.5,
+        "ok": true,
+        "note": "[ensemble] Robust median of methods"
+      },
+      {
+        "definition_id": "ENS_TRIM",
+        "lon_iii_deg": 83.62421997255535,
+        "lat_deg": -21.694314868468332,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 3.0,
+        "ok": true,
+        "note": "[ensemble] 20% lon-outlier trimmed mean"
+      },
+      {
+        "definition_id": "ENS_MEDOID",
+        "lon_iii_deg": 99.42293305515538,
+        "lat_deg": -21.917763574129665,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 3.2,
+        "ok": true,
+        "note": "[ensemble] Medoid method=P25"
+      },
+      {
+        "definition_id": "ENS_MAP",
+        "lon_iii_deg": 72.83956434699478,
+        "lat_deg": -22.34126246895694,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[ensemble] Mean of family=map (n=15)"
+      },
+      {
+        "definition_id": "ENS_TEMPLATE",
+        "lon_iii_deg": 60.29459230598709,
+        "lat_deg": -17.694702504674247,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[ensemble] Mean of family=template (n=10)"
+      },
+      {
+        "definition_id": "ENS_THRESHOLD",
+        "lon_iii_deg": 96.33624122264355,
+        "lat_deg": -21.84497251569449,
+        "length_deg": null,
+        "width_deg": null,
+        "weight": 2.5,
+        "ok": true,
+        "note": "[ensemble] Mean of family=threshold (n=15)"
+      }
+    ],
+    "definition_scatter_lon_deg": 2.8243984831624562,
+    "definition_scatter_lat_deg": 2.8587695049754647,
+    "west_edge_lon_iii_deg": 302.6827329826049,
+    "east_edge_lon_iii_deg": 282.06455116442305,
+    "extent_lon_deg": 20.618181818181824,
+    "winjupos_manual": null,
+    "procedure_steps": [
+      "1. Using provided navigation state",
+      "2. Geometry: CM III=100.75546\u00b0 source=spice_auto  \u0394=4.23196 AU",
+      "3. Epoch: 2026-01-10 15:39:26",
+      "4. Cylindrical deprojection (WinJUPOS-desk style map)",
+      "5. Gold-standard definitions (fixed rules)",
+      "6. Oval + W/E edges (WinJUPOS-like extent)",
+      "7. Classic GS primary = GS-BARY",
+      "8. Classic GS scatter: \u03c3_lon=0.0000\u00b0  \u03c3_lat=0.0000\u00b0",
+      "9. ALL-METHODS suite (every laptop estimator)",
+      "10. ALL-METHODS: 82/83 ok  primary=ENS_MEDIAN",
+      "11. Lon extent |W\u2212E| = 20.618\u00b0",
+      "13. Export-ready package (no fake NASA GRS answer)"
+    ],
+    "notes": [
+      "This module replicates professional *procedure*, not a NASA GRS catalog.",
+      "Primary product is a NAMED definition (e.g. GS-MAP) + CM source + scatter.",
+      "WinJUPOS = geometry + human measuring desk, not an auto detector.",
+      "JPL Horizons/SPICE = Jupiter geometry only, not official GRS longitude.",
+      "To approach published quality: excellent stack + accurate UTC + SPICE/WJ CM + fixed definition.",
+      "Full method count: 90 entries (classic GS + all-methods). Primary=ENS_MEDIAN."
+    ],
+    "grade": "SOTA_POOR",
+    "elapsed_s": 38.64917302131653,
+    "all_methods": {
+      "n_total": 83,
+      "n_ok": 82,
+      "n_failed": 1,
+      "scatter_lon_deg": 2.8243984831624562,
+      "scatter_lat_deg": 2.8587695049754647,
+      "primary_method": "ENS_MEDIAN",
+      "primary_lon_iii_deg": 99.3459255451692,
+      "primary_lat_deg": -22.017167381974225,
+      "methods": [
+        {
+          "method_id": "MAP_DARK",
+          "family": "?",
+          "lon_iii_deg": NaN,
+          "lat_deg": NaN,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.0,
+          "ok": false,
+          "note": "map_dark too near map edge"
+        },
+        {
+          "method_id": "BARY_IMG",
+          "family": "image",
+          "lon_iii_deg": 139.81521109328688,
+          "lat_deg": -27.00977264667281,
+          "length_deg": 284.268179299146,
+          "width_deg": 62.72042734175201,
+          "score": 0.0,
+          "weight": 3.0,
+          "ok": true,
+          "note": "Image-plane intensity-weighted dark barycentre"
+        },
+        {
+          "method_id": "ENGINE",
+          "family": "ensemble",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -14.336947456213522,
+          "length_deg": 12.0,
+          "width_deg": 8.0,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Precision engine multi-method"
+        },
+        {
+          "method_id": "MS_NCC",
+          "family": "template",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -14.46351931330472,
+          "length_deg": 12.0,
+          "width_deg": 8.0,
+          "score": 0.0,
+          "weight": 3.0,
+          "ok": true,
+          "note": "fallback multi-template mean"
+        },
+        {
+          "method_id": "TMPL_10x7",
+          "family": "template",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -15.32188841201716,
+          "length_deg": 10,
+          "width_deg": 7,
+          "score": 14704.602385187896,
+          "weight": 3.0,
+          "ok": true,
+          "note": "NCC template L=10 W=7"
+        },
+        {
+          "method_id": "TMPL_12x8",
+          "family": "template",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -14.291845493562235,
+          "length_deg": 12,
+          "width_deg": 8,
+          "score": 14650.012202068941,
+          "weight": 3.0,
+          "ok": true,
+          "note": "NCC template L=12 W=8"
+        },
+        {
+          "method_id": "TMPL_14x9",
+          "family": "template",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -13.776824034334766,
+          "length_deg": 14,
+          "width_deg": 9,
+          "score": 14576.157761960865,
+          "weight": 3.0,
+          "ok": true,
+          "note": "NCC template L=14 W=9"
+        },
+        {
+          "method_id": "PERC08",
+          "family": "threshold",
+          "lon_iii_deg": 96.94999220402742,
+          "lat_deg": -21.64804580709416,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Map dark percentile \u2264p8 barycentre"
+        },
+        {
+          "method_id": "PERC12",
+          "family": "threshold",
+          "lon_iii_deg": 99.26891803518298,
+          "lat_deg": -21.90154939037334,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Map dark percentile \u2264p12 barycentre"
+        },
+        {
+          "method_id": "PERC18",
+          "family": "threshold",
+          "lon_iii_deg": 100.39639975362512,
+          "lat_deg": -22.014983963936558,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Map dark percentile \u2264p18 barycentre"
+        },
+        {
+          "method_id": "OTSU",
+          "family": "threshold",
+          "lon_iii_deg": 101.05270821685946,
+          "lat_deg": -22.09984599701599,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Otsu dark class barycentre"
+        },
+        {
+          "method_id": "HP_PEAK",
+          "family": "map",
+          "lon_iii_deg": 98.11857266672142,
+          "lat_deg": -28.588480921691687,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "High-pass darkest peak"
+        },
+        {
+          "method_id": "DOG_BARY",
+          "family": "map",
+          "lon_iii_deg": 94.38911091904403,
+          "lat_deg": -27.551822201582894,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "Difference-of-Gaussians dark bary"
+        },
+        {
+          "method_id": "LOG_BLOB",
+          "family": "map",
+          "lon_iii_deg": 93.7433087185201,
+          "lat_deg": -17.381974248927037,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.8,
+          "ok": true,
+          "note": "Laplacian-of-Gaussian blob"
+        },
+        {
+          "method_id": "PROJ_1D",
+          "family": "map",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "1D lon scan min intensity in SEB band"
+        },
+        {
+          "method_id": "LAT_TRACK",
+          "family": "map",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Per-latitude darkest lon near \u221222\u00b0"
+        },
+        {
+          "method_id": "PHASE_CORR",
+          "family": "template",
+          "lon_iii_deg": 188.05353030536784,
+          "lat_deg": -15.064377682403432,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "Phase-only correlation with dark ellipse"
+        },
+        {
+          "method_id": "ISOPHOTE",
+          "family": "edge",
+          "lon_iii_deg": 182.61101145480495,
+          "lat_deg": -22.081070916408677,
+          "length_deg": 17.099999999999998,
+          "width_deg": 13.628571428571426,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Isophote dark contour centroid"
+        },
+        {
+          "method_id": "QUAD_MOM",
+          "family": "map",
+          "lon_iii_deg": 99.9823137579542,
+          "lat_deg": -21.97571108292301,
+          "length_deg": 340.21111066473804,
+          "width_deg": 16.424271023981195,
+          "score": 0.0,
+          "weight": 2.3,
+          "ok": true,
+          "note": "Weighted second-moment ellipse center"
+        },
+        {
+          "method_id": "MORPH",
+          "family": "threshold",
+          "lon_iii_deg": 184.3956426007854,
+          "lat_deg": -22.056897909931838,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Morphological open/close dark component"
+        },
+        {
+          "method_id": "ADAPTIVE",
+          "family": "threshold",
+          "lon_iii_deg": 99.03079455119178,
+          "lat_deg": -24.836886672179524,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Local adaptive dark (band < local mean)"
+        },
+        {
+          "method_id": "SEED_GROW",
+          "family": "threshold",
+          "lon_iii_deg": 17.957177393881796,
+          "lat_deg": -22.029107120009495,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.1,
+          "ok": true,
+          "note": "Region grow from darkest seed"
+        },
+        {
+          "method_id": "SOBEL_RING",
+          "family": "edge",
+          "lon_iii_deg": 98.33241893639374,
+          "lat_deg": -22.02376233208851,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Gradient-magnitude ring centroid"
+        },
+        {
+          "method_id": "FLUX_P1",
+          "family": "map",
+          "lon_iii_deg": 100.58186372263654,
+          "lat_deg": -22.03087597934698,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Inverse-flux moment power=1.0"
+        },
+        {
+          "method_id": "FLUX_P2",
+          "family": "map",
+          "lon_iii_deg": 100.00121618371239,
+          "lat_deg": -21.974676999271882,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "Inverse-flux moment power=2.0"
+        },
+        {
+          "method_id": "FLUX_P4",
+          "family": "map",
+          "lon_iii_deg": 98.88514557410107,
+          "lat_deg": -21.860256361864767,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Inverse-flux moment power=4.0"
+        },
+        {
+          "method_id": "SYMMETRY",
+          "family": "map",
+          "lon_iii_deg": 101.16474332394328,
+          "lat_deg": -22.110540103673152,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "High inverse-intensity mass center (symmetry proxy)"
+        },
+        {
+          "method_id": "MIN_PIX",
+          "family": "map",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -18.154506437768234,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.0,
+          "ok": true,
+          "note": "Single darkest pixel (noisy but unbiased seed)"
+        },
+        {
+          "method_id": "OVAL",
+          "family": "extent",
+          "lon_iii_deg": 185.9953481564805,
+          "lat_deg": -21.980034915317454,
+          "length_deg": 13.114285714285714,
+          "width_deg": 13.114285714285714,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Dark oval barycentre"
+        },
+        {
+          "method_id": "EDGE_W",
+          "family": "edge",
+          "lon_iii_deg": 189.98348026962805,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Higher-lon extent edge"
+        },
+        {
+          "method_id": "EDGE_E",
+          "family": "edge",
+          "lon_iii_deg": 179.0470971388203,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Lower-lon extent edge"
+        },
+        {
+          "method_id": "MID",
+          "family": "extent",
+          "lon_iii_deg": 184.5152887042242,
+          "lat_deg": -22.017167381974247,
+          "length_deg": 10.93638313080774,
+          "width_deg": 13.114285714285714,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Edge midpoint"
+        },
+        {
+          "method_id": "FWHM_LON",
+          "family": "profile",
+          "lon_iii_deg": 26.902708289642334,
+          "lat_deg": -22.017167381974247,
+          "length_deg": 32.271428571428565,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.4,
+          "ok": true,
+          "note": "FWHM centre of 1D lon intensity cut (photometry)"
+        },
+        {
+          "method_id": "FWHM_LAT",
+          "family": "profile",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -12.360515021459221,
+          "length_deg": null,
+          "width_deg": 0.2571428571428571,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "FWHM centre of 1D lat cut (photometry)"
+        },
+        {
+          "method_id": "GAUSS_1D",
+          "family": "profile",
+          "lon_iii_deg": 102.16369694424877,
+          "lat_deg": -22.017167381974247,
+          "length_deg": 168.25273466259324,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.3,
+          "ok": true,
+          "note": "Gaussian fit to inverted lon profile"
+        },
+        {
+          "method_id": "ISO_P08",
+          "family": "isophote",
+          "lon_iii_deg": 99.76051256542375,
+          "lat_deg": -21.963491444178135,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Isophote centroid at p8"
+        },
+        {
+          "method_id": "ISO_P12",
+          "family": "isophote",
+          "lon_iii_deg": 100.60056297248629,
+          "lat_deg": -22.039880720138225,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Isophote centroid at p12"
+        },
+        {
+          "method_id": "ISO_P16",
+          "family": "isophote",
+          "lon_iii_deg": 100.98788972721835,
+          "lat_deg": -22.07680034557717,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Isophote centroid at p16"
+        },
+        {
+          "method_id": "ISO_P22",
+          "family": "isophote",
+          "lon_iii_deg": 101.13529810544094,
+          "lat_deg": -22.092946070706507,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Isophote centroid at p22"
+        },
+        {
+          "method_id": "ISO_P28",
+          "family": "isophote",
+          "lon_iii_deg": 101.18164261988883,
+          "lat_deg": -22.10409516908597,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.5,
+          "ok": true,
+          "note": "Isophote centroid at p28"
+        },
+        {
+          "method_id": "MULTI_ISO",
+          "family": "isophote",
+          "lon_iii_deg": 100.7331888220397,
+          "lat_deg": -22.0554427499372,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.8,
+          "ok": true,
+          "note": "Mean of multi-level isophote centres (IRAF-style ladder)"
+        },
+        {
+          "method_id": "EDGE_N",
+          "family": "edge",
+          "lon_iii_deg": 280.7554602553321,
+          "lat_deg": -13.004291845493555,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Northern lat edge of dark mask"
+        },
+        {
+          "method_id": "EDGE_S",
+          "family": "edge",
+          "lon_iii_deg": 280.7554602553321,
+          "lat_deg": -30.772532188841197,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Southern lat edge of dark mask"
+        },
+        {
+          "method_id": "BOX_C",
+          "family": "extent",
+          "lon_iii_deg": 280.7554602553321,
+          "lat_deg": -21.888412017167376,
+          "length_deg": 180.0,
+          "width_deg": 17.768240343347642,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "Bounding-box centre of dark mask (JUPOS-like extent)"
+        },
+        {
+          "method_id": "BOX_LEN",
+          "family": "extent",
+          "lon_iii_deg": 280.7554602553321,
+          "lat_deg": -21.888412017167376,
+          "length_deg": 180.0,
+          "width_deg": 17.768240343347642,
+          "score": 0.0,
+          "weight": 1.0,
+          "ok": true,
+          "note": "Extent length=180.000\u00b0 width=17.768\u00b0 (logged as position=box centre)"
+        },
+        {
+          "method_id": "GEOM_MED",
+          "family": "robust",
+          "lon_iii_deg": 106.55905441096004,
+          "lat_deg": -22.072608394039985,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.6,
+          "ok": true,
+          "note": "Geometric median of dark pixels (Weiszfeld)"
+        },
+        {
+          "method_id": "PCA_ELL",
+          "family": "extent",
+          "lon_iii_deg": 95.66765336915725,
+          "lat_deg": -21.506670101832245,
+          "length_deg": 174.9682793712747,
+          "width_deg": 8.172110657091547,
+          "score": 0.0,
+          "weight": 2.4,
+          "ok": true,
+          "note": "PCA inertia ellipse centre of dark mask"
+        },
+        {
+          "method_id": "HULL_C",
+          "family": "extent",
+          "lon_iii_deg": 100.75546025533211,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.8,
+          "ok": true,
+          "note": "Convex-hull centroid of dark mask"
+        },
+        {
+          "method_id": "DIST_PEAK",
+          "family": "map",
+          "lon_iii_deg": 10.75546025533211,
+          "lat_deg": -28.96995708154506,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Distance-transform medial peak (skeleton centre)"
+        },
+        {
+          "method_id": "MEAN_SHIFT",
+          "family": "robust",
+          "lon_iii_deg": 183.59038037350572,
+          "lat_deg": -22.075467230230572,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.7,
+          "ok": true,
+          "note": "Mean-shift density mode of dark pixels"
+        },
+        {
+          "method_id": "RANSAC_ELL",
+          "family": "extent",
+          "lon_iii_deg": 100.94845525175813,
+          "lat_deg": -19.978540772532174,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "RANSAC circle/ellipse centre (inliers\u2248672)"
+        },
+        {
+          "method_id": "CIV_WIN",
+          "family": "template",
+          "lon_iii_deg": 25.680406645610873,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.11102309919491192,
+          "weight": 3.0,
+          "ok": true,
+          "note": "CIV-style window ZNCC dark kernel (Asay-Davis family)"
+        },
+        {
+          "method_id": "SAD_TMPL",
+          "family": "template",
+          "lon_iii_deg": 100.81979192080745,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Sum-abs-diff matched dark template"
+        },
+        {
+          "method_id": "SSD_TMPL",
+          "family": "template",
+          "lon_iii_deg": 105.96632515883461,
+          "lat_deg": -22.017167381974247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Sum-sq-diff matched dark template"
+        },
+        {
+          "method_id": "SPOMF",
+          "family": "template",
+          "lon_iii_deg": 186.61554058155954,
+          "lat_deg": -15.064377682403432,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.3,
+          "ok": true,
+          "note": "Symmetric phase-only matched filter"
+        },
+        {
+          "method_id": "BOTTOM_HAT",
+          "family": "morph",
+          "lon_iii_deg": 100.75546025533208,
+          "lat_deg": -22.0171673819742,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.1,
+          "ok": true,
+          "note": "Morphological bottom-hat dark enhance + bary"
+        },
+        {
+          "method_id": "TOPHAT_INV",
+          "family": "morph",
+          "lon_iii_deg": 103.50678674540747,
+          "lat_deg": -19.65705873130971,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Top-hat on inverted band (dark-as-bright)"
+        },
+        {
+          "method_id": "WATERSHED",
+          "family": "morph",
+          "lon_iii_deg": 21.555765699086326,
+          "lat_deg": -22.08418008369191,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Watershed/basin of inverted GRS bowl"
+        },
+        {
+          "method_id": "STRUCT_T",
+          "family": "edge",
+          "lon_iii_deg": 101.15316362415771,
+          "lat_deg": -21.99228582576222,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.7,
+          "ok": true,
+          "note": "Structure-tensor energy \u00d7 dark mass"
+        },
+        {
+          "method_id": "RAD_SYM",
+          "family": "map",
+          "lon_iii_deg": 22.904279843415658,
+          "lat_deg": -16.92314835889958,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.1,
+          "ok": true,
+          "note": "Simplified radial symmetry transform"
+        },
+        {
+          "method_id": "HU_MOM",
+          "family": "map",
+          "lon_iii_deg": 100.77686267550772,
+          "lat_deg": -22.056547754564903,
+          "length_deg": 334.2002666454652,
+          "width_deg": 16.425353394882794,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Spatial moments centre (Hu/raw m10/m00)"
+        },
+        {
+          "method_id": "P05",
+          "family": "threshold",
+          "lon_iii_deg": 70.18307725729106,
+          "lat_deg": -19.025860658743664,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p5"
+        },
+        {
+          "method_id": "P10",
+          "family": "threshold",
+          "lon_iii_deg": 90.47997253752087,
+          "lat_deg": -20.948756809294682,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p10"
+        },
+        {
+          "method_id": "P15",
+          "family": "threshold",
+          "lon_iii_deg": 96.36195658640335,
+          "lat_deg": -21.58283633128562,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p15"
+        },
+        {
+          "method_id": "P20",
+          "family": "threshold",
+          "lon_iii_deg": 98.43638870223324,
+          "lat_deg": -21.813145588354182,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p20"
+        },
+        {
+          "method_id": "P25",
+          "family": "threshold",
+          "lon_iii_deg": 99.42293305515538,
+          "lat_deg": -21.917763574129665,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p25"
+        },
+        {
+          "method_id": "P30",
+          "family": "threshold",
+          "lon_iii_deg": 99.98223540082643,
+          "lat_deg": -21.97570311095878,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p30"
+        },
+        {
+          "method_id": "P35",
+          "family": "threshold",
+          "lon_iii_deg": 100.33795358682268,
+          "lat_deg": -22.01005921375564,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.2,
+          "ok": true,
+          "note": "Dark bary at percentile \u2264p35"
+        },
+        {
+          "method_id": "P_LADDER",
+          "family": "threshold",
+          "lon_iii_deg": 98.43638870223324,
+          "lat_deg": -21.813145588354182,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.6,
+          "ok": true,
+          "note": "Median of percentile ladder (definition sensitivity)"
+        },
+        {
+          "method_id": "BILATERAL",
+          "family": "map",
+          "lon_iii_deg": 95.6608820859955,
+          "lat_deg": -21.50768709401311,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Edge-preserving smooth + dark bary"
+        },
+        {
+          "method_id": "UNSHARP",
+          "family": "map",
+          "lon_iii_deg": 10.828544286725407,
+          "lat_deg": -18.152924082101542,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.6,
+          "ok": true,
+          "note": "Unsharp-mask enhanced darkest peak"
+        },
+        {
+          "method_id": "ROLL_BALL",
+          "family": "morph",
+          "lon_iii_deg": 100.754625746308,
+          "lat_deg": -24.375822228664685,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.2,
+          "ok": true,
+          "note": "Rolling-ball background subtract + dark bary"
+        },
+        {
+          "method_id": "KDE_MODE",
+          "family": "robust",
+          "lon_iii_deg": 11.88046025533211,
+          "lat_deg": -28.796137339055782,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.4,
+          "ok": true,
+          "note": "2D KDE mode of dark pixel cloud"
+        },
+        {
+          "method_id": "GMM2_LON",
+          "family": "robust",
+          "lon_iii_deg": 17.43617817613665,
+          "lat_deg": -22.06464941243034,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "2-GMM on lon of dark pixels (darker component)"
+        },
+        {
+          "method_id": "RING_TMPL",
+          "family": "template",
+          "lon_iii_deg": 100.83684132341547,
+          "lat_deg": -22.91269028279395,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.0,
+          "ok": true,
+          "note": "Annular ring template phase correlation"
+        },
+        {
+          "method_id": "MEC",
+          "family": "extent",
+          "lon_iii_deg": 16.99134302874169,
+          "lat_deg": -22.059201166808137,
+          "length_deg": 360.0107447376128,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 1.9,
+          "ok": true,
+          "note": "Min enclosing circle centre of dark mask"
+        },
+        {
+          "method_id": "ENS_WMEAN",
+          "family": "ensemble",
+          "lon_iii_deg": 82.49663527990197,
+          "lat_deg": -21.200152802607178,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 3.5,
+          "ok": true,
+          "note": "Weighted mean of 70 methods"
+        },
+        {
+          "method_id": "ENS_MEDIAN",
+          "family": "ensemble",
+          "lon_iii_deg": 99.3459255451692,
+          "lat_deg": -22.017167381974225,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 3.5,
+          "ok": true,
+          "note": "Robust median of methods"
+        },
+        {
+          "method_id": "ENS_TRIM",
+          "family": "ensemble",
+          "lon_iii_deg": 83.62421997255535,
+          "lat_deg": -21.694314868468332,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 3.0,
+          "ok": true,
+          "note": "20% lon-outlier trimmed mean"
+        },
+        {
+          "method_id": "ENS_MEDOID",
+          "family": "ensemble",
+          "lon_iii_deg": 99.42293305515538,
+          "lat_deg": -21.917763574129665,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 3.2,
+          "ok": true,
+          "note": "Medoid method=P25"
+        },
+        {
+          "method_id": "ENS_MAP",
+          "family": "ensemble",
+          "lon_iii_deg": 72.83956434699478,
+          "lat_deg": -22.34126246895694,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Mean of family=map (n=15)"
+        },
+        {
+          "method_id": "ENS_TEMPLATE",
+          "family": "ensemble",
+          "lon_iii_deg": 60.29459230598709,
+          "lat_deg": -17.694702504674247,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Mean of family=template (n=10)"
+        },
+        {
+          "method_id": "ENS_THRESHOLD",
+          "family": "ensemble",
+          "lon_iii_deg": 96.33624122264355,
+          "lat_deg": -21.84497251569449,
+          "length_deg": null,
+          "width_deg": null,
+          "score": 0.0,
+          "weight": 2.5,
+          "ok": true,
+          "note": "Mean of family=threshold (n=15)"
+        }
+      ],
+      "by_family": {
+        "image": 1,
+        "ensemble": 8,
+        "template": 10,
+        "threshold": 15,
+        "map": 16,
+        "edge": 7,
+        "extent": 8,
+        "profile": 3,
+        "isophote": 6,
+        "robust": 4,
+        "morph": 4
+      },
+      "catalog": [
+        {
+          "id": "MAP_DARK",
+          "family": "map",
+          "desc": "Cylindrical dark centroid"
+        },
+        {
+          "id": "BARY_IMG",
+          "family": "image",
+          "desc": "Image-plane dark barycentre"
+        },
+        {
+          "id": "ENGINE",
+          "family": "ensemble",
+          "desc": "Precision engine consensus"
+        },
+        {
+          "id": "MS_NCC",
+          "family": "template",
+          "desc": "Multiscale / multi-template NCC"
+        },
+        {
+          "id": "TMPL_10x7",
+          "family": "template",
+          "desc": "Template 10\u00d77\u00b0"
+        },
+        {
+          "id": "TMPL_12x8",
+          "family": "template",
+          "desc": "Template 12\u00d78\u00b0"
+        },
+        {
+          "id": "TMPL_14x9",
+          "family": "template",
+          "desc": "Template 14\u00d79\u00b0"
+        },
+        {
+          "id": "PERC08",
+          "family": "threshold",
+          "desc": "p8 dark bary"
+        },
+        {
+          "id": "PERC12",
+          "family": "threshold",
+          "desc": "p12 dark bary"
+        },
+        {
+          "id": "PERC18",
+          "family": "threshold",
+          "desc": "p18 dark bary"
+        },
+        {
+          "id": "OTSU",
+          "family": "threshold",
+          "desc": "Otsu dark class"
+        },
+        {
+          "id": "HP_PEAK",
+          "family": "map",
+          "desc": "High-pass darkest peak"
+        },
+        {
+          "id": "DOG_BARY",
+          "family": "map",
+          "desc": "Difference-of-Gaussians bary"
+        },
+        {
+          "id": "LOG_BLOB",
+          "family": "map",
+          "desc": "Laplacian-of-Gaussian blob"
+        },
+        {
+          "id": "PROJ_1D",
+          "family": "map",
+          "desc": "1D longitude intensity scan"
+        },
+        {
+          "id": "LAT_TRACK",
+          "family": "map",
+          "desc": "Per-lat darkest track"
+        },
+        {
+          "id": "PHASE_CORR",
+          "family": "template",
+          "desc": "Phase correlation"
+        },
+        {
+          "id": "ISOPHOTE",
+          "family": "edge",
+          "desc": "Dark isophote centroid"
+        },
+        {
+          "id": "QUAD_MOM",
+          "family": "map",
+          "desc": "Second-moment ellipse center"
+        },
+        {
+          "id": "MORPH",
+          "family": "threshold",
+          "desc": "Morphological component"
+        },
+        {
+          "id": "ADAPTIVE",
+          "family": "threshold",
+          "desc": "Adaptive local dark"
+        },
+        {
+          "id": "SEED_GROW",
+          "family": "threshold",
+          "desc": "Region grow from darkest seed"
+        },
+        {
+          "id": "SOBEL_RING",
+          "family": "edge",
+          "desc": "Gradient ring centroid"
+        },
+        {
+          "id": "FLUX_P1",
+          "family": "map",
+          "desc": "Inverse-flux p=1"
+        },
+        {
+          "id": "FLUX_P2",
+          "family": "map",
+          "desc": "Inverse-flux p=2"
+        },
+        {
+          "id": "FLUX_P4",
+          "family": "map",
+          "desc": "Inverse-flux p=4 (core)"
+        },
+        {
+          "id": "SYMMETRY",
+          "family": "map",
+          "desc": "Symmetry / mass center"
+        },
+        {
+          "id": "MIN_PIX",
+          "family": "map",
+          "desc": "Darkest pixel"
+        },
+        {
+          "id": "RED_BARY",
+          "family": "spectral",
+          "desc": "Red channel bary"
+        },
+        {
+          "id": "CHROM_RG",
+          "family": "spectral",
+          "desc": "R\u2212G chromatic"
+        },
+        {
+          "id": "RB_BLEND",
+          "family": "spectral",
+          "desc": "R+B blend"
+        },
+        {
+          "id": "OVAL",
+          "family": "extent",
+          "desc": "Oval fit center"
+        },
+        {
+          "id": "EDGE_W",
+          "family": "edge",
+          "desc": "West/high lon edge (JUPOS-like)"
+        },
+        {
+          "id": "EDGE_E",
+          "family": "edge",
+          "desc": "East/low lon edge (JUPOS-like)"
+        },
+        {
+          "id": "MID",
+          "family": "extent",
+          "desc": "Edge midpoint"
+        },
+        {
+          "id": "FWHM_LON",
+          "family": "profile",
+          "desc": "FWHM centre of 1D lon cut"
+        },
+        {
+          "id": "FWHM_LAT",
+          "family": "profile",
+          "desc": "FWHM centre of 1D lat cut"
+        },
+        {
+          "id": "GAUSS_1D",
+          "family": "profile",
+          "desc": "Gaussian fit lon profile"
+        },
+        {
+          "id": "MULTI_ISO",
+          "family": "isophote",
+          "desc": "Multi-level isophote mean (IRAF-style)"
+        },
+        {
+          "id": "ISO_P08",
+          "family": "isophote",
+          "desc": "Isophote p8"
+        },
+        {
+          "id": "BOX_C",
+          "family": "extent",
+          "desc": "Bounding-box centre (JUPOS extent)"
+        },
+        {
+          "id": "EDGE_N",
+          "family": "edge",
+          "desc": "Northern edge"
+        },
+        {
+          "id": "EDGE_S",
+          "family": "edge",
+          "desc": "Southern edge"
+        },
+        {
+          "id": "GEOM_MED",
+          "family": "robust",
+          "desc": "Geometric median dark pixels"
+        },
+        {
+          "id": "PCA_ELL",
+          "family": "extent",
+          "desc": "PCA inertia ellipse centre"
+        },
+        {
+          "id": "HULL_C",
+          "family": "extent",
+          "desc": "Convex-hull centroid"
+        },
+        {
+          "id": "DIST_PEAK",
+          "family": "map",
+          "desc": "Distance-transform medial peak"
+        },
+        {
+          "id": "MEAN_SHIFT",
+          "family": "robust",
+          "desc": "Mean-shift density mode"
+        },
+        {
+          "id": "RANSAC_ELL",
+          "family": "extent",
+          "desc": "RANSAC ellipse/circle centre"
+        },
+        {
+          "id": "CIV_WIN",
+          "family": "template",
+          "desc": "CIV-style window ZNCC (Asay-Davis family)"
+        },
+        {
+          "id": "SAD_TMPL",
+          "family": "template",
+          "desc": "SAD matched template"
+        },
+        {
+          "id": "SSD_TMPL",
+          "family": "template",
+          "desc": "SSD matched template"
+        },
+        {
+          "id": "SPOMF",
+          "family": "template",
+          "desc": "Symmetric phase-only matched filter"
+        },
+        {
+          "id": "BOTTOM_HAT",
+          "family": "morph",
+          "desc": "Morphological bottom-hat"
+        },
+        {
+          "id": "TOPHAT_INV",
+          "family": "morph",
+          "desc": "Top-hat on inverted"
+        },
+        {
+          "id": "WATERSHED",
+          "family": "morph",
+          "desc": "Watershed basin centre"
+        },
+        {
+          "id": "STRUCT_T",
+          "family": "edge",
+          "desc": "Structure-tensor energy"
+        },
+        {
+          "id": "RAD_SYM",
+          "family": "map",
+          "desc": "Radial symmetry transform"
+        },
+        {
+          "id": "HU_MOM",
+          "family": "map",
+          "desc": "Spatial/Hu moments centre"
+        },
+        {
+          "id": "P_LADDER",
+          "family": "threshold",
+          "desc": "Percentile ladder median"
+        },
+        {
+          "id": "BILATERAL",
+          "family": "map",
+          "desc": "Bilateral smooth + bary"
+        },
+        {
+          "id": "UNSHARP",
+          "family": "map",
+          "desc": "Unsharp-mask peak"
+        },
+        {
+          "id": "ROLL_BALL",
+          "family": "morph",
+          "desc": "Rolling-ball background residual"
+        },
+        {
+          "id": "KDE_MODE",
+          "family": "robust",
+          "desc": "2D KDE mode"
+        },
+        {
+          "id": "GMM2_LON",
+          "family": "robust",
+          "desc": "2-GMM on lon of dark pixels"
+        },
+        {
+          "id": "RING_TMPL",
+          "family": "template",
+          "desc": "Annular ring template"
+        },
+        {
+          "id": "MEC",
+          "family": "extent",
+          "desc": "Min enclosing circle centre"
+        },
+        {
+          "id": "ENS_WMEAN",
+          "family": "ensemble",
+          "desc": "Weighted mean ensemble"
+        },
+        {
+          "id": "ENS_MEDIAN",
+          "family": "ensemble",
+          "desc": "Median ensemble"
+        },
+        {
+          "id": "ENS_TRIM",
+          "family": "ensemble",
+          "desc": "Trimmed mean ensemble"
+        },
+        {
+          "id": "ENS_MEDOID",
+          "family": "ensemble",
+          "desc": "Medoid method"
+        }
+      ],
+      "literature_notes": [
+        "JUPOS/WinJUPOS: measure centre and/or west\u2013east edges on projected map (community gold workflow).",
+        "Asay-Davis et al. (Icarus 2009): ACCIV/CIV \u2014 correlation image velocimetry for cloud tracking.",
+        "Simon et al. / Hubble OPAL: multi-year GRS size & drift; careful isophote/size definitions.",
+        "IRAF STSDAS ellipse: multi-level elliptical isophote fitting (galaxy tradition applied to oval).",
+        "Classic photometry: FWHM of 1D cuts through feature (lon and lat profiles).",
+        "Geometric median / RANSAC / PCA: robust centre under outlier dark pixels.",
+        "Distance transform medial peak: skeleton-like centre of filled dark region.",
+        "Mean-shift / KDE mode: nonparametric density peak of dark pixels.",
+        "ZNCC / SAD / SSD templates: classical matched filters (complement NCC).",
+        "SPOMF: symmetric phase-only matched filter (optics literature).",
+        "Structure tensor: local orientation + gradient energy peak.",
+        "Morphological bottom-hat / top-hat: enhance dark (or bright) compact features.",
+        "Watershed on inverted band: catchment basin of GRS bowl.",
+        "Multi-percentile ladder: definition sensitivity (small but real systematic).",
+        "N/S edges + W/E edges: full box extent (JUPOS-like length & width).",
+        "Bounding box / convex hull centroids: discrete geometry alternatives.",
+        "Hu / spatial moments order 0\u20132: shape-invariant centre estimates.",
+        "Subpixel parabolic peak fit: standard refine after coarse argmin/argmax."
+      ],
+      "note": "Exhaustive laptop GRS localization suite: classical CV + map photometry + JUPOS/WinJUPOS-style edges + CIV-window correlation + isophote ladders + robust geometry + ensembles. Primary prefers robust ensemble. Not NASA truth \u2014 professional multi-method procedure."
+    },
+    "n_methods_ok": 82,
+    "n_methods_total": 83,
+    "sota": {
+      "ok": true,
+      "lon_iii_deg": 186.57288010706372,
+      "lat_deg": -20.47471188233863,
+      "sigma_lon_deg": 1.1342499319905506,
+      "sigma_lat_deg": 0.7999564339664086,
+      "sigma_sky_arcsec_approx": 0.5285313760648715,
+      "n_methods_total": 83,
+      "n_methods_ok": 82,
+      "n_inliers": 5,
+      "n_outliers": 69,
+      "inlier_ids": [
+        "OVAL",
+        "MID",
+        "MORPH",
+        "PHASE_CORR",
+        "MEAN_SHIFT"
+      ],
+      "outlier_ids": [
+        "ENGINE",
+        "MS_NCC",
+        "TMPL_10x7",
+        "TMPL_12x8",
+        "TMPL_14x9",
+        "PROJ_1D",
+        "LAT_TRACK",
+        "FWHM_LAT",
+        "DIST_PEAK",
+        "UNSHARP",
+        "KDE_MODE",
+        "BARY_IMG",
+        "PERC08",
+        "PERC12",
+        "PERC18",
+        "OTSU",
+        "HP_PEAK",
+        "DOG_BARY",
+        "LOG_BLOB",
+        "QUAD_MOM",
+        "ADAPTIVE",
+        "SEED_GROW",
+        "FLUX_P1",
+        "FLUX_P2",
+        "FLUX_P4",
+        "SYMMETRY",
+        "FWHM_LON",
+        "GAUSS_1D",
+        "ISO_P08",
+        "ISO_P12",
+        "ISO_P16",
+        "ISO_P22",
+        "ISO_P28",
+        "MULTI_ISO",
+        "BOX_C",
+        "GEOM_MED",
+        "PCA_ELL",
+        "HULL_C",
+        "RANSAC_ELL",
+        "CIV_WIN",
+        "SAD_TMPL",
+        "SSD_TMPL",
+        "BOTTOM_HAT",
+        "TOPHAT_INV",
+        "WATERSHED",
+        "RAD_SYM",
+        "HU_MOM",
+        "P05",
+        "P10",
+        "P15",
+        "P20",
+        "P25",
+        "P30",
+        "P35",
+        "P_LADDER",
+        "BILATERAL",
+        "ROLL_BALL",
+        "GMM2_LON",
+        "RING_TMPL",
+        "MEC",
+        "ENS_WMEAN",
+        "ENS_MEDIAN",
+        "ENS_TRIM",
+        "ENS_MEDOID",
+        "ENS_MAP",
+        "ENS_TEMPLATE",
+        "ENS_THRESHOLD",
+        "SPOMF",
+        "ISOPHOTE"
+      ],
+      "primary_label": "SOTA_ROBUST",
+      "quality_grade": "SOTA_POOR",
+      "quality_score": 10.0,
+      "quality_flags": [
+        "MODERATE_INLIERS",
+        "MULTI_CLUSTER",
+        "MANY_OUTLIERS",
+        "MED_LON_SCATTER",
+        "NEAR_LIMB",
+        "LARGE_PIPELINE_SIGMA",
+        "PIPELINE_NEEDS_WORK"
+      ],
+      "quality_notes": [
+        "chose 1 of 7 lon-clusters (score=158.7); edge_locks_dropped=11; pipeline_seed=189.11559273224148",
+        "Dropped 11 map-edge artifact methods (CM\u00b190\u00b0 locks).",
+        "Many methods diverged and few inliers remain \u2014 check image / feature.",
+        "CM source looks pro-grade: spice_auto",
+        "Pipeline grade=NEEDS_WORK \u2014 SOTA capped.",
+        "Robust consensus from 5 inliers (excluded 69 outlier methods). \u03c3_lon\u22481.1342\u00b0 \u03c3_lat\u22480.8000\u00b0 (~0.529\u2033 if geometry OK)."
+      ],
+      "method_weights": {
+        "OVAL": 1.4861224263302442,
+        "MID": 2.8786322101580404,
+        "MORPH": 2.419886674774777,
+        "PHASE_CORR": 0.00011569708818635992,
+        "MEAN_SHIFT": 2.2891260383480043
+      },
+      "consensus_detail": {
+        "mad_lon": 1.371269091123198,
+        "mad_lat": 0.058904480749924444,
+        "neff": 3.813405048066685,
+        "sigma_lon_pop": 2.2149566480321345,
+        "sigma_lat_pop": 1.5621502559320737,
+        "cluster_note": "chose 1 of 7 lon-clusters (score=158.7); edge_locks_dropped=11; pipeline_seed=189.11559273224148",
+        "n_clusters": 7,
+        "edge_locks_dropped": 11,
+        "pipeline_seed_lon": 189.11559273224148,
+        "pipeline_seed_lat": -18.56610362687233
+      },
+      "fits_time": null,
+      "recommendations": [
+        "Multiple lon clusters \u2014 GRS may be near limb; verify against WinJUPOS.",
+        "GRS ~86\u00b0 from CM (near limb) \u2014 foreshortening hurts accuracy; prefer frames with GRS closer to central meridian.",
+        "VLBI/pipeline \u03c3_sky=10.7\u2033 is large (NEEDS_WORK territory) \u2014 do not treat SOTA as high confidence.",
+        "For publication: report SOTA lon/lat + definition=SOTA_ROBUST + CM source + \u03c3.",
+        "Validate with WinJUPOS manual pick when possible (not auto-detect).",
+        "Best absolute accuracy needs excellent stack + SPICE/WJ CM + accurate UTC."
+      ]
+    }
+  },
+  "all_methods": {
+    "n_total": 83,
+    "n_ok": 82,
+    "n_failed": 1,
+    "scatter_lon_deg": 2.8243984831624562,
+    "scatter_lat_deg": 2.8587695049754647,
+    "primary_method": "ENS_MEDIAN",
+    "primary_lon_iii_deg": 99.3459255451692,
+    "primary_lat_deg": -22.017167381974225,
+    "methods": [
+      {
+        "method_id": "MAP_DARK",
+        "family": "?",
+        "lon_iii_deg": NaN,
+        "lat_deg": NaN,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.0,
+        "ok": false,
+        "note": "map_dark too near map edge"
+      },
+      {
+        "method_id": "BARY_IMG",
+        "family": "image",
+        "lon_iii_deg": 139.81521109328688,
+        "lat_deg": -27.00977264667281,
+        "length_deg": 284.268179299146,
+        "width_deg": 62.72042734175201,
+        "score": 0.0,
+        "weight": 3.0,
+        "ok": true,
+        "note": "Image-plane intensity-weighted dark barycentre"
+      },
+      {
+        "method_id": "ENGINE",
+        "family": "ensemble",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.336947456213522,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Precision engine multi-method"
+      },
+      {
+        "method_id": "MS_NCC",
+        "family": "template",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.46351931330472,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "score": 0.0,
+        "weight": 3.0,
+        "ok": true,
+        "note": "fallback multi-template mean"
+      },
+      {
+        "method_id": "TMPL_10x7",
+        "family": "template",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -15.32188841201716,
+        "length_deg": 10,
+        "width_deg": 7,
+        "score": 14704.602385187896,
+        "weight": 3.0,
+        "ok": true,
+        "note": "NCC template L=10 W=7"
+      },
+      {
+        "method_id": "TMPL_12x8",
+        "family": "template",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -14.291845493562235,
+        "length_deg": 12,
+        "width_deg": 8,
+        "score": 14650.012202068941,
+        "weight": 3.0,
+        "ok": true,
+        "note": "NCC template L=12 W=8"
+      },
+      {
+        "method_id": "TMPL_14x9",
+        "family": "template",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -13.776824034334766,
+        "length_deg": 14,
+        "width_deg": 9,
+        "score": 14576.157761960865,
+        "weight": 3.0,
+        "ok": true,
+        "note": "NCC template L=14 W=9"
+      },
+      {
+        "method_id": "PERC08",
+        "family": "threshold",
+        "lon_iii_deg": 96.94999220402742,
+        "lat_deg": -21.64804580709416,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Map dark percentile \u2264p8 barycentre"
+      },
+      {
+        "method_id": "PERC12",
+        "family": "threshold",
+        "lon_iii_deg": 99.26891803518298,
+        "lat_deg": -21.90154939037334,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Map dark percentile \u2264p12 barycentre"
+      },
+      {
+        "method_id": "PERC18",
+        "family": "threshold",
+        "lon_iii_deg": 100.39639975362512,
+        "lat_deg": -22.014983963936558,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Map dark percentile \u2264p18 barycentre"
+      },
+      {
+        "method_id": "OTSU",
+        "family": "threshold",
+        "lon_iii_deg": 101.05270821685946,
+        "lat_deg": -22.09984599701599,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Otsu dark class barycentre"
+      },
+      {
+        "method_id": "HP_PEAK",
+        "family": "map",
+        "lon_iii_deg": 98.11857266672142,
+        "lat_deg": -28.588480921691687,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "High-pass darkest peak"
+      },
+      {
+        "method_id": "DOG_BARY",
+        "family": "map",
+        "lon_iii_deg": 94.38911091904403,
+        "lat_deg": -27.551822201582894,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "Difference-of-Gaussians dark bary"
+      },
+      {
+        "method_id": "LOG_BLOB",
+        "family": "map",
+        "lon_iii_deg": 93.7433087185201,
+        "lat_deg": -17.381974248927037,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.8,
+        "ok": true,
+        "note": "Laplacian-of-Gaussian blob"
+      },
+      {
+        "method_id": "PROJ_1D",
+        "family": "map",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "1D lon scan min intensity in SEB band"
+      },
+      {
+        "method_id": "LAT_TRACK",
+        "family": "map",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Per-latitude darkest lon near \u221222\u00b0"
+      },
+      {
+        "method_id": "PHASE_CORR",
+        "family": "template",
+        "lon_iii_deg": 188.05353030536784,
+        "lat_deg": -15.064377682403432,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "Phase-only correlation with dark ellipse"
+      },
+      {
+        "method_id": "ISOPHOTE",
+        "family": "edge",
+        "lon_iii_deg": 182.61101145480495,
+        "lat_deg": -22.081070916408677,
+        "length_deg": 17.099999999999998,
+        "width_deg": 13.628571428571426,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Isophote dark contour centroid"
+      },
+      {
+        "method_id": "QUAD_MOM",
+        "family": "map",
+        "lon_iii_deg": 99.9823137579542,
+        "lat_deg": -21.97571108292301,
+        "length_deg": 340.21111066473804,
+        "width_deg": 16.424271023981195,
+        "score": 0.0,
+        "weight": 2.3,
+        "ok": true,
+        "note": "Weighted second-moment ellipse center"
+      },
+      {
+        "method_id": "MORPH",
+        "family": "threshold",
+        "lon_iii_deg": 184.3956426007854,
+        "lat_deg": -22.056897909931838,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Morphological open/close dark component"
+      },
+      {
+        "method_id": "ADAPTIVE",
+        "family": "threshold",
+        "lon_iii_deg": 99.03079455119178,
+        "lat_deg": -24.836886672179524,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Local adaptive dark (band < local mean)"
+      },
+      {
+        "method_id": "SEED_GROW",
+        "family": "threshold",
+        "lon_iii_deg": 17.957177393881796,
+        "lat_deg": -22.029107120009495,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.1,
+        "ok": true,
+        "note": "Region grow from darkest seed"
+      },
+      {
+        "method_id": "SOBEL_RING",
+        "family": "edge",
+        "lon_iii_deg": 98.33241893639374,
+        "lat_deg": -22.02376233208851,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Gradient-magnitude ring centroid"
+      },
+      {
+        "method_id": "FLUX_P1",
+        "family": "map",
+        "lon_iii_deg": 100.58186372263654,
+        "lat_deg": -22.03087597934698,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Inverse-flux moment power=1.0"
+      },
+      {
+        "method_id": "FLUX_P2",
+        "family": "map",
+        "lon_iii_deg": 100.00121618371239,
+        "lat_deg": -21.974676999271882,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "Inverse-flux moment power=2.0"
+      },
+      {
+        "method_id": "FLUX_P4",
+        "family": "map",
+        "lon_iii_deg": 98.88514557410107,
+        "lat_deg": -21.860256361864767,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Inverse-flux moment power=4.0"
+      },
+      {
+        "method_id": "SYMMETRY",
+        "family": "map",
+        "lon_iii_deg": 101.16474332394328,
+        "lat_deg": -22.110540103673152,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "High inverse-intensity mass center (symmetry proxy)"
+      },
+      {
+        "method_id": "MIN_PIX",
+        "family": "map",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -18.154506437768234,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.0,
+        "ok": true,
+        "note": "Single darkest pixel (noisy but unbiased seed)"
+      },
+      {
+        "method_id": "OVAL",
+        "family": "extent",
+        "lon_iii_deg": 185.9953481564805,
+        "lat_deg": -21.980034915317454,
+        "length_deg": 13.114285714285714,
+        "width_deg": 13.114285714285714,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Dark oval barycentre"
+      },
+      {
+        "method_id": "EDGE_W",
+        "family": "edge",
+        "lon_iii_deg": 189.98348026962805,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Higher-lon extent edge"
+      },
+      {
+        "method_id": "EDGE_E",
+        "family": "edge",
+        "lon_iii_deg": 179.0470971388203,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Lower-lon extent edge"
+      },
+      {
+        "method_id": "MID",
+        "family": "extent",
+        "lon_iii_deg": 184.5152887042242,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 10.93638313080774,
+        "width_deg": 13.114285714285714,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Edge midpoint"
+      },
+      {
+        "method_id": "FWHM_LON",
+        "family": "profile",
+        "lon_iii_deg": 26.902708289642334,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 32.271428571428565,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.4,
+        "ok": true,
+        "note": "FWHM centre of 1D lon intensity cut (photometry)"
+      },
+      {
+        "method_id": "FWHM_LAT",
+        "family": "profile",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -12.360515021459221,
+        "length_deg": null,
+        "width_deg": 0.2571428571428571,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "FWHM centre of 1D lat cut (photometry)"
+      },
+      {
+        "method_id": "GAUSS_1D",
+        "family": "profile",
+        "lon_iii_deg": 102.16369694424877,
+        "lat_deg": -22.017167381974247,
+        "length_deg": 168.25273466259324,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.3,
+        "ok": true,
+        "note": "Gaussian fit to inverted lon profile"
+      },
+      {
+        "method_id": "ISO_P08",
+        "family": "isophote",
+        "lon_iii_deg": 99.76051256542375,
+        "lat_deg": -21.963491444178135,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Isophote centroid at p8"
+      },
+      {
+        "method_id": "ISO_P12",
+        "family": "isophote",
+        "lon_iii_deg": 100.60056297248629,
+        "lat_deg": -22.039880720138225,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Isophote centroid at p12"
+      },
+      {
+        "method_id": "ISO_P16",
+        "family": "isophote",
+        "lon_iii_deg": 100.98788972721835,
+        "lat_deg": -22.07680034557717,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Isophote centroid at p16"
+      },
+      {
+        "method_id": "ISO_P22",
+        "family": "isophote",
+        "lon_iii_deg": 101.13529810544094,
+        "lat_deg": -22.092946070706507,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Isophote centroid at p22"
+      },
+      {
+        "method_id": "ISO_P28",
+        "family": "isophote",
+        "lon_iii_deg": 101.18164261988883,
+        "lat_deg": -22.10409516908597,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.5,
+        "ok": true,
+        "note": "Isophote centroid at p28"
+      },
+      {
+        "method_id": "MULTI_ISO",
+        "family": "isophote",
+        "lon_iii_deg": 100.7331888220397,
+        "lat_deg": -22.0554427499372,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.8,
+        "ok": true,
+        "note": "Mean of multi-level isophote centres (IRAF-style ladder)"
+      },
+      {
+        "method_id": "EDGE_N",
+        "family": "edge",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -13.004291845493555,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Northern lat edge of dark mask"
+      },
+      {
+        "method_id": "EDGE_S",
+        "family": "edge",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -30.772532188841197,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Southern lat edge of dark mask"
+      },
+      {
+        "method_id": "BOX_C",
+        "family": "extent",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -21.888412017167376,
+        "length_deg": 180.0,
+        "width_deg": 17.768240343347642,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "Bounding-box centre of dark mask (JUPOS-like extent)"
+      },
+      {
+        "method_id": "BOX_LEN",
+        "family": "extent",
+        "lon_iii_deg": 280.7554602553321,
+        "lat_deg": -21.888412017167376,
+        "length_deg": 180.0,
+        "width_deg": 17.768240343347642,
+        "score": 0.0,
+        "weight": 1.0,
+        "ok": true,
+        "note": "Extent length=180.000\u00b0 width=17.768\u00b0 (logged as position=box centre)"
+      },
+      {
+        "method_id": "GEOM_MED",
+        "family": "robust",
+        "lon_iii_deg": 106.55905441096004,
+        "lat_deg": -22.072608394039985,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.6,
+        "ok": true,
+        "note": "Geometric median of dark pixels (Weiszfeld)"
+      },
+      {
+        "method_id": "PCA_ELL",
+        "family": "extent",
+        "lon_iii_deg": 95.66765336915725,
+        "lat_deg": -21.506670101832245,
+        "length_deg": 174.9682793712747,
+        "width_deg": 8.172110657091547,
+        "score": 0.0,
+        "weight": 2.4,
+        "ok": true,
+        "note": "PCA inertia ellipse centre of dark mask"
+      },
+      {
+        "method_id": "HULL_C",
+        "family": "extent",
+        "lon_iii_deg": 100.75546025533211,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.8,
+        "ok": true,
+        "note": "Convex-hull centroid of dark mask"
+      },
+      {
+        "method_id": "DIST_PEAK",
+        "family": "map",
+        "lon_iii_deg": 10.75546025533211,
+        "lat_deg": -28.96995708154506,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Distance-transform medial peak (skeleton centre)"
+      },
+      {
+        "method_id": "MEAN_SHIFT",
+        "family": "robust",
+        "lon_iii_deg": 183.59038037350572,
+        "lat_deg": -22.075467230230572,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.7,
+        "ok": true,
+        "note": "Mean-shift density mode of dark pixels"
+      },
+      {
+        "method_id": "RANSAC_ELL",
+        "family": "extent",
+        "lon_iii_deg": 100.94845525175813,
+        "lat_deg": -19.978540772532174,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "RANSAC circle/ellipse centre (inliers\u2248672)"
+      },
+      {
+        "method_id": "CIV_WIN",
+        "family": "template",
+        "lon_iii_deg": 25.680406645610873,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.11102309919491192,
+        "weight": 3.0,
+        "ok": true,
+        "note": "CIV-style window ZNCC dark kernel (Asay-Davis family)"
+      },
+      {
+        "method_id": "SAD_TMPL",
+        "family": "template",
+        "lon_iii_deg": 100.81979192080745,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Sum-abs-diff matched dark template"
+      },
+      {
+        "method_id": "SSD_TMPL",
+        "family": "template",
+        "lon_iii_deg": 105.96632515883461,
+        "lat_deg": -22.017167381974247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Sum-sq-diff matched dark template"
+      },
+      {
+        "method_id": "SPOMF",
+        "family": "template",
+        "lon_iii_deg": 186.61554058155954,
+        "lat_deg": -15.064377682403432,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.3,
+        "ok": true,
+        "note": "Symmetric phase-only matched filter"
+      },
+      {
+        "method_id": "BOTTOM_HAT",
+        "family": "morph",
+        "lon_iii_deg": 100.75546025533208,
+        "lat_deg": -22.0171673819742,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.1,
+        "ok": true,
+        "note": "Morphological bottom-hat dark enhance + bary"
+      },
+      {
+        "method_id": "TOPHAT_INV",
+        "family": "morph",
+        "lon_iii_deg": 103.50678674540747,
+        "lat_deg": -19.65705873130971,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Top-hat on inverted band (dark-as-bright)"
+      },
+      {
+        "method_id": "WATERSHED",
+        "family": "morph",
+        "lon_iii_deg": 21.555765699086326,
+        "lat_deg": -22.08418008369191,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Watershed/basin of inverted GRS bowl"
+      },
+      {
+        "method_id": "STRUCT_T",
+        "family": "edge",
+        "lon_iii_deg": 101.15316362415771,
+        "lat_deg": -21.99228582576222,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.7,
+        "ok": true,
+        "note": "Structure-tensor energy \u00d7 dark mass"
+      },
+      {
+        "method_id": "RAD_SYM",
+        "family": "map",
+        "lon_iii_deg": 22.904279843415658,
+        "lat_deg": -16.92314835889958,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.1,
+        "ok": true,
+        "note": "Simplified radial symmetry transform"
+      },
+      {
+        "method_id": "HU_MOM",
+        "family": "map",
+        "lon_iii_deg": 100.77686267550772,
+        "lat_deg": -22.056547754564903,
+        "length_deg": 334.2002666454652,
+        "width_deg": 16.425353394882794,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Spatial moments centre (Hu/raw m10/m00)"
+      },
+      {
+        "method_id": "P05",
+        "family": "threshold",
+        "lon_iii_deg": 70.18307725729106,
+        "lat_deg": -19.025860658743664,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p5"
+      },
+      {
+        "method_id": "P10",
+        "family": "threshold",
+        "lon_iii_deg": 90.47997253752087,
+        "lat_deg": -20.948756809294682,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p10"
+      },
+      {
+        "method_id": "P15",
+        "family": "threshold",
+        "lon_iii_deg": 96.36195658640335,
+        "lat_deg": -21.58283633128562,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p15"
+      },
+      {
+        "method_id": "P20",
+        "family": "threshold",
+        "lon_iii_deg": 98.43638870223324,
+        "lat_deg": -21.813145588354182,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p20"
+      },
+      {
+        "method_id": "P25",
+        "family": "threshold",
+        "lon_iii_deg": 99.42293305515538,
+        "lat_deg": -21.917763574129665,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p25"
+      },
+      {
+        "method_id": "P30",
+        "family": "threshold",
+        "lon_iii_deg": 99.98223540082643,
+        "lat_deg": -21.97570311095878,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p30"
+      },
+      {
+        "method_id": "P35",
+        "family": "threshold",
+        "lon_iii_deg": 100.33795358682268,
+        "lat_deg": -22.01005921375564,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.2,
+        "ok": true,
+        "note": "Dark bary at percentile \u2264p35"
+      },
+      {
+        "method_id": "P_LADDER",
+        "family": "threshold",
+        "lon_iii_deg": 98.43638870223324,
+        "lat_deg": -21.813145588354182,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.6,
+        "ok": true,
+        "note": "Median of percentile ladder (definition sensitivity)"
+      },
+      {
+        "method_id": "BILATERAL",
+        "family": "map",
+        "lon_iii_deg": 95.6608820859955,
+        "lat_deg": -21.50768709401311,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Edge-preserving smooth + dark bary"
+      },
+      {
+        "method_id": "UNSHARP",
+        "family": "map",
+        "lon_iii_deg": 10.828544286725407,
+        "lat_deg": -18.152924082101542,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.6,
+        "ok": true,
+        "note": "Unsharp-mask enhanced darkest peak"
+      },
+      {
+        "method_id": "ROLL_BALL",
+        "family": "morph",
+        "lon_iii_deg": 100.754625746308,
+        "lat_deg": -24.375822228664685,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.2,
+        "ok": true,
+        "note": "Rolling-ball background subtract + dark bary"
+      },
+      {
+        "method_id": "KDE_MODE",
+        "family": "robust",
+        "lon_iii_deg": 11.88046025533211,
+        "lat_deg": -28.796137339055782,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.4,
+        "ok": true,
+        "note": "2D KDE mode of dark pixel cloud"
+      },
+      {
+        "method_id": "GMM2_LON",
+        "family": "robust",
+        "lon_iii_deg": 17.43617817613665,
+        "lat_deg": -22.06464941243034,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "2-GMM on lon of dark pixels (darker component)"
+      },
+      {
+        "method_id": "RING_TMPL",
+        "family": "template",
+        "lon_iii_deg": 100.83684132341547,
+        "lat_deg": -22.91269028279395,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.0,
+        "ok": true,
+        "note": "Annular ring template phase correlation"
+      },
+      {
+        "method_id": "MEC",
+        "family": "extent",
+        "lon_iii_deg": 16.99134302874169,
+        "lat_deg": -22.059201166808137,
+        "length_deg": 360.0107447376128,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 1.9,
+        "ok": true,
+        "note": "Min enclosing circle centre of dark mask"
+      },
+      {
+        "method_id": "ENS_WMEAN",
+        "family": "ensemble",
+        "lon_iii_deg": 82.49663527990197,
+        "lat_deg": -21.200152802607178,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 3.5,
+        "ok": true,
+        "note": "Weighted mean of 70 methods"
+      },
+      {
+        "method_id": "ENS_MEDIAN",
+        "family": "ensemble",
+        "lon_iii_deg": 99.3459255451692,
+        "lat_deg": -22.017167381974225,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 3.5,
+        "ok": true,
+        "note": "Robust median of methods"
+      },
+      {
+        "method_id": "ENS_TRIM",
+        "family": "ensemble",
+        "lon_iii_deg": 83.62421997255535,
+        "lat_deg": -21.694314868468332,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 3.0,
+        "ok": true,
+        "note": "20% lon-outlier trimmed mean"
+      },
+      {
+        "method_id": "ENS_MEDOID",
+        "family": "ensemble",
+        "lon_iii_deg": 99.42293305515538,
+        "lat_deg": -21.917763574129665,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 3.2,
+        "ok": true,
+        "note": "Medoid method=P25"
+      },
+      {
+        "method_id": "ENS_MAP",
+        "family": "ensemble",
+        "lon_iii_deg": 72.83956434699478,
+        "lat_deg": -22.34126246895694,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Mean of family=map (n=15)"
+      },
+      {
+        "method_id": "ENS_TEMPLATE",
+        "family": "ensemble",
+        "lon_iii_deg": 60.29459230598709,
+        "lat_deg": -17.694702504674247,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Mean of family=template (n=10)"
+      },
+      {
+        "method_id": "ENS_THRESHOLD",
+        "family": "ensemble",
+        "lon_iii_deg": 96.33624122264355,
+        "lat_deg": -21.84497251569449,
+        "length_deg": null,
+        "width_deg": null,
+        "score": 0.0,
+        "weight": 2.5,
+        "ok": true,
+        "note": "Mean of family=threshold (n=15)"
+      }
+    ],
+    "by_family": {
+      "image": 1,
+      "ensemble": 8,
+      "template": 10,
+      "threshold": 15,
+      "map": 16,
+      "edge": 7,
+      "extent": 8,
+      "profile": 3,
+      "isophote": 6,
+      "robust": 4,
+      "morph": 4
+    },
+    "catalog": [
+      {
+        "id": "MAP_DARK",
+        "family": "map",
+        "desc": "Cylindrical dark centroid"
+      },
+      {
+        "id": "BARY_IMG",
+        "family": "image",
+        "desc": "Image-plane dark barycentre"
+      },
+      {
+        "id": "ENGINE",
+        "family": "ensemble",
+        "desc": "Precision engine consensus"
+      },
+      {
+        "id": "MS_NCC",
+        "family": "template",
+        "desc": "Multiscale / multi-template NCC"
+      },
+      {
+        "id": "TMPL_10x7",
+        "family": "template",
+        "desc": "Template 10\u00d77\u00b0"
+      },
+      {
+        "id": "TMPL_12x8",
+        "family": "template",
+        "desc": "Template 12\u00d78\u00b0"
+      },
+      {
+        "id": "TMPL_14x9",
+        "family": "template",
+        "desc": "Template 14\u00d79\u00b0"
+      },
+      {
+        "id": "PERC08",
+        "family": "threshold",
+        "desc": "p8 dark bary"
+      },
+      {
+        "id": "PERC12",
+        "family": "threshold",
+        "desc": "p12 dark bary"
+      },
+      {
+        "id": "PERC18",
+        "family": "threshold",
+        "desc": "p18 dark bary"
+      },
+      {
+        "id": "OTSU",
+        "family": "threshold",
+        "desc": "Otsu dark class"
+      },
+      {
+        "id": "HP_PEAK",
+        "family": "map",
+        "desc": "High-pass darkest peak"
+      },
+      {
+        "id": "DOG_BARY",
+        "family": "map",
+        "desc": "Difference-of-Gaussians bary"
+      },
+      {
+        "id": "LOG_BLOB",
+        "family": "map",
+        "desc": "Laplacian-of-Gaussian blob"
+      },
+      {
+        "id": "PROJ_1D",
+        "family": "map",
+        "desc": "1D longitude intensity scan"
+      },
+      {
+        "id": "LAT_TRACK",
+        "family": "map",
+        "desc": "Per-lat darkest track"
+      },
+      {
+        "id": "PHASE_CORR",
+        "family": "template",
+        "desc": "Phase correlation"
+      },
+      {
+        "id": "ISOPHOTE",
+        "family": "edge",
+        "desc": "Dark isophote centroid"
+      },
+      {
+        "id": "QUAD_MOM",
+        "family": "map",
+        "desc": "Second-moment ellipse center"
+      },
+      {
+        "id": "MORPH",
+        "family": "threshold",
+        "desc": "Morphological component"
+      },
+      {
+        "id": "ADAPTIVE",
+        "family": "threshold",
+        "desc": "Adaptive local dark"
+      },
+      {
+        "id": "SEED_GROW",
+        "family": "threshold",
+        "desc": "Region grow from darkest seed"
+      },
+      {
+        "id": "SOBEL_RING",
+        "family": "edge",
+        "desc": "Gradient ring centroid"
+      },
+      {
+        "id": "FLUX_P1",
+        "family": "map",
+        "desc": "Inverse-flux p=1"
+      },
+      {
+        "id": "FLUX_P2",
+        "family": "map",
+        "desc": "Inverse-flux p=2"
+      },
+      {
+        "id": "FLUX_P4",
+        "family": "map",
+        "desc": "Inverse-flux p=4 (core)"
+      },
+      {
+        "id": "SYMMETRY",
+        "family": "map",
+        "desc": "Symmetry / mass center"
+      },
+      {
+        "id": "MIN_PIX",
+        "family": "map",
+        "desc": "Darkest pixel"
+      },
+      {
+        "id": "RED_BARY",
+        "family": "spectral",
+        "desc": "Red channel bary"
+      },
+      {
+        "id": "CHROM_RG",
+        "family": "spectral",
+        "desc": "R\u2212G chromatic"
+      },
+      {
+        "id": "RB_BLEND",
+        "family": "spectral",
+        "desc": "R+B blend"
+      },
+      {
+        "id": "OVAL",
+        "family": "extent",
+        "desc": "Oval fit center"
+      },
+      {
+        "id": "EDGE_W",
+        "family": "edge",
+        "desc": "West/high lon edge (JUPOS-like)"
+      },
+      {
+        "id": "EDGE_E",
+        "family": "edge",
+        "desc": "East/low lon edge (JUPOS-like)"
+      },
+      {
+        "id": "MID",
+        "family": "extent",
+        "desc": "Edge midpoint"
+      },
+      {
+        "id": "FWHM_LON",
+        "family": "profile",
+        "desc": "FWHM centre of 1D lon cut"
+      },
+      {
+        "id": "FWHM_LAT",
+        "family": "profile",
+        "desc": "FWHM centre of 1D lat cut"
+      },
+      {
+        "id": "GAUSS_1D",
+        "family": "profile",
+        "desc": "Gaussian fit lon profile"
+      },
+      {
+        "id": "MULTI_ISO",
+        "family": "isophote",
+        "desc": "Multi-level isophote mean (IRAF-style)"
+      },
+      {
+        "id": "ISO_P08",
+        "family": "isophote",
+        "desc": "Isophote p8"
+      },
+      {
+        "id": "BOX_C",
+        "family": "extent",
+        "desc": "Bounding-box centre (JUPOS extent)"
+      },
+      {
+        "id": "EDGE_N",
+        "family": "edge",
+        "desc": "Northern edge"
+      },
+      {
+        "id": "EDGE_S",
+        "family": "edge",
+        "desc": "Southern edge"
+      },
+      {
+        "id": "GEOM_MED",
+        "family": "robust",
+        "desc": "Geometric median dark pixels"
+      },
+      {
+        "id": "PCA_ELL",
+        "family": "extent",
+        "desc": "PCA inertia ellipse centre"
+      },
+      {
+        "id": "HULL_C",
+        "family": "extent",
+        "desc": "Convex-hull centroid"
+      },
+      {
+        "id": "DIST_PEAK",
+        "family": "map",
+        "desc": "Distance-transform medial peak"
+      },
+      {
+        "id": "MEAN_SHIFT",
+        "family": "robust",
+        "desc": "Mean-shift density mode"
+      },
+      {
+        "id": "RANSAC_ELL",
+        "family": "extent",
+        "desc": "RANSAC ellipse/circle centre"
+      },
+      {
+        "id": "CIV_WIN",
+        "family": "template",
+        "desc": "CIV-style window ZNCC (Asay-Davis family)"
+      },
+      {
+        "id": "SAD_TMPL",
+        "family": "template",
+        "desc": "SAD matched template"
+      },
+      {
+        "id": "SSD_TMPL",
+        "family": "template",
+        "desc": "SSD matched template"
+      },
+      {
+        "id": "SPOMF",
+        "family": "template",
+        "desc": "Symmetric phase-only matched filter"
+      },
+      {
+        "id": "BOTTOM_HAT",
+        "family": "morph",
+        "desc": "Morphological bottom-hat"
+      },
+      {
+        "id": "TOPHAT_INV",
+        "family": "morph",
+        "desc": "Top-hat on inverted"
+      },
+      {
+        "id": "WATERSHED",
+        "family": "morph",
+        "desc": "Watershed basin centre"
+      },
+      {
+        "id": "STRUCT_T",
+        "family": "edge",
+        "desc": "Structure-tensor energy"
+      },
+      {
+        "id": "RAD_SYM",
+        "family": "map",
+        "desc": "Radial symmetry transform"
+      },
+      {
+        "id": "HU_MOM",
+        "family": "map",
+        "desc": "Spatial/Hu moments centre"
+      },
+      {
+        "id": "P_LADDER",
+        "family": "threshold",
+        "desc": "Percentile ladder median"
+      },
+      {
+        "id": "BILATERAL",
+        "family": "map",
+        "desc": "Bilateral smooth + bary"
+      },
+      {
+        "id": "UNSHARP",
+        "family": "map",
+        "desc": "Unsharp-mask peak"
+      },
+      {
+        "id": "ROLL_BALL",
+        "family": "morph",
+        "desc": "Rolling-ball background residual"
+      },
+      {
+        "id": "KDE_MODE",
+        "family": "robust",
+        "desc": "2D KDE mode"
+      },
+      {
+        "id": "GMM2_LON",
+        "family": "robust",
+        "desc": "2-GMM on lon of dark pixels"
+      },
+      {
+        "id": "RING_TMPL",
+        "family": "template",
+        "desc": "Annular ring template"
+      },
+      {
+        "id": "MEC",
+        "family": "extent",
+        "desc": "Min enclosing circle centre"
+      },
+      {
+        "id": "ENS_WMEAN",
+        "family": "ensemble",
+        "desc": "Weighted mean ensemble"
+      },
+      {
+        "id": "ENS_MEDIAN",
+        "family": "ensemble",
+        "desc": "Median ensemble"
+      },
+      {
+        "id": "ENS_TRIM",
+        "family": "ensemble",
+        "desc": "Trimmed mean ensemble"
+      },
+      {
+        "id": "ENS_MEDOID",
+        "family": "ensemble",
+        "desc": "Medoid method"
+      }
+    ],
+    "literature_notes": [
+      "JUPOS/WinJUPOS: measure centre and/or west\u2013east edges on projected map (community gold workflow).",
+      "Asay-Davis et al. (Icarus 2009): ACCIV/CIV \u2014 correlation image velocimetry for cloud tracking.",
+      "Simon et al. / Hubble OPAL: multi-year GRS size & drift; careful isophote/size definitions.",
+      "IRAF STSDAS ellipse: multi-level elliptical isophote fitting (galaxy tradition applied to oval).",
+      "Classic photometry: FWHM of 1D cuts through feature (lon and lat profiles).",
+      "Geometric median / RANSAC / PCA: robust centre under outlier dark pixels.",
+      "Distance transform medial peak: skeleton-like centre of filled dark region.",
+      "Mean-shift / KDE mode: nonparametric density peak of dark pixels.",
+      "ZNCC / SAD / SSD templates: classical matched filters (complement NCC).",
+      "SPOMF: symmetric phase-only matched filter (optics literature).",
+      "Structure tensor: local orientation + gradient energy peak.",
+      "Morphological bottom-hat / top-hat: enhance dark (or bright) compact features.",
+      "Watershed on inverted band: catchment basin of GRS bowl.",
+      "Multi-percentile ladder: definition sensitivity (small but real systematic).",
+      "N/S edges + W/E edges: full box extent (JUPOS-like length & width).",
+      "Bounding box / convex hull centroids: discrete geometry alternatives.",
+      "Hu / spatial moments order 0\u20132: shape-invariant centre estimates.",
+      "Subpixel parabolic peak fit: standard refine after coarse argmin/argmax."
+    ],
+    "note": "Exhaustive laptop GRS localization suite: classical CV + map photometry + JUPOS/WinJUPOS-style edges + CIV-window correlation + isophote ladders + robust geometry + ensembles. Primary prefers robust ensemble. Not NASA truth \u2014 professional multi-method procedure."
+  },
+  "gold_standard_files": {
+    "json": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/gold_standard.json",
+    "txt": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/gold_standard.txt",
+    "export": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/winjupos_compatible_measure.txt",
+    "all_methods": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/all_methods.json",
+    "sota_json": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/sota_accuracy.json",
+    "sota_txt": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/sota_accuracy.txt",
+    "ai_hard_case": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/job_494eb18387fb/ai_hard_case.json"
+  },
+  "sota": {
+    "ok": true,
+    "lon_iii_deg": 186.57288010706372,
+    "lat_deg": -20.47471188233863,
+    "sigma_lon_deg": 1.1342499319905506,
+    "sigma_lat_deg": 0.7999564339664086,
+    "sigma_sky_arcsec_approx": 0.5285313760648715,
+    "n_methods_total": 83,
+    "n_methods_ok": 82,
+    "n_inliers": 5,
+    "n_outliers": 69,
+    "inlier_ids": [
+      "OVAL",
+      "MID",
+      "MORPH",
+      "PHASE_CORR",
+      "MEAN_SHIFT"
+    ],
+    "outlier_ids": [
+      "ENGINE",
+      "MS_NCC",
+      "TMPL_10x7",
+      "TMPL_12x8",
+      "TMPL_14x9",
+      "PROJ_1D",
+      "LAT_TRACK",
+      "FWHM_LAT",
+      "DIST_PEAK",
+      "UNSHARP",
+      "KDE_MODE",
+      "BARY_IMG",
+      "PERC08",
+      "PERC12",
+      "PERC18",
+      "OTSU",
+      "HP_PEAK",
+      "DOG_BARY",
+      "LOG_BLOB",
+      "QUAD_MOM",
+      "ADAPTIVE",
+      "SEED_GROW",
+      "FLUX_P1",
+      "FLUX_P2",
+      "FLUX_P4",
+      "SYMMETRY",
+      "FWHM_LON",
+      "GAUSS_1D",
+      "ISO_P08",
+      "ISO_P12",
+      "ISO_P16",
+      "ISO_P22",
+      "ISO_P28",
+      "MULTI_ISO",
+      "BOX_C",
+      "GEOM_MED",
+      "PCA_ELL",
+      "HULL_C",
+      "RANSAC_ELL",
+      "CIV_WIN",
+      "SAD_TMPL",
+      "SSD_TMPL",
+      "BOTTOM_HAT",
+      "TOPHAT_INV",
+      "WATERSHED",
+      "RAD_SYM",
+      "HU_MOM",
+      "P05",
+      "P10",
+      "P15",
+      "P20",
+      "P25",
+      "P30",
+      "P35",
+      "P_LADDER",
+      "BILATERAL",
+      "ROLL_BALL",
+      "GMM2_LON",
+      "RING_TMPL",
+      "MEC",
+      "ENS_WMEAN",
+      "ENS_MEDIAN",
+      "ENS_TRIM",
+      "ENS_MEDOID",
+      "ENS_MAP",
+      "ENS_TEMPLATE",
+      "ENS_THRESHOLD",
+      "SPOMF",
+      "ISOPHOTE"
+    ],
+    "primary_label": "SOTA_ROBUST",
+    "quality_grade": "SOTA_FAIR",
+    "quality_score": 61.0,
+    "quality_flags": [
+      "PIPELINE_AGREE",
+      "MODERATE_INLIERS",
+      "MULTI_CLUSTER",
+      "MED_LON_SCATTER",
+      "NEAR_LIMB",
+      "LARGE_PIPELINE_SIGMA",
+      "PIPELINE_NEEDS_WORK"
+    ],
+    "quality_notes": [
+      "chose 1 of 7 lon-clusters (score=158.7); edge_locks_dropped=11; pipeline_seed=189.11559273224148",
+      "SOTA agrees with VLBI/pipeline seed (\u0394lon=2.54\u00b0).",
+      "Dropped 11 map-edge artifact methods (CM\u00b190\u00b0 locks).",
+      "Excluded 69 outlier methods (normal with large method suite); 5 inliers drive SOTA primary.",
+      "CM source looks pro-grade: spice_auto",
+      "Pipeline grade=NEEDS_WORK \u2014 SOTA capped (no EXCELLENT).",
+      "Robust consensus from 5 inliers (excluded 69 outlier methods). \u03c3_lon\u22481.1342\u00b0 \u03c3_lat\u22480.8000\u00b0 (~0.529\u2033 if geometry OK)."
+    ],
+    "method_weights": {
+      "OVAL": 1.4861224263302442,
+      "MID": 2.8786322101580404,
+      "MORPH": 2.419886674774777,
+      "PHASE_CORR": 0.00011569708818635992,
+      "MEAN_SHIFT": 2.2891260383480043
+    },
+    "consensus_detail": {
+      "mad_lon": 1.371269091123198,
+      "mad_lat": 0.058904480749924444,
+      "neff": 3.813405048066685,
+      "sigma_lon_pop": 2.2149566480321345,
+      "sigma_lat_pop": 1.5621502559320737,
+      "cluster_note": "chose 1 of 7 lon-clusters (score=158.7); edge_locks_dropped=11; pipeline_seed=189.11559273224148",
+      "n_clusters": 7,
+      "edge_locks_dropped": 11,
+      "pipeline_seed_lon": 189.11559273224148,
+      "pipeline_seed_lat": -18.56610362687233
+    },
+    "fits_time": null,
+    "recommendations": [
+      "Multiple lon clusters \u2014 GRS may be near limb; verify against WinJUPOS.",
+      "GRS ~86\u00b0 from CM (near limb) \u2014 foreshortening hurts accuracy; prefer frames with GRS closer to central meridian.",
+      "VLBI/pipeline \u03c3_sky=10.7\u2033 is large (NEEDS_WORK territory) \u2014 do not treat SOTA as high confidence.",
+      "For publication: report SOTA lon/lat + definition=SOTA_ROBUST + CM source + \u03c3.",
+      "Validate with WinJUPOS manual pick when possible (not auto-detect).",
+      "Best absolute accuracy needs excellent stack + SPICE/WJ CM + accurate UTC."
+    ]
+  },
+  "ai_hard_case": {
+    "engaged": true,
+    "difficulty": 0.75,
+    "reasons": [
+      "method_span_106deg",
+      "near_limb",
+      "pipeline_needs_work",
+      "multi_cluster"
+    ],
+    "nn_used": false,
+    "nn_confidence": 0.0,
+    "blend_weight": 0.0,
+    "lon_before": 186.57288010706372,
+    "lat_before": -20.47471188233863,
+    "lon_after": 186.57288010706372,
+    "lat_after": -20.47471188233863,
+    "methods_boosted": [],
+    "note": "Hard limb case \u2014 classical multi-method modes disagree; SOTA prefers VLBI/pipeline cluster (~189\u00b0) over dense false CM cluster (~100\u00b0). AI NN not required after cluster fix."
+  }
+}

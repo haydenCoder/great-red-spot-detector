@@ -1,0 +1,1487 @@
+{
+  "job_id": "84fe9d173e7e",
+  "mode": "factory_night_full",
+  "output_dir": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e",
+  "pro_ephemeris": {
+    "t_utc_iso": "2026-07-15T10:04:24",
+    "distance_au": 6.27784346106624,
+    "cm_iii_deg": 154.41367582868668,
+    "sub_obs_lat_deg": 0.4551691,
+    "sub_obs_lon_deg": 154.41367582868668,
+    "north_pa_deg": 64.49667,
+    "apparent_diameter_arcsec": 31.403400733187333,
+    "light_time_s": 1884.2040000000002,
+    "source": "horizons+spice_auto+analytical",
+    "cm_source": "spice_auto",
+    "orientation_source": "horizons",
+    "distance_source": "horizons",
+    "sigma_cm_deg": 0.01,
+    "sigma_distance_frac": 0.001,
+    "sigma_pa_deg": 0.2,
+    "sigma_sublat_deg": 0.1,
+    "apply_orientation": true,
+    "notes": [
+      "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+      "SPICE auto geometry (4 kernels; online download if needed).",
+      "Horizons full observer geometry applied where parsed.",
+      "PROVENANCE: cm=spice_auto \u03c3=0.01\u00b0 | dist=horizons | ori=horizons apply_ori=True"
+    ],
+    "raw": {
+      "analytical": {
+        "distance_au": 4.889364425478952,
+        "cm_iii_deg": 181.22435510531068,
+        "sub_obs_lat_deg": 2.9905365605268868,
+        "sub_obs_lon_deg": 181.22435510531068,
+        "north_pa_deg": 0.0,
+        "apparent_diameter_arcsec": 40.32132129909112,
+        "light_time_s": 2439.816238232317
+      },
+      "spice": {
+        "distance_au": 6.277844280503013,
+        "light_time_s": 3132.6743281494564,
+        "apparent_diameter_arcsec": 31.403396634152656,
+        "source": "spice_auto",
+        "kernels": [
+          "naif0012.tls",
+          "gm_de440.tpc",
+          "pck00011.tpc",
+          "de440s.bsp"
+        ],
+        "notes": [
+          "body frame via pxform(J2000\u2192IAU_JUPITER) on barycenter LOS (de440s-safe)",
+          "north_pa from pole projection"
+        ],
+        "north_pa_deg": 344.8865040303403,
+        "cm_iii_deg": 154.41367582868668,
+        "sub_obs_lon_deg": 154.41367582868668,
+        "sub_obs_lat_deg": 0.8146976393164012
+      },
+      "horizons": {
+        "parser": "horizons_observer_v1",
+        "distance_au": 6.27784346106624,
+        "light_time_s": 1884.2040000000002,
+        "sub_obs_lat_deg": 0.4551691,
+        "sub_obs_lon_deg": 64.49667,
+        "cm_iii_deg": 64.49667,
+        "north_pa_deg": 64.49667,
+        "apparent_diameter_arcsec": 31.403400733187333,
+        "floats_found": [
+          125.328040122,
+          19.944418386,
+          31.4034,
+          154.168808,
+          0.93145,
+          6.27784346106624,
+          5.3229199,
+          123.2962591,
+          0.4551691,
+          268.05766,
+          64.49667
+        ],
+        "data_line": "2026-Jul-15 10:04, , , 125.328040122,  19.944418386,  31.40340,  154.168808,   0.931450,  6.27784346106624,  5.3229199,  123.2962591,  0.4551691,  268.05766,  64.49667,",
+        "ok": true,
+        "excerpt": "API VERSION: 1.2\nAPI SOURCE: NASA/JPL Horizons API\n\n\n\n*******************************************************************************\nEphemeris / API_USER Wed Jul 15 01:29:37 2026 Pasadena, USA      / Horizons    \n*******************************************************************************\nTarget body name: Jupiter (599)                   {source: jup365_merged}\nCenter body name: Earth (399)                     {source: DE441}\nCenter-site name: GEOCENTRIC\n*******************************************************************************\nStart time      : A.D. 2026-Jul-15 10:04:00.0000 UT      \nStop  time      : A.D. 2026-Jul-15 10:05:00.0000 UT      \nStep-size       : 1 minutes\n*******************************************************************************\nTarget pole/equ : IAU_JUPITER                     {West-longitude positive}\nTarget radii    : 71492.0, 71492.0, 66854.0 km    {Equator_a, b, pole_c}       \nCenter geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}\nCenter cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}\nCenter pole/equ : ITRF93                          {East-longitude positive}\nCenter radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       \nTarget primary  : Sun\nVis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}\nRel. light bend : Sun                             {source: jup365_merged}\nRel. lght bnd GM: 1.3271E+11 km^3/s^2                                          \nAtmos refraction: NO (AIRLESS)\nRA format       : DEG\nTime format     : CAL \nCalendar mode   : Mixed Julian/Gregorian\nEOP file        : eop.260714.p261010                                           \nEOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-JUL-14. PREDICTS-> 2026-OCT-09\nUnits conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s \nTable cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )\nTable cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )\nTable cut-offs 3: RA/DEC angular rate (     0.0=NO )                           \nTable format    : Comma Separated Values (spreadsheet)\n*************************************************************************************************************************************************************************\n Date__(UT)__HR:MN, , , R.A.___(ICRF), DEC____(ICRF),  Ang-diam,  ObsSub-LON, ObsSub-LAT,             delta,     deldot,     ObsEcLon,   ObsEcLat,  N.Pole-RA, N.Pole-DC,\n*****************************",
+        "query_time": "2026-07-15T10:04:24"
+      }
+    }
+  },
+  "synthetic": {
+    "mode": "synthetic_full_vlbi",
+    "grade": "VLBI_METHOD_GOOD",
+    "synth_epoch": "2027-04-06 02:31:02",
+    "random_time": true,
+    "resolution": "4K",
+    "width": 3840,
+    "height": 2160,
+    "lon_iii_deg": 295.91040144539136,
+    "lat_deg": -25.694461669785323,
+    "lat_planetographic_deg": -28.820627648967385,
+    "length_deg": 11.865371038603904,
+    "width_deg": 8.096825466098036,
+    "sigma_total_sky_arcsec": 0.7478754385069198,
+    "sigma_random_sky_arcsec": 0.722054008899284,
+    "sigma_systematic_sky_arcsec": 0.1948220364587172,
+    "truth_recovery_sky_arcsec": 23.17596912273182,
+    "truth_recovery_grade": "POOR",
+    "truth_lon": 226.68672749518458,
+    "truth_lat": -21.7969913482666,
+    "dlon_deg": 69.22367395020677,
+    "dlat_deg": -3.897470321518721,
+    "cm_iii_deg": 223.52162121795118,
+    "distance_au": 4.778953000846093,
+    "injection_n": 25,
+    "definition_n": 4,
+    "filter_closure_arcsec": 0.0004641744012867264,
+    "bias_lon_deg": -1.6177927370211194,
+    "bias_lat_deg": 1.312198283706568,
+    "optical_floor_arcsec": 0.3241307142857143,
+    "primary_method": "vlbi_multiscale_ncc",
+    "output_dir": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e/synth_8ffe1557dce9"
+  },
+  "truth_recovery": {
+    "dlon_deg": 69.22367395020677,
+    "dlat_deg": -3.897470321518721,
+    "sky_error_arcsec": 23.17596912273182,
+    "target_0_5_arcsec": false,
+    "target_1_arcsec": false,
+    "target_2_arcsec": false,
+    "grade": "POOR"
+  },
+  "research_grade": {
+    "lon_iii_deg": 294.2926087083702,
+    "lat_deg": -24.382263386078755,
+    "length_deg": 11.865371038603904,
+    "width_deg": 8.096825466098036,
+    "lon_bias_corrected_deg": 295.91040144539136,
+    "lat_bias_corrected_deg": -25.694461669785323,
+    "bias_lon_deg": -1.6177927370211194,
+    "bias_lat_deg": 1.312198283706568,
+    "sigma_random_sky_arcsec": 0.722054008899284,
+    "sigma_systematic_sky_arcsec": 0.1948220364587172,
+    "sigma_total_sky_arcsec": 0.7478754385069198,
+    "sigma_random_lon_deg": 2.0862408106158217,
+    "sigma_systematic_lon_deg": 0.10453952552308557,
+    "injection_n": 25,
+    "injection_mean_sky_arcsec": 0.9791418293039681,
+    "definition_n": 4,
+    "filter_closure_arcsec": 0.0004641744012867264,
+    "grade": "VLBI_METHOD_GOOD",
+    "methods": {
+      "primary": {
+        "lon_iii_deg": 294.2926087083702,
+        "lat_deg": -24.382263386078755,
+        "length_deg": 11.865371038603904,
+        "width_deg": 8.096825466098036,
+        "method": "vlbi_multiscale_ncc",
+        "methods": {
+          "multiscale_ncc": {
+            "lon_iii_deg": 294.26456324389204,
+            "lat_deg": -24.368370123230093,
+            "length_deg": 15.0,
+            "width_deg": 6.5,
+            "score": 0.6317725761478874,
+            "ncc": 0.6784422583854518,
+            "method": "multiscale_ncc",
+            "map_x": 2570.994056070465,
+            "map_y": 914.3115811518228
+          },
+          "template": {
+            "lon_iii_deg": 294.45153300708,
+            "lat_deg": -24.460991875554527,
+            "length_deg": 13.440000000000001,
+            "width_deg": 8.8,
+            "score": 93.22102694902571,
+            "method": "template",
+            "map_x": 2573.984533560566,
+            "map_y": 915.0520406051276,
+            "dark_contrast": 0.05514839279325545
+          },
+          "map_dark": {
+            "lon_iii_deg": 310.1452101086433,
+            "lat_deg": -31.584935772333893,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "score": 0.931183831089248,
+            "method": "map_dark_centroid"
+          }
+        },
+        "err_lon_deg": 0.1061784148580534,
+        "err_lat_deg": 0.05259904422778874,
+        "err_sky_arcsec": 0.03905930576595565,
+        "err_lon_arcsec": 0.034815009519714925,
+        "err_lat_arcsec": 0.017707187214816913,
+        "quality": 0.9921881388468089,
+        "notes": [
+          "moment rejected (pathological)",
+          "soft lock multiscale\u2295template (agreement <1.5\u00b0)",
+          "Primary: multi-scale normalized cross-correlation on \u03bc-corrected cylindrical map",
+          "Size: isophote ellipse on map (moment sizes rejected if pathological)",
+          "Internal \u03c3 is method scatter only \u2014 use hierarchical MC + error budget for total"
+        ]
+      },
+      "closure": {
+        "filters": [
+          {
+            "filter": "R",
+            "lam": 620.0,
+            "lon": 294.24632171184686,
+            "lat": -24.39328707479754
+          },
+          {
+            "filter": "G",
+            "lam": 530.0,
+            "lon": 294.2373159002907,
+            "lat": -24.38799355461242
+          },
+          {
+            "filter": "B",
+            "lam": 470.0,
+            "lon": 294.2331120423762,
+            "lat": -24.383297779108275
+          }
+        ],
+        "residual_lon_deg_rms": 0.0014028765945174845,
+        "residual_lat_deg_rms": 0.00018516435064333225,
+        "closure_sky_arcsec": 0.0004641744012867264
+      },
+      "probes": [
+        {
+          "true_lon": 262.8111579524009,
+          "true_lat": -24.895091467404065,
+          "rec_lon": 267.05747734351473,
+          "rec_lat": -23.88027850787809,
+          "dlon": 4.246319391113843,
+          "dlat": 1.014812959525976,
+          "sky_arcsec": 1.4280931555874778
+        },
+        {
+          "true_lon": 259.7312965394474,
+          "true_lat": -24.937628087916256,
+          "rec_lon": 261.02271592485454,
+          "rec_lat": -25.136927633424463,
+          "dlon": 1.2914193854071527,
+          "dlat": -0.1992995455082074,
+          "sky_arcsec": 0.42687100203710787
+        },
+        {
+          "true_lon": 263.4093351391664,
+          "true_lat": -25.155430260958177,
+          "rec_lon": 267.05737280090045,
+          "rec_lat": -23.70823417848321,
+          "dlon": 3.6480376617340653,
+          "dlat": 1.4471960824749672,
+          "sky_arcsec": 1.2846978581917978
+        },
+        {
+          "true_lon": 255.75672087901557,
+          "true_lat": -26.01000159883863,
+          "rec_lon": 256.70313662539456,
+          "rec_lat": -25.853505629872274,
+          "dlon": 0.9464157463789888,
+          "dlat": 0.15649596896635742,
+          "sky_arcsec": 0.31070041891279127
+        },
+        {
+          "true_lon": 250.05055374481566,
+          "true_lat": -23.643929445377463,
+          "rec_lon": 246.97938934175096,
+          "rec_lat": -20.45525596839221,
+          "dlon": -3.0711644030646994,
+          "dlat": 3.1886734769852545,
+          "sky_arcsec": 1.475829389725463
+        },
+        {
+          "true_lon": 258.2145855655545,
+          "true_lat": -23.034471063640126,
+          "rec_lon": 256.07183605002655,
+          "rec_lat": -20.65467260821714,
+          "dlon": -2.142749515527953,
+          "dlat": 2.3797984554229856,
+          "sky_arcsec": 1.07040783506992
+        },
+        {
+          "true_lon": 250.43816975213045,
+          "true_lat": -23.305466179109356,
+          "rec_lon": 246.97955522655678,
+          "rec_lat": -20.459386426806105,
+          "dlon": -3.4586145255736653,
+          "dlat": 2.8460797523032504,
+          "sky_arcsec": 1.4918458140171564
+        },
+        {
+          "true_lon": 255.0581108905812,
+          "true_lat": -22.956349719783624,
+          "rec_lon": 255.97989407437535,
+          "rec_lat": -20.651946815247754,
+          "dlon": 0.9217831837941617,
+          "dlat": 2.30440290453587,
+          "sky_arcsec": 0.8337735423816165
+        },
+        {
+          "true_lon": 246.8876177031817,
+          "true_lat": -23.401024783643997,
+          "rec_lon": 245.26982496616057,
+          "rec_lat": -22.80106926786928,
+          "dlon": -1.6177927370211194,
+          "dlat": 0.5999555157747167,
+          "sky_arcsec": 0.5713869855523601
+        },
+        {
+          "true_lon": 256.357535720956,
+          "true_lat": -23.842143228105382,
+          "rec_lon": 256.34359952934483,
+          "rec_lat": -23.685031422020728,
+          "dlon": -0.013936191611151116,
+          "dlat": 0.1571118060846537,
+          "sky_arcsec": 0.05308954562569307
+        },
+        {
+          "true_lon": 247.35134276075138,
+          "true_lat": -24.857082493404025,
+          "rec_lon": 245.26886656632627,
+          "rec_lat": -22.80715782430552,
+          "dlon": -2.0824761944251122,
+          "dlat": 2.0499246690985053,
+          "sky_arcsec": 0.9689978344448843
+        },
+        {
+          "true_lon": 267.6968868213621,
+          "true_lat": -25.214950197197137,
+          "rec_lon": 267.238559447733,
+          "rec_lat": -23.87617331141118,
+          "dlon": -0.4583273736291176,
+          "dlat": 1.3387768857859577,
+          "sky_arcsec": 0.47477011450509493
+        },
+        {
+          "true_lon": 273.3170505093881,
+          "true_lat": -23.68710075675101,
+          "rec_lon": 268.40855733823366,
+          "rec_lat": -23.33722701743416,
+          "dlon": -4.908493171154419,
+          "dlat": 0.34987373931685184,
+          "sky_arcsec": 1.622466541153935
+        },
+        {
+          "true_lon": 267.9679164856029,
+          "true_lat": -24.492987245094273,
+          "rec_lon": 267.2388084959971,
+          "rec_lat": -23.699005673739535,
+          "dlon": -0.7291079896058363,
+          "dlat": 0.7939815713547382,
+          "sky_arcsec": 0.35846500295862116
+        },
+        {
+          "true_lon": 266.5014089322122,
+          "true_lat": -24.524327651843787,
+          "rec_lon": 267.23799911910146,
+          "rec_lat": -23.87468305311458,
+          "dlon": 0.7365901868892593,
+          "dlat": 0.649644598729207,
+          "sky_arcsec": 0.3256236638129547
+        },
+        {
+          "true_lon": 258.03448707174766,
+          "true_lat": -22.799617445121957,
+          "rec_lon": 256.07244804087856,
+          "rec_lat": -20.647471109228377,
+          "dlon": -1.9620390308691071,
+          "dlat": 2.1521463358935797,
+          "sky_arcsec": 0.9741156339858271
+        },
+        {
+          "true_lon": 260.05192660913764,
+          "true_lat": -23.205613773940133,
+          "rec_lon": 261.2948955371738,
+          "rec_lat": -21.893415490233565,
+          "dlon": 1.2429689280361345,
+          "dlat": 1.312198283706568,
+          "sky_arcsec": 0.6035547406862826
+        },
+        {
+          "true_lon": 246.39143608932346,
+          "true_lat": -24.67553746974478,
+          "rec_lon": 245.26881255836423,
+          "rec_lat": -22.807476777718023,
+          "dlon": -1.1226235309592312,
+          "dlat": 1.8680606920267557,
+          "sky_arcsec": 0.7282486108716487
+        },
+        {
+          "true_lon": 271.86455011144875,
+          "true_lat": -23.330096679511144,
+          "rec_lon": 267.24083617520716,
+          "rec_lat": -23.516628173644406,
+          "dlon": -4.623713936241586,
+          "dlat": -0.18653149413326275,
+          "sky_arcsec": 1.5297287861139317
+        },
+        {
+          "true_lon": 270.38959063665646,
+          "true_lat": -25.47404852609484,
+          "rec_lon": 267.3290251350761,
+          "rec_lat": -23.87510726758167,
+          "dlon": -3.0605655015803563,
+          "dlat": 1.5989412585131717,
+          "sky_arcsec": 1.1309897551593173
+        },
+        {
+          "true_lon": 272.6085452728681,
+          "true_lat": -23.879544772268805,
+          "rec_lon": 267.3301835326581,
+          "rec_lat": -23.6878845798673,
+          "dlon": -5.278361740210016,
+          "dlat": 0.19166019240150334,
+          "sky_arcsec": 1.738744094622608
+        },
+        {
+          "true_lon": 264.14261964789534,
+          "true_lat": -24.348426359471294,
+          "rec_lon": 267.1469560679534,
+          "rec_lat": -23.699777973494847,
+          "dlon": 3.0043364200580527,
+          "dlat": 0.6486483859764469,
+          "sky_arcsec": 1.0092658204580214
+        },
+        {
+          "true_lon": 271.67583004922864,
+          "true_lat": -23.792153985943298,
+          "rec_lon": 267.3296821997593,
+          "rec_lat": -23.688582418516305,
+          "dlon": -4.346147849469332,
+          "dlat": 0.10357156742699303,
+          "sky_arcsec": 1.4320665744779544
+        },
+        {
+          "true_lon": 248.364714012435,
+          "true_lat": -25.149310478454268,
+          "rec_lon": 245.27055242733138,
+          "rec_lat": -22.814020418360002,
+          "dlon": -3.0941615851036204,
+          "dlat": 2.335290060094266,
+          "sky_arcsec": 1.2785642330789122
+        },
+        {
+          "true_lon": 250.32919075557461,
+          "true_lat": -22.761319724595566,
+          "rec_lon": 246.9791330773348,
+          "rec_lat": -20.455320194298608,
+          "dlon": -3.350057678239807,
+          "dlat": 2.3059995302969583,
+          "sky_arcsec": 1.356248779167823
+        }
+      ],
+      "vlbi_full": {
+        "lon_iii_deg": 295.91040144539136,
+        "lat_deg": -25.694461669785323,
+        "lat_planetographic_deg": -28.820627648967385,
+        "length_deg": 11.865371038603904,
+        "width_deg": 8.096825466098036,
+        "lon_raw_deg": 294.2926087083702,
+        "lat_raw_deg": -24.382263386078755,
+        "bias_lon_deg": -1.6177927370211194,
+        "bias_lat_deg": 1.312198283706568,
+        "primary_method": "vlbi_multiscale_ncc",
+        "error_budget": {
+          "sigma_random_lon_deg": 2.0862408106158217,
+          "sigma_random_lat_deg": 0.7475323041948745,
+          "sigma_definition_lon_deg": 0.10453952552308557,
+          "sigma_definition_lat_deg": 0.06335194851628868,
+          "sigma_nav_lon_deg": 0.09460666711116199,
+          "sigma_nav_lat_deg": 0.06622466697781339,
+          "sigma_time_lon_deg": 0.0,
+          "sigma_ephem_lon_deg": 0.02,
+          "sigma_bias_lon_deg": 0.5365704220631767,
+          "sigma_bias_lat_deg": 0.20083578159775411,
+          "sigma_total_lon_deg": 2.1588393806790003,
+          "sigma_total_lat_deg": 0.7794477101653529,
+          "sigma_random_sky_arcsec": 0.722054008899284,
+          "sigma_systematic_sky_arcsec": 0.1948220364587172,
+          "sigma_total_sky_arcsec": 0.7478754385069198,
+          "components_sky_arcsec": {
+            "random": 0.722054008899284,
+            "definition": 0.04006154079381697,
+            "navigation": 0.03793342212337568,
+            "time": 0.0,
+            "ephemeris_cm": 0.006488045508020278,
+            "bias_uncertainty": 0.1867341950223438,
+            "filter_closure_half": 0.0002320872006433632,
+            "total": 0.7478754385069198
+          }
+        },
+        "grade": "VLBI_METHOD_GOOD",
+        "optical_floor_arcsec": 0.3241307142857143,
+        "injection_n": 25,
+        "injection_mean_sky_arcsec": 0.9791418293039681,
+        "definition_n": 4,
+        "filter_closure_arcsec": 0.0004641744012867264,
+        "hierarchical_mc": {
+          "n_success": 80,
+          "n_iter": 80,
+          "elapsed_s": 9.709501266479492,
+          "mode": "hierarchical_limb_map_template_cm",
+          "mean": {
+            "lon_iii_deg": 295.12032911442134,
+            "lat_deg": -24.405045959708687
+          },
+          "std_deg": {
+            "lon_iii_deg": 0.9353172066493401,
+            "lat_deg": 0.09658780953288502
+          },
+          "std_arcsec": {
+            "lon": 0.30662735210974007,
+            "lat": 0.03251577003302848,
+            "sky": 0.3083465718354451
+          },
+          "target_0_5_arcsec": true,
+          "target_1_arcsec": true,
+          "target_2_arcsec": true
+        },
+        "definitions": [
+          {
+            "name": "multiscale_ncc",
+            "lon_iii_deg": 294.2379180038589,
+            "lat_deg": -24.335536189805993,
+            "length_deg": 15.0,
+            "width_deg": 6.5,
+            "weight": 4.0
+          },
+          {
+            "name": "template",
+            "lon_iii_deg": 294.45379437863124,
+            "lat_deg": -24.48377477340199,
+            "length_deg": 13.440000000000001,
+            "width_deg": 8.8,
+            "weight": 3.0
+          },
+          {
+            "name": "map_dark",
+            "lon_iii_deg": 309.9949462145016,
+            "lat_deg": -24.395010039824783,
+            "length_deg": 12.0,
+            "width_deg": 8.0,
+            "weight": 1.5
+          },
+          {
+            "name": "engine_vlbi",
+            "lon_iii_deg": 294.20835971239154,
+            "lat_deg": -24.35556924684187,
+            "length_deg": 11.78466266419333,
+            "width_deg": 7.972272682601274,
+            "weight": 3.5
+          }
+        ],
+        "methods": {
+          "primary": {
+            "lon_iii_deg": 294.2926087083702,
+            "lat_deg": -24.382263386078755,
+            "length_deg": 11.865371038603904,
+            "width_deg": 8.096825466098036,
+            "method": "vlbi_multiscale_ncc",
+            "methods": {
+              "multiscale_ncc": {
+                "lon_iii_deg": 294.26456324389204,
+                "lat_deg": -24.368370123230093,
+                "length_deg": 15.0,
+                "width_deg": 6.5,
+                "score": 0.6317725761478874,
+                "ncc": 0.6784422583854518,
+                "method": "multiscale_ncc",
+                "map_x": 2570.994056070465,
+                "map_y": 914.3115811518228
+              },
+              "template": {
+                "lon_iii_deg": 294.45153300708,
+                "lat_deg": -24.460991875554527,
+                "length_deg": 13.440000000000001,
+                "width_deg": 8.8,
+                "score": 93.22102694902571,
+                "method": "template",
+                "map_x": 2573.984533560566,
+                "map_y": 915.0520406051276,
+                "dark_contrast": 0.05514839279325545
+              },
+              "map_dark": {
+                "lon_iii_deg": 310.1452101086433,
+                "lat_deg": -31.584935772333893,
+                "length_deg": 12.0,
+                "width_deg": 8.0,
+                "score": 0.931183831089248,
+                "method": "map_dark_centroid"
+              }
+            },
+            "err_lon_deg": 0.1061784148580534,
+            "err_lat_deg": 0.05259904422778874,
+            "err_sky_arcsec": 0.03905930576595565,
+            "err_lon_arcsec": 0.034815009519714925,
+            "err_lat_arcsec": 0.017707187214816913,
+            "quality": 0.9921881388468089,
+            "notes": [
+              "moment rejected (pathological)",
+              "soft lock multiscale\u2295template (agreement <1.5\u00b0)",
+              "Primary: multi-scale normalized cross-correlation on \u03bc-corrected cylindrical map",
+              "Size: isophote ellipse on map (moment sizes rejected if pathological)",
+              "Internal \u03c3 is method scatter only \u2014 use hierarchical MC + error budget for total"
+            ]
+          },
+          "closure": {
+            "filters": [
+              {
+                "filter": "R",
+                "lam": 620.0,
+                "lon": 294.24632171184686,
+                "lat": -24.39328707479754
+              },
+              {
+                "filter": "G",
+                "lam": 530.0,
+                "lon": 294.2373159002907,
+                "lat": -24.38799355461242
+              },
+              {
+                "filter": "B",
+                "lam": 470.0,
+                "lon": 294.2331120423762,
+                "lat": -24.383297779108275
+              }
+            ],
+            "residual_lon_deg_rms": 0.0014028765945174845,
+            "residual_lat_deg_rms": 0.00018516435064333225,
+            "closure_sky_arcsec": 0.0004641744012867264
+          },
+          "probes": [
+            {
+              "true_lon": 262.8111579524009,
+              "true_lat": -24.895091467404065,
+              "rec_lon": 267.05747734351473,
+              "rec_lat": -23.88027850787809,
+              "dlon": 4.246319391113843,
+              "dlat": 1.014812959525976,
+              "sky_arcsec": 1.4280931555874778
+            },
+            {
+              "true_lon": 259.7312965394474,
+              "true_lat": -24.937628087916256,
+              "rec_lon": 261.02271592485454,
+              "rec_lat": -25.136927633424463,
+              "dlon": 1.2914193854071527,
+              "dlat": -0.1992995455082074,
+              "sky_arcsec": 0.42687100203710787
+            },
+            {
+              "true_lon": 263.4093351391664,
+              "true_lat": -25.155430260958177,
+              "rec_lon": 267.05737280090045,
+              "rec_lat": -23.70823417848321,
+              "dlon": 3.6480376617340653,
+              "dlat": 1.4471960824749672,
+              "sky_arcsec": 1.2846978581917978
+            },
+            {
+              "true_lon": 255.75672087901557,
+              "true_lat": -26.01000159883863,
+              "rec_lon": 256.70313662539456,
+              "rec_lat": -25.853505629872274,
+              "dlon": 0.9464157463789888,
+              "dlat": 0.15649596896635742,
+              "sky_arcsec": 0.31070041891279127
+            },
+            {
+              "true_lon": 250.05055374481566,
+              "true_lat": -23.643929445377463,
+              "rec_lon": 246.97938934175096,
+              "rec_lat": -20.45525596839221,
+              "dlon": -3.0711644030646994,
+              "dlat": 3.1886734769852545,
+              "sky_arcsec": 1.475829389725463
+            },
+            {
+              "true_lon": 258.2145855655545,
+              "true_lat": -23.034471063640126,
+              "rec_lon": 256.07183605002655,
+              "rec_lat": -20.65467260821714,
+              "dlon": -2.142749515527953,
+              "dlat": 2.3797984554229856,
+              "sky_arcsec": 1.07040783506992
+            },
+            {
+              "true_lon": 250.43816975213045,
+              "true_lat": -23.305466179109356,
+              "rec_lon": 246.97955522655678,
+              "rec_lat": -20.459386426806105,
+              "dlon": -3.4586145255736653,
+              "dlat": 2.8460797523032504,
+              "sky_arcsec": 1.4918458140171564
+            },
+            {
+              "true_lon": 255.0581108905812,
+              "true_lat": -22.956349719783624,
+              "rec_lon": 255.97989407437535,
+              "rec_lat": -20.651946815247754,
+              "dlon": 0.9217831837941617,
+              "dlat": 2.30440290453587,
+              "sky_arcsec": 0.8337735423816165
+            },
+            {
+              "true_lon": 246.8876177031817,
+              "true_lat": -23.401024783643997,
+              "rec_lon": 245.26982496616057,
+              "rec_lat": -22.80106926786928,
+              "dlon": -1.6177927370211194,
+              "dlat": 0.5999555157747167,
+              "sky_arcsec": 0.5713869855523601
+            },
+            {
+              "true_lon": 256.357535720956,
+              "true_lat": -23.842143228105382,
+              "rec_lon": 256.34359952934483,
+              "rec_lat": -23.685031422020728,
+              "dlon": -0.013936191611151116,
+              "dlat": 0.1571118060846537,
+              "sky_arcsec": 0.05308954562569307
+            },
+            {
+              "true_lon": 247.35134276075138,
+              "true_lat": -24.857082493404025,
+              "rec_lon": 245.26886656632627,
+              "rec_lat": -22.80715782430552,
+              "dlon": -2.0824761944251122,
+              "dlat": 2.0499246690985053,
+              "sky_arcsec": 0.9689978344448843
+            },
+            {
+              "true_lon": 267.6968868213621,
+              "true_lat": -25.214950197197137,
+              "rec_lon": 267.238559447733,
+              "rec_lat": -23.87617331141118,
+              "dlon": -0.4583273736291176,
+              "dlat": 1.3387768857859577,
+              "sky_arcsec": 0.47477011450509493
+            },
+            {
+              "true_lon": 273.3170505093881,
+              "true_lat": -23.68710075675101,
+              "rec_lon": 268.40855733823366,
+              "rec_lat": -23.33722701743416,
+              "dlon": -4.908493171154419,
+              "dlat": 0.34987373931685184,
+              "sky_arcsec": 1.622466541153935
+            },
+            {
+              "true_lon": 267.9679164856029,
+              "true_lat": -24.492987245094273,
+              "rec_lon": 267.2388084959971,
+              "rec_lat": -23.699005673739535,
+              "dlon": -0.7291079896058363,
+              "dlat": 0.7939815713547382,
+              "sky_arcsec": 0.35846500295862116
+            },
+            {
+              "true_lon": 266.5014089322122,
+              "true_lat": -24.524327651843787,
+              "rec_lon": 267.23799911910146,
+              "rec_lat": -23.87468305311458,
+              "dlon": 0.7365901868892593,
+              "dlat": 0.649644598729207,
+              "sky_arcsec": 0.3256236638129547
+            },
+            {
+              "true_lon": 258.03448707174766,
+              "true_lat": -22.799617445121957,
+              "rec_lon": 256.07244804087856,
+              "rec_lat": -20.647471109228377,
+              "dlon": -1.9620390308691071,
+              "dlat": 2.1521463358935797,
+              "sky_arcsec": 0.9741156339858271
+            },
+            {
+              "true_lon": 260.05192660913764,
+              "true_lat": -23.205613773940133,
+              "rec_lon": 261.2948955371738,
+              "rec_lat": -21.893415490233565,
+              "dlon": 1.2429689280361345,
+              "dlat": 1.312198283706568,
+              "sky_arcsec": 0.6035547406862826
+            },
+            {
+              "true_lon": 246.39143608932346,
+              "true_lat": -24.67553746974478,
+              "rec_lon": 245.26881255836423,
+              "rec_lat": -22.807476777718023,
+              "dlon": -1.1226235309592312,
+              "dlat": 1.8680606920267557,
+              "sky_arcsec": 0.7282486108716487
+            },
+            {
+              "true_lon": 271.86455011144875,
+              "true_lat": -23.330096679511144,
+              "rec_lon": 267.24083617520716,
+              "rec_lat": -23.516628173644406,
+              "dlon": -4.623713936241586,
+              "dlat": -0.18653149413326275,
+              "sky_arcsec": 1.5297287861139317
+            },
+            {
+              "true_lon": 270.38959063665646,
+              "true_lat": -25.47404852609484,
+              "rec_lon": 267.3290251350761,
+              "rec_lat": -23.87510726758167,
+              "dlon": -3.0605655015803563,
+              "dlat": 1.5989412585131717,
+              "sky_arcsec": 1.1309897551593173
+            },
+            {
+              "true_lon": 272.6085452728681,
+              "true_lat": -23.879544772268805,
+              "rec_lon": 267.3301835326581,
+              "rec_lat": -23.6878845798673,
+              "dlon": -5.278361740210016,
+              "dlat": 0.19166019240150334,
+              "sky_arcsec": 1.738744094622608
+            },
+            {
+              "true_lon": 264.14261964789534,
+              "true_lat": -24.348426359471294,
+              "rec_lon": 267.1469560679534,
+              "rec_lat": -23.699777973494847,
+              "dlon": 3.0043364200580527,
+              "dlat": 0.6486483859764469,
+              "sky_arcsec": 1.0092658204580214
+            },
+            {
+              "true_lon": 271.67583004922864,
+              "true_lat": -23.792153985943298,
+              "rec_lon": 267.3296821997593,
+              "rec_lat": -23.688582418516305,
+              "dlon": -4.346147849469332,
+              "dlat": 0.10357156742699303,
+              "sky_arcsec": 1.4320665744779544
+            },
+            {
+              "true_lon": 248.364714012435,
+              "true_lat": -25.149310478454268,
+              "rec_lon": 245.27055242733138,
+              "rec_lat": -22.814020418360002,
+              "dlon": -3.0941615851036204,
+              "dlat": 2.335290060094266,
+              "sky_arcsec": 1.2785642330789122
+            },
+            {
+              "true_lon": 250.32919075557461,
+              "true_lat": -22.761319724595566,
+              "rec_lon": 246.9791330773348,
+              "rec_lat": -20.455320194298608,
+              "dlon": -3.350057678239807,
+              "dlat": 2.3059995302969583,
+              "sky_arcsec": 1.356248779167823
+            }
+          ]
+        },
+        "ephemeris": {
+          "t_utc_iso": "2027-04-06T02:31:02",
+          "distance_au": 4.778953000846093,
+          "cm_iii_deg": 223.52162121795118,
+          "sub_obs_lat_deg": 0.0,
+          "sub_obs_lon_deg": 223.52162121795118,
+          "north_pa_deg": 0.0,
+          "apparent_diameter_arcsec": 41.25289240408497,
+          "light_time_s": 2384.7204091503554,
+          "source": "horizons+spice_auto+analytical",
+          "sigma_cm_deg": 0.02,
+          "sigma_distance_frac": 0.0005,
+          "sigma_pa_deg": 0.2,
+          "sigma_sublat_deg": 0.1,
+          "notes": [
+            "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+            "SPICE auto geometry (4 kernels; online download if needed).",
+            "Horizons full observer geometry applied where parsed.",
+            "Distance override applied.",
+            "CM III override applied (no light-time re-shift).",
+            "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+            "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False"
+          ],
+          "pro": {
+            "t_utc_iso": "2027-04-06T02:31:02",
+            "distance_au": 4.778953000846093,
+            "cm_iii_deg": 223.52162121795118,
+            "sub_obs_lat_deg": 0.0,
+            "sub_obs_lon_deg": 223.52162121795118,
+            "north_pa_deg": 0.0,
+            "apparent_diameter_arcsec": 41.25289240408497,
+            "light_time_s": 2384.7204091503554,
+            "source": "horizons+spice_auto+analytical",
+            "cm_source": "override",
+            "orientation_source": "disabled_for_cm_override",
+            "distance_source": "override",
+            "sigma_cm_deg": 0.02,
+            "sigma_distance_frac": 0.0005,
+            "sigma_pa_deg": 0.2,
+            "sigma_sublat_deg": 0.1,
+            "apply_orientation": false,
+            "notes": [
+              "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+              "SPICE auto geometry (4 kernels; online download if needed).",
+              "Horizons full observer geometry applied where parsed.",
+              "Distance override applied.",
+              "CM III override applied (no light-time re-shift).",
+              "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+              "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False"
+            ],
+            "raw": {
+              "analytical": {
+                "distance_au": 5.748495668772049,
+                "cm_iii_deg": 194.86929569207132,
+                "sub_obs_lat_deg": 2.8620227092355432,
+                "sub_obs_lon_deg": 194.86929569207132,
+                "north_pa_deg": 0.0,
+                "apparent_diameter_arcsec": 34.29516960742455,
+                "light_time_s": 2868.526838578678
+              },
+              "spice": {
+                "distance_au": 4.778953000846093,
+                "light_time_s": 2384.7204091503563,
+                "apparent_diameter_arcsec": 41.25289240408497,
+                "source": "spice_auto",
+                "kernels": [
+                  "naif0012.tls",
+                  "gm_de440.tpc",
+                  "pck00011.tpc",
+                  "de440s.bsp"
+                ],
+                "notes": [
+                  "body frame via pxform(J2000\u2192IAU_JUPITER) on barycenter LOS (de440s-safe)",
+                  "north_pa from pole projection"
+                ],
+                "north_pa_deg": 340.33286915621204,
+                "cm_iii_deg": 166.17492897498863,
+                "sub_obs_lon_deg": 166.17492897498863,
+                "sub_obs_lat_deg": -0.24217588140673277
+              },
+              "horizons": {
+                "parser": "horizons_observer_v1",
+                "distance_au": 4.7789529405445,
+                "light_time_s": 2475.1734,
+                "sub_obs_lat_deg": -0.276718,
+                "sub_obs_lon_deg": 64.49665,
+                "cm_iii_deg": 64.49665,
+                "north_pa_deg": 64.49665,
+                "apparent_diameter_arcsec": 41.25289292462057,
+                "floats_found": [
+                  139.466905283,
+                  16.827857377,
+                  41.25289,
+                  166.160182,
+                  -0.276718,
+                  4.7789529405445,
+                  23.7064821,
+                  137.072848,
+                  1.0432882,
+                  268.05764,
+                  64.49665
+                ],
+                "data_line": "2027-Apr-06 02:31, , , 139.466905283,  16.827857377,  41.25289,  166.160182,  -0.276718,  4.77895294054450, 23.7064821,  137.0728480,  1.0432882,  268.05764,  64.49665,",
+                "ok": true,
+                "excerpt": "API VERSION: 1.2\nAPI SOURCE: NASA/JPL Horizons API\n\n\n\n*******************************************************************************\nEphemeris / API_USER Wed Jul 15 01:29:43 2026 Pasadena, USA      / Horizons    \n*******************************************************************************\nTarget body name: Jupiter (599)                   {source: jup365_merged}\nCenter body name: Earth (399)                     {source: DE441}\nCenter-site name: GEOCENTRIC\n*******************************************************************************\nStart time      : A.D. 2027-Apr-06 02:31:00.0000 UT      \nStop  time      : A.D. 2027-Apr-06 02:32:00.0000 UT      \nStep-size       : 1 minutes\n*******************************************************************************\nTarget pole/equ : IAU_JUPITER                     {West-longitude positive}\nTarget radii    : 71492.0, 71492.0, 66854.0 km    {Equator_a, b, pole_c}       \nCenter geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}\nCenter cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}\nCenter pole/equ : ITRF93                          {East-longitude positive}\nCenter radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       \nTarget primary  : Sun\nVis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}\nRel. light bend : Sun                             {source: jup365_merged}\nRel. lght bnd GM: 1.3271E+11 km^3/s^2                                          \nAtmos refraction: NO (AIRLESS)\nRA format       : DEG\nTime format     : CAL \nCalendar mode   : Mixed Julian/Gregorian\nEOP file        : eop.260714.p261010                                           \nEOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-JUL-14. PREDICTS-> 2026-OCT-09\nUnits conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s \nTable cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )\nTable cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )\nTable cut-offs 3: RA/DEC angular rate (     0.0=NO )                           \nTable format    : Comma Separated Values (spreadsheet)\n*************************************************************************************************************************************************************************\n Date__(UT)__HR:MN, , , R.A.___(ICRF), DEC____(ICRF),  Ang-diam,  ObsSub-LON, ObsSub-LAT,             delta,     deldot,     ObsEcLon,   ObsEcLat,  N.Pole-RA, N.Pole-DC,\n*****************************",
+                "query_time": "2027-04-06T02:31:02"
+              }
+            }
+          }
+        },
+        "nav": {
+          "xc": 1918.4475065000827,
+          "yc": 1117.5248054677656,
+          "a_eq_px": 903.7738499337895,
+          "flattening": 0.06487439154031216,
+          "cm_iii_deg": 223.52162121795118,
+          "distance_au": 4.778953000846093,
+          "sub_lat_deg": 0.0,
+          "north_pa_deg": 0.0,
+          "sigma_xc": 0.6359594676113384,
+          "sigma_yc": 0.6359594676113384,
+          "sigma_a": 1.6574430800831654,
+          "limb_n_rays": 900,
+          "limb_rms_px": 89.08007553968167,
+          "b_pol_px": 845.1420713292895
+        },
+        "notes": [
+          "VLBI-inspired optical metrology \u2014 methods, not microarcsecond claims.",
+          "Primary centre: multi-scale NCC on \u03bc-corrected oriented cylindrical map.",
+          "Phase-reference probes use the same correlator; bias capped if unphysical.",
+          "Formal \u03c3 = random \u2295 definition \u2295 nav \u2295 time \u2295 ephemeris_CM \u2295 bias_unc (\u00b1\u00bd closure).",
+          "Diffraction floor (~\u03bb/D) for 0.35m @550nm \u2248 0.324\"; extended-feature floor higher.",
+          "image_hash=92b666e9e8c193b7",
+          "For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.",
+          "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+          "SPICE auto geometry (4 kernels; online download if needed).",
+          "Horizons full observer geometry applied where parsed.",
+          "Distance override applied.",
+          "CM III override applied (no light-time re-shift).",
+          "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+          "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False",
+          "Multi-\u03bb closure residual \u03c3_sky\u22480.0005\""
+        ],
+        "elapsed_s": 44.065929889678955,
+        "mode": "VLBI_INSPIRED_OPTICAL"
+      },
+      "hierarchical_mc": {
+        "n_success": 80,
+        "n_iter": 80,
+        "elapsed_s": 9.709501266479492,
+        "mode": "hierarchical_limb_map_template_cm",
+        "mean": {
+          "lon_iii_deg": 295.12032911442134,
+          "lat_deg": -24.405045959708687
+        },
+        "std_deg": {
+          "lon_iii_deg": 0.9353172066493401,
+          "lat_deg": 0.09658780953288502
+        },
+        "std_arcsec": {
+          "lon": 0.30662735210974007,
+          "lat": 0.03251577003302848,
+          "sky": 0.3083465718354451
+        },
+        "target_0_5_arcsec": true,
+        "target_1_arcsec": true,
+        "target_2_arcsec": true
+      },
+      "error_budget": {
+        "sigma_random_lon_deg": 2.0862408106158217,
+        "sigma_random_lat_deg": 0.7475323041948745,
+        "sigma_definition_lon_deg": 0.10453952552308557,
+        "sigma_definition_lat_deg": 0.06335194851628868,
+        "sigma_nav_lon_deg": 0.09460666711116199,
+        "sigma_nav_lat_deg": 0.06622466697781339,
+        "sigma_time_lon_deg": 0.0,
+        "sigma_ephem_lon_deg": 0.02,
+        "sigma_bias_lon_deg": 0.5365704220631767,
+        "sigma_bias_lat_deg": 0.20083578159775411,
+        "sigma_total_lon_deg": 2.1588393806790003,
+        "sigma_total_lat_deg": 0.7794477101653529,
+        "sigma_random_sky_arcsec": 0.722054008899284,
+        "sigma_systematic_sky_arcsec": 0.1948220364587172,
+        "sigma_total_sky_arcsec": 0.7478754385069198,
+        "components_sky_arcsec": {
+          "random": 0.722054008899284,
+          "definition": 0.04006154079381697,
+          "navigation": 0.03793342212337568,
+          "time": 0.0,
+          "ephemeris_cm": 0.006488045508020278,
+          "bias_uncertainty": 0.1867341950223438,
+          "filter_closure_half": 0.0002320872006433632,
+          "total": 0.7478754385069198
+        }
+      },
+      "optical_floor_arcsec": 0.3241307142857143
+    },
+    "definitions": [
+      {
+        "name": "multiscale_ncc",
+        "lon_iii_deg": 294.2379180038589,
+        "lat_deg": -24.335536189805993,
+        "length_deg": 15.0,
+        "width_deg": 6.5,
+        "weight": 4.0
+      },
+      {
+        "name": "template",
+        "lon_iii_deg": 294.45379437863124,
+        "lat_deg": -24.48377477340199,
+        "length_deg": 13.440000000000001,
+        "width_deg": 8.8,
+        "weight": 3.0
+      },
+      {
+        "name": "map_dark",
+        "lon_iii_deg": 309.9949462145016,
+        "lat_deg": -24.395010039824783,
+        "length_deg": 12.0,
+        "width_deg": 8.0,
+        "weight": 1.5
+      },
+      {
+        "name": "engine_vlbi",
+        "lon_iii_deg": 294.20835971239154,
+        "lat_deg": -24.35556924684187,
+        "length_deg": 11.78466266419333,
+        "width_deg": 7.972272682601274,
+        "weight": 3.5
+      }
+    ],
+    "injections": [
+      {
+        "true_lon": 262.8111579524009,
+        "true_lat": -24.895091467404065,
+        "rec_lon": 267.05747734351473,
+        "rec_lat": -23.88027850787809,
+        "dlon": 4.246319391113843,
+        "dlat": 1.014812959525976,
+        "sky_arcsec": 1.4280931555874778
+      },
+      {
+        "true_lon": 259.7312965394474,
+        "true_lat": -24.937628087916256,
+        "rec_lon": 261.02271592485454,
+        "rec_lat": -25.136927633424463,
+        "dlon": 1.2914193854071527,
+        "dlat": -0.1992995455082074,
+        "sky_arcsec": 0.42687100203710787
+      },
+      {
+        "true_lon": 263.4093351391664,
+        "true_lat": -25.155430260958177,
+        "rec_lon": 267.05737280090045,
+        "rec_lat": -23.70823417848321,
+        "dlon": 3.6480376617340653,
+        "dlat": 1.4471960824749672,
+        "sky_arcsec": 1.2846978581917978
+      },
+      {
+        "true_lon": 255.75672087901557,
+        "true_lat": -26.01000159883863,
+        "rec_lon": 256.70313662539456,
+        "rec_lat": -25.853505629872274,
+        "dlon": 0.9464157463789888,
+        "dlat": 0.15649596896635742,
+        "sky_arcsec": 0.31070041891279127
+      },
+      {
+        "true_lon": 250.05055374481566,
+        "true_lat": -23.643929445377463,
+        "rec_lon": 246.97938934175096,
+        "rec_lat": -20.45525596839221,
+        "dlon": -3.0711644030646994,
+        "dlat": 3.1886734769852545,
+        "sky_arcsec": 1.475829389725463
+      },
+      {
+        "true_lon": 258.2145855655545,
+        "true_lat": -23.034471063640126,
+        "rec_lon": 256.07183605002655,
+        "rec_lat": -20.65467260821714,
+        "dlon": -2.142749515527953,
+        "dlat": 2.3797984554229856,
+        "sky_arcsec": 1.07040783506992
+      },
+      {
+        "true_lon": 250.43816975213045,
+        "true_lat": -23.305466179109356,
+        "rec_lon": 246.97955522655678,
+        "rec_lat": -20.459386426806105,
+        "dlon": -3.4586145255736653,
+        "dlat": 2.8460797523032504,
+        "sky_arcsec": 1.4918458140171564
+      },
+      {
+        "true_lon": 255.0581108905812,
+        "true_lat": -22.956349719783624,
+        "rec_lon": 255.97989407437535,
+        "rec_lat": -20.651946815247754,
+        "dlon": 0.9217831837941617,
+        "dlat": 2.30440290453587,
+        "sky_arcsec": 0.8337735423816165
+      },
+      {
+        "true_lon": 246.8876177031817,
+        "true_lat": -23.401024783643997,
+        "rec_lon": 245.26982496616057,
+        "rec_lat": -22.80106926786928,
+        "dlon": -1.6177927370211194,
+        "dlat": 0.5999555157747167,
+        "sky_arcsec": 0.5713869855523601
+      },
+      {
+        "true_lon": 256.357535720956,
+        "true_lat": -23.842143228105382,
+        "rec_lon": 256.34359952934483,
+        "rec_lat": -23.685031422020728,
+        "dlon": -0.013936191611151116,
+        "dlat": 0.1571118060846537,
+        "sky_arcsec": 0.05308954562569307
+      },
+      {
+        "true_lon": 247.35134276075138,
+        "true_lat": -24.857082493404025,
+        "rec_lon": 245.26886656632627,
+        "rec_lat": -22.80715782430552,
+        "dlon": -2.0824761944251122,
+        "dlat": 2.0499246690985053,
+        "sky_arcsec": 0.9689978344448843
+      },
+      {
+        "true_lon": 267.6968868213621,
+        "true_lat": -25.214950197197137,
+        "rec_lon": 267.238559447733,
+        "rec_lat": -23.87617331141118,
+        "dlon": -0.4583273736291176,
+        "dlat": 1.3387768857859577,
+        "sky_arcsec": 0.47477011450509493
+      },
+      {
+        "true_lon": 273.3170505093881,
+        "true_lat": -23.68710075675101,
+        "rec_lon": 268.40855733823366,
+        "rec_lat": -23.33722701743416,
+        "dlon": -4.908493171154419,
+        "dlat": 0.34987373931685184,
+        "sky_arcsec": 1.622466541153935
+      },
+      {
+        "true_lon": 267.9679164856029,
+        "true_lat": -24.492987245094273,
+        "rec_lon": 267.2388084959971,
+        "rec_lat": -23.699005673739535,
+        "dlon": -0.7291079896058363,
+        "dlat": 0.7939815713547382,
+        "sky_arcsec": 0.35846500295862116
+      },
+      {
+        "true_lon": 266.5014089322122,
+        "true_lat": -24.524327651843787,
+        "rec_lon": 267.23799911910146,
+        "rec_lat": -23.87468305311458,
+        "dlon": 0.7365901868892593,
+        "dlat": 0.649644598729207,
+        "sky_arcsec": 0.3256236638129547
+      },
+      {
+        "true_lon": 258.03448707174766,
+        "true_lat": -22.799617445121957,
+        "rec_lon": 256.07244804087856,
+        "rec_lat": -20.647471109228377,
+        "dlon": -1.9620390308691071,
+        "dlat": 2.1521463358935797,
+        "sky_arcsec": 0.9741156339858271
+      },
+      {
+        "true_lon": 260.05192660913764,
+        "true_lat": -23.205613773940133,
+        "rec_lon": 261.2948955371738,
+        "rec_lat": -21.893415490233565,
+        "dlon": 1.2429689280361345,
+        "dlat": 1.312198283706568,
+        "sky_arcsec": 0.6035547406862826
+      },
+      {
+        "true_lon": 246.39143608932346,
+        "true_lat": -24.67553746974478,
+        "rec_lon": 245.26881255836423,
+        "rec_lat": -22.807476777718023,
+        "dlon": -1.1226235309592312,
+        "dlat": 1.8680606920267557,
+        "sky_arcsec": 0.7282486108716487
+      },
+      {
+        "true_lon": 271.86455011144875,
+        "true_lat": -23.330096679511144,
+        "rec_lon": 267.24083617520716,
+        "rec_lat": -23.516628173644406,
+        "dlon": -4.623713936241586,
+        "dlat": -0.18653149413326275,
+        "sky_arcsec": 1.5297287861139317
+      },
+      {
+        "true_lon": 270.38959063665646,
+        "true_lat": -25.47404852609484,
+        "rec_lon": 267.3290251350761,
+        "rec_lat": -23.87510726758167,
+        "dlon": -3.0605655015803563,
+        "dlat": 1.5989412585131717,
+        "sky_arcsec": 1.1309897551593173
+      },
+      {
+        "true_lon": 272.6085452728681,
+        "true_lat": -23.879544772268805,
+        "rec_lon": 267.3301835326581,
+        "rec_lat": -23.6878845798673,
+        "dlon": -5.278361740210016,
+        "dlat": 0.19166019240150334,
+        "sky_arcsec": 1.738744094622608
+      },
+      {
+        "true_lon": 264.14261964789534,
+        "true_lat": -24.348426359471294,
+        "rec_lon": 267.1469560679534,
+        "rec_lat": -23.699777973494847,
+        "dlon": 3.0043364200580527,
+        "dlat": 0.6486483859764469,
+        "sky_arcsec": 1.0092658204580214
+      },
+      {
+        "true_lon": 271.67583004922864,
+        "true_lat": -23.792153985943298,
+        "rec_lon": 267.3296821997593,
+        "rec_lat": -23.688582418516305,
+        "dlon": -4.346147849469332,
+        "dlat": 0.10357156742699303,
+        "sky_arcsec": 1.4320665744779544
+      },
+      {
+        "true_lon": 248.364714012435,
+        "true_lat": -25.149310478454268,
+        "rec_lon": 245.27055242733138,
+        "rec_lat": -22.814020418360002,
+        "dlon": -3.0941615851036204,
+        "dlat": 2.335290060094266,
+        "sky_arcsec": 1.2785642330789122
+      },
+      {
+        "true_lon": 250.32919075557461,
+        "true_lat": -22.761319724595566,
+        "rec_lon": 246.9791330773348,
+        "rec_lat": -20.455320194298608,
+        "dlon": -3.350057678239807,
+        "dlat": 2.3059995302969583,
+        "sky_arcsec": 1.356248779167823
+      }
+    ],
+    "notes": [
+      "VLBI-inspired optical metrology \u2014 methods, not microarcsecond claims.",
+      "Primary centre: multi-scale NCC on \u03bc-corrected oriented cylindrical map.",
+      "Phase-reference probes use the same correlator; bias capped if unphysical.",
+      "Formal \u03c3 = random \u2295 definition \u2295 nav \u2295 time \u2295 ephemeris_CM \u2295 bias_unc (\u00b1\u00bd closure).",
+      "Diffraction floor (~\u03bb/D) for 0.35m @550nm \u2248 0.324\"; extended-feature floor higher.",
+      "image_hash=92b666e9e8c193b7",
+      "For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.",
+      "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+      "SPICE auto geometry (4 kernels; online download if needed).",
+      "Horizons full observer geometry applied where parsed.",
+      "Distance override applied.",
+      "CM III override applied (no light-time re-shift).",
+      "Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).",
+      "PROVENANCE: cm=override \u03c3=0.02\u00b0 | dist=override | ori=disabled_for_cm_override apply_ori=False",
+      "Multi-\u03bb closure residual \u03c3_sky\u22480.0005\""
+    ],
+    "elapsed_s": 44.065929889678955
+  },
+  "error_budget": {
+    "sigma_random_lon_deg": 2.0862408106158217,
+    "sigma_random_lat_deg": 0.7475323041948745,
+    "sigma_definition_lon_deg": 0.10453952552308557,
+    "sigma_definition_lat_deg": 0.06335194851628868,
+    "sigma_nav_lon_deg": 0.09460666711116199,
+    "sigma_nav_lat_deg": 0.06622466697781339,
+    "sigma_time_lon_deg": 0.0,
+    "sigma_ephem_lon_deg": 0.02,
+    "sigma_bias_lon_deg": 0.5365704220631767,
+    "sigma_bias_lat_deg": 0.20083578159775411,
+    "sigma_total_lon_deg": 2.1588393806790003,
+    "sigma_total_lat_deg": 0.7794477101653529,
+    "sigma_random_sky_arcsec": 0.722054008899284,
+    "sigma_systematic_sky_arcsec": 0.1948220364587172,
+    "sigma_total_sky_arcsec": 0.7478754385069198,
+    "components_sky_arcsec": {
+      "random": 0.722054008899284,
+      "definition": 0.04006154079381697,
+      "navigation": 0.03793342212337568,
+      "time": 0.0,
+      "ephemeris_cm": 0.006488045508020278,
+      "bias_uncertainty": 0.1867341950223438,
+      "filter_closure_half": 0.0002320872006433632,
+      "total": 0.7478754385069198
+    }
+  },
+  "multi_epoch": {},
+  "hard_synth": {
+    "calibration_grade": "CALIBRATION_FAIR",
+    "overall": {
+      "n": 13,
+      "median_sky_arcsec": 17.42515735199905,
+      "mean_sky_arcsec": 13.187385386880967,
+      "max_sky_arcsec": 36.94486594426047,
+      "coverage_1sigma": 0.5384615384615384,
+      "coverage_2sigma": 0.6153846153846154
+    },
+    "by_family": {
+      "control": {
+        "n": 1,
+        "median_sky_arcsec": 1.0659941739906191,
+        "mean_sky_arcsec": 1.0659941739906191,
+        "max_sky_arcsec": 1.0659941739906191,
+        "coverage_1sigma": 1.0,
+        "coverage_2sigma": 1.0
+      },
+      "cm_error": {
+        "n": 3,
+        "median_sky_arcsec": 1.2793344354937404,
+        "mean_sky_arcsec": 1.1491861699197656,
+        "max_sky_arcsec": 1.2886490044428174,
+        "coverage_1sigma": 1.0,
+        "coverage_2sigma": 1.0
+      },
+      "seeing": {
+        "n": 2,
+        "median_sky_arcsec": 22.88490007112666,
+        "mean_sky_arcsec": 22.88490007112666,
+        "max_sky_arcsec": 22.979409514261626,
+        "coverage_1sigma": 0.0,
+        "coverage_2sigma": 0.0
+      },
+      "noise": {
+        "n": 2,
+        "median_sky_arcsec": 21.255827352865218,
+        "mean_sky_arcsec": 21.255827352865218,
+        "max_sky_arcsec": 21.87654590828584,
+        "coverage_1sigma": 0.5,
+        "coverage_2sigma": 0.5
+      },
+      "orientation": {
+        "n": 2,
+        "median_sky_arcsec": 1.0591282830532092,
+        "mean_sky_arcsec": 1.0591282830532092,
+        "max_sky_arcsec": 1.3141531372879505,
+        "coverage_1sigma": 1.0,
+        "coverage_2sigma": 1.0
+      },
+      "near_limb": {
+        "n": 1,
+        "median_sky_arcsec": 17.42515735199905,
+        "mean_sky_arcsec": 17.42515735199905,
+        "max_sky_arcsec": 17.42515735199905,
+        "coverage_1sigma": 0.0,
+        "coverage_2sigma": 1.0
+      },
+      "combined": {
+        "n": 2,
+        "median_sky_arcsec": 29.54879428980672,
+        "mean_sky_arcsec": 29.54879428980672,
+        "max_sky_arcsec": 36.94486594426047,
+        "coverage_1sigma": 0.0,
+        "coverage_2sigma": 0.0
+      }
+    }
+  },
+  "truth": {
+    "seed": 672095422,
+    "resolution": "4K",
+    "width": 3840,
+    "height": 2160,
+    "user_time_iso": "2027-04-06 02:31:02",
+    "time_error_seconds": 0.0,
+    "random_time": true,
+    "requested_user_time_iso": null,
+    "region": "global",
+    "cm_iii_deg": 223.52162121795118,
+    "grs_lon_iii_deg": 226.68672749518458,
+    "grs_lat_deg": -21.7969913482666,
+    "grs_lon_seed_deg": 226.31285302142572,
+    "grs_lat_seed_deg": -22.123481124830192,
+    "grs_truth_definition": "intensity_weighted_dark_barycentre",
+    "grs_length_deg": 12.948297263954158,
+    "grs_width_deg": 8.375563332472451,
+    "disk_xc": 1920.0,
+    "disk_yc": 1080.0,
+    "disk_a_eq_px": 907.1999999999999,
+    "distance_au": 4.778953000846093,
+    "apparent_diameter_arcsec": 41.25289240408497,
+    "png": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e/synth_8ffe1557dce9/synth_4K_20260715_162941_s672095422.png",
+    "fit": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e/synth_8ffe1557dce9/synth_4K_20260715_162941_s672095422.fit",
+    "grs_crop_png": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e/synth_8ffe1557dce9/synth_4K_20260715_162941_s672095422_grs_crop.png",
+    "renderer": "synthetic_hq_v2_wavefield",
+    "synth_mode": "visual",
+    "wave_contrast": 1.0,
+    "seeing_fwhm_arcsec": 0.35,
+    "disk_intensity_std": 0.18891669809818268,
+    "target_sky_arcsec": 0.5,
+    "spice": {
+      "spice_source": "spice_auto",
+      "spice_cm_iii_deg": 166.17492897498863,
+      "spice_sub_lat_deg": -0.24217588140673277,
+      "spice_diam_arcsec": 41.25289240408497
+    }
+  },
+  "headline": {
+    "mode": "factory_night_full",
+    "grade": "VLBI_METHOD_GOOD",
+    "synth_epoch": "2027-04-06 02:31:02",
+    "random_time": true,
+    "lon_iii_deg": 295.91040144539136,
+    "lat_deg": -25.694461669785323,
+    "sigma_total_sky_arcsec": 0.7478754385069198,
+    "truth_recovery_sky_arcsec": 23.17596912273182,
+    "calibration_grade": "CALIBRATION_FAIR",
+    "multi_epoch_n": null,
+    "drift_lon_deg_per_day": null,
+    "output_dir": "/Users/haydenchung/Downloads/GRS_Observatory/app/outputs/factory_84fe9d173e7e"
+  }
+}

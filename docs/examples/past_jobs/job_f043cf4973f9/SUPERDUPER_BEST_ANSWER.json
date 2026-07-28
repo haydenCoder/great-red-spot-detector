@@ -1,0 +1,45 @@
+{
+  "title": "SUPERDUPER BEST ANSWER",
+  "report_this": {
+    "definition": "GS-ORANGE",
+    "lon_iii_deg": 289.86310473877654,
+    "lat_planetocentric_deg": -22.581453950955297,
+    "lat_planetographic_deg": -25.435064210443016,
+    "extent_ew_deg": 54.70685342671328,
+    "sigma_sky_arcsec": 64.52293872409065,
+    "cm_iii_deg": 310.42832498776556,
+    "cm_source": "spice_auto",
+    "grade": "CHAMPION",
+    "unbeatable_auto": false,
+    "absolute_publish_ok": true
+  },
+  "vs_winjupos": {
+    "agreement": "NO_MANUAL_PICK",
+    "sky_error_arcsec": null,
+    "equal_to_winjupos": false
+  },
+  "ultimate_gates": {
+    "n_pass": 8,
+    "n_total": 13,
+    "failed": [
+      "cm_crosscheck",
+      "def_tight",
+      "nav_stable",
+      "dual_agree",
+      "sigma_sky_tight"
+    ]
+  },
+  "desk_grade": "DESK_FAIR",
+  "citation_line": "GRS GS-ORANGE  \u03bb_III=289.8631\u00b0  \u03c6_c=-22.581\u00b0  \u03c6_g=-25.435\u00b0  \u03c3_sky\u224864.523\u2033  CM=310.42832498776556\u00b0 (spice_auto)  grade=CHAMPION",
+  "rules": [
+    "Report lon_iii + \u03c6_g (planetographic) when comparing to WinJUPOS.",
+    "Same mid-exposure UTC and CM source as your WinJUPOS session.",
+    "If absolute_publish_ok is false: do not publish absolute System III.",
+    "If unbeatable_auto is true: NO weaker method in THIS APP overrides it.",
+    "Method soup / SOTA are scatter only \u2014 ignore for the official centre.",
+    "Still not a claim vs HST / Juno / perfect human WinJUPOS."
+  ],
+  "honesty": "Best consolidated product of this job. Optical ground metrology. When UNBEATABLE_AUTO: in-app hierarchy is locked. Not radio VLBI. Not a claim to beat spacecraft imaging.",
+  "in_app_dominance": false,
+  "in_app_message": "Ultimate gates incomplete \u2014 see failed list; improve CM/UTC/stack."
+}

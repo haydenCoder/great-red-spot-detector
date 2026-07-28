@@ -1,0 +1,38 @@
+CHAMPION GRS MEASURE v2 (stability limb · GS-MAP · full σ)
+========================================================
+Grade:   CHAMPION   score=100/100
+UNBEATABLE_AUTO: False  (gates 8/13)
+Absolute publish OK: True
+Definition: GS-MAP
+Lon III:    34.649049 °  ± 175.051 °
+Lat centric:-24.957073 °  ± 0.441 °
+Lat graphic:-28.022331 °  (WinJUPOS-style)
+EW extent:  54.70685342671328
+σ_sky total:64.5229 ″
+CM: 310.4283 ° [spice_auto]  σ_CM=159.775 °
+Limb sky spread: 0.4119 ″
+Flags: map_dark_map_edge, JACKKNIFE_SIGMA, GS_MAP_TMPL_LOCK, DEFINITION_LOOSE
+
+ERROR BUDGET (lon °)
+  CM           159.7753
+  Timing       0.0000
+  Limb outline 0.0465
+  Definition   71.5182
+  Methods      0.1505
+  TOTAL        175.0515
+
+Limb: stability-weighted limb (best isophote≈mid, seed GRS lon=223.264°)
+Refine: {'ok': False, 'passes': [], 'reason': 'map_edge', 'dark_score_final': 2.0, 'bootstrap': {'ok': False, 'n': 0}}
+
+NOTES
+  · Champion v5 ULTIMATE: dual-channel + nav stability + multi-gate UNBEATABLE_AUTO.
+  · Absolute Sys III needs trusted CM (SPICE/Horizons/WinJUPOS/override).
+  · UNBEATABLE_AUTO ≠ better than HST/human desk — it means all automated gates passed.
+  · Stable GRS across 6 limb outlines.
+  · GS-MAP ↔ GS-TMPL agreement lock (pro dual-definition).
+  · Ultimate lock incomplete: failed cm_crosscheck, def_tight, nav_stable, dual_agree, sigma_sky_tight
+  · σ_total sky≈64.523″ (CM 159.78° ⊕ time 0.00° ⊕ limb 0.05° ⊕ def 71.52° ⊕ meth 0.15°)
+  · Compare φ_g to WinJUPOS; same UTC+CM for fair Δ.
+  · absolute_publish_ok=True
+
+Honesty: best automated optical path in this app — not HST/Juno/VLBI. Same CM+UTC as WinJUPOS for a fair comparison.

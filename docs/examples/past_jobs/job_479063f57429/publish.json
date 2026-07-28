@@ -1,0 +1,69 @@
+{
+  "policy": "GS-MAP_THEN_GS-BARY_PUBLISH; SOUP_SCATTER_ONLY",
+  "publish_definition": "SOTA_ROBUST",
+  "publish_lon_iii_deg": 189.11559273224145,
+  "publish_lat_deg": -18.566103626872334,
+  "cm_iii_deg": 100.75546025533211,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23195983918294,
+  "pipeline_lon_iii_deg": 189.11559273224148,
+  "pipeline_lat_deg": -18.56610362687233,
+  "pipeline_delta_lon_deg": -2.842170943040401e-14,
+  "sota_lon_iii_deg": 189.11559273224145,
+  "sota_lat_deg": -18.566103626872334,
+  "sota_delta_lon_deg": 0.0,
+  "sota_role": "scatter_confidence_only",
+  "soup_n_methods": 83,
+  "soup_role": "scatter_only",
+  "soup_note": "Method soup (83 estimators) and SOTA consensus are for definition scatter / confidence only \u2014 NOT the published GRS position.",
+  "limb_outline_sky_spread_arcsec": 61.403095603771824,
+  "definition_lon_spread_deg": 177.42981748146806,
+  "winjupos_equality": {
+    "compared": false,
+    "equal_to_winjupos": false,
+    "agreement": "NO_MANUAL_PICK",
+    "note": "Paste your WinJUPOS manual GRS lon/lat to test equality. Also use the same CM (WinJUPOS table or CM override) and the same definition (core)."
+  },
+  "how_to_cite": "GRS SOTA_ROBUST lon=189.11559273224145\u00b0 lat=-18.566103626872334\u00b0 (CM III=100.75546025533211\u00b0 source=spice_auto). Method soup not used for the published centre.",
+  "quality": {
+    "publish_ok": true,
+    "absolute_ok": false,
+    "grade": "CAUTION",
+    "flags": [
+      "LIMB_SPREAD_FAIL",
+      "DEFINITION_SCATTER_FAIL"
+    ],
+    "warnings": [
+      "limb sky spread 61.40\" > 10.0\" (JUPOS: limb is critical)",
+      "definition lon spread 177.4\u00b0 > 40.0\u00b0"
+    ],
+    "notes": [
+      "Sources: JUPOS Tips for Measurers (limb/outline, timing, outlier reject); BAA Jupiter Section (transit timing ~0.6\u00b0/min); SPICE/System III absolute CM.",
+      "Publish definition should be GS-MAP/GS-BARY core \u2014 not method soup.",
+      "Prefer red/IR channel for GRS contrast (JUPOS spectral priority)."
+    ],
+    "cm_source": "spice_auto",
+    "cm_trusted": true,
+    "publish_lon_iii_deg": 189.11559273224145,
+    "publish_lat_deg": -18.566103626872334,
+    "lat_core_ok": true,
+    "lat_wide_ok": true,
+    "limb_sky_spread_arcsec": 61.403095603771824,
+    "definition_lon_spread_deg": 177.42981748146806,
+    "publish_vs_pipeline_lon_deg": 2.842170943040401e-14,
+    "time_error_seconds": 0.0,
+    "timing_lon_uncertainty_deg": 0.0,
+    "grs_lat_core_band_deg": [
+      -28.0,
+      -16.0
+    ],
+    "grs_lat_wide_band_deg": [
+      -36.0,
+      -10.0
+    ]
+  },
+  "publish_ok": true,
+  "absolute_ok": false,
+  "cm_trusted": true,
+  "quality_grade": "CAUTION"
+}

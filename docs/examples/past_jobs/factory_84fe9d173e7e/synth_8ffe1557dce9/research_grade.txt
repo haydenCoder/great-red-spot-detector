@@ -1,0 +1,29 @@
+RESEARCH-GRADE GRS METROLOGY REPORT
+==================================================
+Grade: VLBI_METHOD_GOOD
+Bias-corrected lon: 295.91040 deg
+Bias-corrected lat: -25.69446 deg
+Total σ_sky: 0.7479 arcsec
+  random:      0.7221 arcsec
+  systematic:  0.1948 arcsec
+Injection trials: 25  mean|err|: 0.9791 arcsec
+Definitions: 4
+Filter closure: 0.0004641744012867264
+Elapsed: 44.1s
+
+NOTES:
+- VLBI-inspired optical metrology — methods, not microarcsecond claims.
+- Primary centre: multi-scale NCC on μ-corrected oriented cylindrical map.
+- Phase-reference probes use the same correlator; bias capped if unphysical.
+- Formal σ = random ⊕ definition ⊕ nav ⊕ time ⊕ ephemeris_CM ⊕ bias_unc (±½ closure).
+- Diffraction floor (~λ/D) for 0.35m @550nm ≈ 0.324"; extended-feature floor higher.
+- image_hash=92b666e9e8c193b7
+- For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.
+- Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).
+- SPICE auto geometry (4 kernels; online download if needed).
+- Horizons full observer geometry applied where parsed.
+- Distance override applied.
+- CM III override applied (no light-time re-shift).
+- Orientation disabled with CM override (avoid Horizons sub-lat mismatch on frame).
+- PROVENANCE: cm=override σ=0.02° | dist=override | ori=disabled_for_cm_override apply_ori=False
+- Multi-λ closure residual σ_sky≈0.0005"

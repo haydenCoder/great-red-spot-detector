@@ -1,0 +1,40 @@
+WINJUPOS+  — automated desk-parity report
+========================================================
+Grade:  DESK_GOOD  (score 77.0/100)
+Flags:  LIMB_ELEVATED, DEFINITION_SCATTER
+
+PUBLISH (use this as your answer)
+  Definition     GS-ORANGE
+  Lon III        289.90229791747225
+  Lat centric    -22.72754102036524
+  Lat graphic    -25.594829819584888  ← WinJUPOS-style
+  EW extent      1.1257817929117095 °
+  Length (oval)  None °
+  Width          None °
+
+GEOMETRY
+  CM III         310.42832498776556  [spice_auto]
+  Distance       4.23170102126672 AU
+  Epoch          2026-01-09 15:40:00
+
+LIMB / DEFINITION DISCIPLINE
+  Limb sky spread     3.234397363016249 ″
+  Definition lon spr. 177.44447244527868 °
+  Recommended outline outer_large_outline  isophote=0.12  a=219.85296435357554 px
+
+VS YOUR WINJUPOS MANUAL
+  Agreement      NO_MANUAL_PICK
+  Δ sky          None ″
+  Equal?         False
+
+CITATION
+  GRS GS-ORANGE  λ_III=289.9023°  φ_c=-22.728°  φ_g=-25.595°  EW=1.1257817929117095°  CM=310.42832498776556° (spice_auto)  Δ=4.2317 AU
+
+HOW TO USE
+  · Paste the same mid-exposure UTC and CM into WinJUPOS for a fair Δ.
+  · Compare φ_g (planetographic) to WinJUPOS latitude, not only φ_c.
+  · Use GS-MAP / core definition to match a careful WJ core pick.
+  · If desk_grade is DESK_HOLD, fix CM (SPICE/WJ) or limb before publishing.
+  · Method soup / SOTA are scatter only — not the published centre.
+
+Automated optical metrology with fixed definitions and formal gates. Not radio VLBI; not a Nobel claim. Compete with careful WinJUPOS on the same frame.

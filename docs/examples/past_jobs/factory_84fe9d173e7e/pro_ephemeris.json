@@ -1,0 +1,83 @@
+{
+  "t_utc_iso": "2026-07-15T10:04:24",
+  "distance_au": 6.27784346106624,
+  "cm_iii_deg": 154.41367582868668,
+  "sub_obs_lat_deg": 0.4551691,
+  "sub_obs_lon_deg": 154.41367582868668,
+  "north_pa_deg": 64.49667,
+  "apparent_diameter_arcsec": 31.403400733187333,
+  "light_time_s": 1884.2040000000002,
+  "source": "horizons+spice_auto+analytical",
+  "cm_source": "spice_auto",
+  "orientation_source": "horizons",
+  "distance_source": "horizons",
+  "sigma_cm_deg": 0.01,
+  "sigma_distance_frac": 0.001,
+  "sigma_pa_deg": 0.2,
+  "sigma_sublat_deg": 0.1,
+  "apply_orientation": true,
+  "notes": [
+    "Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).",
+    "SPICE auto geometry (4 kernels; online download if needed).",
+    "Horizons full observer geometry applied where parsed.",
+    "PROVENANCE: cm=spice_auto \u03c3=0.01\u00b0 | dist=horizons | ori=horizons apply_ori=True"
+  ],
+  "raw": {
+    "analytical": {
+      "distance_au": 4.889364425478952,
+      "cm_iii_deg": 181.22435510531068,
+      "sub_obs_lat_deg": 2.9905365605268868,
+      "sub_obs_lon_deg": 181.22435510531068,
+      "north_pa_deg": 0.0,
+      "apparent_diameter_arcsec": 40.32132129909112,
+      "light_time_s": 2439.816238232317
+    },
+    "spice": {
+      "distance_au": 6.277844280503013,
+      "light_time_s": 3132.6743281494564,
+      "apparent_diameter_arcsec": 31.403396634152656,
+      "source": "spice_auto",
+      "kernels": [
+        "naif0012.tls",
+        "gm_de440.tpc",
+        "pck00011.tpc",
+        "de440s.bsp"
+      ],
+      "notes": [
+        "body frame via pxform(J2000\u2192IAU_JUPITER) on barycenter LOS (de440s-safe)",
+        "north_pa from pole projection"
+      ],
+      "north_pa_deg": 344.8865040303403,
+      "cm_iii_deg": 154.41367582868668,
+      "sub_obs_lon_deg": 154.41367582868668,
+      "sub_obs_lat_deg": 0.8146976393164012
+    },
+    "horizons": {
+      "parser": "horizons_observer_v1",
+      "distance_au": 6.27784346106624,
+      "light_time_s": 1884.2040000000002,
+      "sub_obs_lat_deg": 0.4551691,
+      "sub_obs_lon_deg": 64.49667,
+      "cm_iii_deg": 64.49667,
+      "north_pa_deg": 64.49667,
+      "apparent_diameter_arcsec": 31.403400733187333,
+      "floats_found": [
+        125.328040122,
+        19.944418386,
+        31.4034,
+        154.168808,
+        0.93145,
+        6.27784346106624,
+        5.3229199,
+        123.2962591,
+        0.4551691,
+        268.05766,
+        64.49667
+      ],
+      "data_line": "2026-Jul-15 10:04, , , 125.328040122,  19.944418386,  31.40340,  154.168808,   0.931450,  6.27784346106624,  5.3229199,  123.2962591,  0.4551691,  268.05766,  64.49667,",
+      "ok": true,
+      "excerpt": "API VERSION: 1.2\nAPI SOURCE: NASA/JPL Horizons API\n\n\n\n*******************************************************************************\nEphemeris / API_USER Wed Jul 15 01:29:37 2026 Pasadena, USA      / Horizons    \n*******************************************************************************\nTarget body name: Jupiter (599)                   {source: jup365_merged}\nCenter body name: Earth (399)                     {source: DE441}\nCenter-site name: GEOCENTRIC\n*******************************************************************************\nStart time      : A.D. 2026-Jul-15 10:04:00.0000 UT      \nStop  time      : A.D. 2026-Jul-15 10:05:00.0000 UT      \nStep-size       : 1 minutes\n*******************************************************************************\nTarget pole/equ : IAU_JUPITER                     {West-longitude positive}\nTarget radii    : 71492.0, 71492.0, 66854.0 km    {Equator_a, b, pole_c}       \nCenter geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}\nCenter cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}\nCenter pole/equ : ITRF93                          {East-longitude positive}\nCenter radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       \nTarget primary  : Sun\nVis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}\nRel. light bend : Sun                             {source: jup365_merged}\nRel. lght bnd GM: 1.3271E+11 km^3/s^2                                          \nAtmos refraction: NO (AIRLESS)\nRA format       : DEG\nTime format     : CAL \nCalendar mode   : Mixed Julian/Gregorian\nEOP file        : eop.260714.p261010                                           \nEOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-JUL-14. PREDICTS-> 2026-OCT-09\nUnits conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s \nTable cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )\nTable cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )\nTable cut-offs 3: RA/DEC angular rate (     0.0=NO )                           \nTable format    : Comma Separated Values (spreadsheet)\n*************************************************************************************************************************************************************************\n Date__(UT)__HR:MN, , , R.A.___(ICRF), DEC____(ICRF),  Ang-diam,  ObsSub-LON, ObsSub-LAT,             delta,     deldot,     ObsEcLon,   ObsEcLat,  N.Pole-RA, N.Pole-DC,\n*****************************",
+      "query_time": "2026-07-15T10:04:24"
+    }
+  }
+}

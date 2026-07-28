@@ -1,0 +1,52 @@
+{
+  "mode": "winjupos_plus",
+  "ok": true,
+  "publish_definition": "GS-BARY",
+  "lon_iii_deg": 349.0965903962512,
+  "lat_planetocentric_deg": -26.79310975093916,
+  "lat_planetographic_deg": -30.005687928930833,
+  "length_deg_isophote_or_oval": 12.785006552928559,
+  "extent_ew_deg": 1.1257817929117664,
+  "west_edge_lon_iii_deg": 40.34646959895247,
+  "east_edge_lon_iii_deg": 39.11863876675602,
+  "width_deg": 13.179262961505067,
+  "cm_iii_deg": 310.42832498776556,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23170102126672,
+  "user_time_iso": "2026-01-09 15:40:00",
+  "recommended_limb_outline": {
+    "name": "outer_large_outline",
+    "isophote_frac": 0.12,
+    "a_eq_px": 219.89692542456797,
+    "xc": 254.11648141577996,
+    "yc": 251.56261724628862,
+    "lon_iii_deg": 38.08270124780472,
+    "lat_deg": -16.89824243890135,
+    "note": "Fainter limb (larger disk) \u2014 soft seeing edge"
+  },
+  "limb_sky_spread_arcsec": 68.25660287040655,
+  "definition_lon_spread_deg": 177.60128147738254,
+  "vs_manual_winjupos": {
+    "agreement": "NO_MANUAL_PICK",
+    "sky_error_arcsec": null,
+    "equal_to_winjupos": false
+  },
+  "desk_score_0_100": 65.0,
+  "desk_grade": "DESK_FAIR",
+  "desk_flags": [
+    "LIMB_UNSTABLE",
+    "DEFINITION_SCATTER"
+  ],
+  "citation_line": "GRS GS-BARY  \u03bb_III=349.0966\u00b0  \u03c6_c=-26.793\u00b0  \u03c6_g=-30.006\u00b0  EW=1.1257817929117664\u00b0  CM=310.42832498776556\u00b0 (spice_auto)  \u0394=4.2317 AU",
+  "how_to_use": [
+    "Paste the same mid-exposure UTC and CM into WinJUPOS for a fair \u0394.",
+    "Compare \u03c6_g (planetographic) to WinJUPOS latitude, not only \u03c6_c.",
+    "Use GS-MAP / core definition to match a careful WJ core pick.",
+    "If desk_grade is DESK_HOLD, fix CM (SPICE/WJ) or limb before publishing.",
+    "Method soup / SOTA are scatter only \u2014 not the published centre."
+  ],
+  "honesty": "Automated optical metrology with fixed definitions and formal gates. Not radio VLBI; not a Nobel claim. Compete with careful WinJUPOS on the same frame.",
+  "champion_grade": "STRONG",
+  "champion_score": 70.0,
+  "champion_sigma_sky_arcsec": 70.55943844049284
+}

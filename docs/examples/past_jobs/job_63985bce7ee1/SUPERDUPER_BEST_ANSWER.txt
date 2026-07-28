@@ -1,0 +1,36 @@
+╔══════════════════════════════════════════════════════════╗
+║           SUPERDUPER BEST ANSWER — REPORT THIS           ║
+╚══════════════════════════════════════════════════════════╝
+
+  Grade              STRONG
+  UNBEATABLE_AUTO    False
+  Absolute OK        True
+  Ultimate gates     5/13
+  Failed gates       ['cm_crosscheck', 'lat_core', 'limb_stable', 'def_tight', 'nav_stable', 'dual_agree', 'score_high', 'sigma_sky_tight']
+  In-app dominance   Ultimate gates incomplete — see failed list; improve CM/UTC/stack.
+
+  Definition         GS-MAP
+  Lon III            184.8169615787293 °
+  Lat centric        -30.720354526408087 °
+  Lat graphic (WJ)   -34.197974556439874 °
+  EW extent          3.691845922961477 °
+  σ_sky (total)      25.87358627829048 ″
+  CM III             100.75546025533211 °  [spice_auto]
+
+  vs WinJUPOS        NO_MANUAL_PICK
+  Δ sky vs WJ        None ″
+  Equal WJ?          False
+  Desk grade         DESK_GOOD
+
+  CITATION
+  GRS GS-MAP  λ_III=184.8170°  φ_c=-30.720°  φ_g=-34.198°  σ_sky≈25.874″  CM=100.75546025533211° (spice_auto)  grade=STRONG
+
+  RULES
+  · Report lon_iii + φ_g (planetographic) when comparing to WinJUPOS.
+  · Same mid-exposure UTC and CM source as your WinJUPOS session.
+  · If absolute_publish_ok is false: do not publish absolute System III.
+  · If unbeatable_auto is true: NO weaker method in THIS APP overrides it.
+  · Method soup / SOTA are scatter only — ignore for the official centre.
+  · Still not a claim vs HST / Juno / perfect human WinJUPOS.
+
+  Best consolidated product of this job. Optical ground metrology. When UNBEATABLE_AUTO: in-app hierarchy is locked. Not radio VLBI. Not a claim to beat spacecraft imaging.

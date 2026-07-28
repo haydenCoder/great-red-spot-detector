@@ -1,0 +1,29 @@
+RESEARCH-GRADE GRS METROLOGY REPORT
+==================================================
+Grade: NEEDS_WORK
+Bias-corrected lon: 38.69742 deg
+Bias-corrected lat: -18.53305 deg
+Total σ_sky: 12.0318 arcsec
+  random:      11.9859 arcsec
+  systematic:  0.1337 arcsec
+Injection trials: 13  mean|err|: 0.0850 arcsec
+Definitions: 4
+Filter closure: 2.0823650201968826
+Elapsed: 9.8s
+
+NOTES:
+- VLBI-inspired optical metrology — methods, not microarcsecond claims.
+- Primary centre: multi-scale NCC on μ-corrected oriented cylindrical map.
+- Phase-reference probes use the same correlator; bias capped if unphysical.
+- Formal σ = random ⊕ definition ⊕ nav ⊕ time ⊕ ephemeris_CM ⊕ bias_unc (±½ closure).
+- Diffraction floor (~λ/D) for 0.35m @550nm ≈ 0.324"; extended-feature floor higher.
+- image_hash=889d70889e11c64d
+- For absolute System III publish-grade CM, supply SPICE/WinJUPOS CM override.
+- Base: analytical Sys-III clock (differentials robust; absolute zero may be offset).
+- SPICE auto geometry (4 kernels; online download if needed).
+- Horizons full observer geometry applied where parsed.
+- Distance override applied.
+- CM III override applied (no light-time re-shift).
+- North PA override.
+- PROVENANCE: cm=override σ=0.02° | dist=override | ori=override+horizons apply_ori=True
+- Multi-λ closure residual σ_sky≈2.0824"

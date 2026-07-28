@@ -1,0 +1,20 @@
+SOTA ROBUST PRIMARY (best accuracy procedure)
+  Lon III           337.3016152830128
+  Lat               -22.384027656247444
+  σ_lon (SE)        0.13517599801899785 °
+  σ_lat (SE)        0.039016929126452396 °
+  σ_sky (approx)    0.03716985290050313 ″
+  Quality           SOTA_EXCELLENT  score=95.0
+  Inliers/outliers  20/54
+  Methods ok/total  83/83
+  FITS time         None
+  COPY: SOTA_LON=337.3016152830128  SOTA_LAT=-22.384027656247444
+  Inliers: PERC12, PERC18, OTSU, QUAD_MOM, FLUX_P1, FLUX_P2, FLUX_P4, ISO_P08, ISO_P12, ISO_P22, MULTI_ISO, HU_MOM, P20, P25, P30, P35, P_LADDER, ENS_MEDIAN, ENS_TRIM, ENS_MEDOID
+  Outliers excluded: MAP_DARK, ENGINE, MS_NCC, TMPL_10x7, TMPL_12x8, LOG_BLOB, PROJ_1D, LAT_TRACK, PHASE_CORR, MORPH, SEED_GROW, OVAL, MID, FWHM_LON, FWHM_LAT, BOX_C, DIST_PEAK, MEAN_SHIFT, SPOMF, WATERSHED, RAD_SYM, P05, P10, UNSHARP, KDE_MODE, GMM2_LON, RING_TMPL, MEC, ENS_TEMPLATE, TMPL_14x9
+  · Excluded 54 outlier methods (normal with large method suite); 20 inliers drive SOTA primary.
+  · Synthetic truth CM (lab mode).
+  · Robust consensus from 20 inliers (excluded 54 outlier methods). σ_lon≈0.1352° σ_lat≈0.0390° (~0.037″ if geometry OK).
+  FLAG: LARGE_PIPELINE_SIGMA
+  → For publication: report SOTA lon/lat + definition=SOTA_ROBUST + CM source + σ.
+  → Validate with WinJUPOS manual pick when possible (not auto-detect).
+  → Best absolute accuracy needs excellent stack + SPICE/WJ CM + accurate UTC.

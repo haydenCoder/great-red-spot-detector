@@ -1,0 +1,48 @@
+DUAL MEASURE (WinJUPOS-style): AUTOMATIC + HUMAN CHOICE
+============================================================
+Official publish source: human
+
+AUTOMATIC
+  definition  GS-MAP
+  lon III     184.8169615787293
+  lat         -30.720354526408087
+
+HUMAN CHOICE
+  definition  GS-MAP+RIM
+  lon III     13.200570638830328  (centre — GS-MAP if GS-MAP+RIM)
+  lat         -28.66501268525957
+
+OUTER RIM (size — not published lon)
+  west edge   190.630373389453
+  east edge   189.50459159654127
+  extent W–E  1.125781792911738 °
+  length      1.125781792911738 °
+
+COMPARISON (human − automatic)
+  Δlon        -171.61639093989896 °
+  Δlat        2.0553418411485183 °
+  Δsky        61.2215317093576 ″
+  agreement   DIFFERENT
+  note        Large Δ usually means definition (core vs outline) or limb scale, not necessarily a bug — same as WinJUPOS core vs edge choice.
+
+TIPS (JUPOS / WinJUPOS practice)
+  · Process full = AUTO limb (green) + BY EYE limb (cyan) in one job.
+  · JUPOS: automatic outline is only a first guess — always fine-tune by eye.
+  · WinJUPOS: arrows move outline; Page Up/Down change size; fit the true limb, not the belts.
+  · Put cyan on the planet edge; if cyan is too small/large, lon and lat both shift.
+  · Recommended: GS-MAP+RIM = core lon/lat (GS-MAP) + outer W–E rim for length.
+  · Publish longitude: dark core (GS-MAP). Outer rim = size only — not the published lon.
+  · Use edges (OUTLINE / W–E) for size/extent — not as a silent substitute for core lon.
+  · Same definition every night (core vs core) when comparing to WinJUPOS or past runs.
+  · Mid-exposure UTC of the stack only — not start time, not wall-clock now.
+  · BAA: ~0.6° System III per minute of timing error — clocks matter.
+  · Stacks should span only a few minutes for cartography (JUPOS image requirements).
+  · Trusted CM: SPICE / Horizons / WinJUPOS CML / override — not bare analytical for publish.
+  · NASA Horizons = geometry (CM, distance), NOT a GRS longitude catalog.
+  · Prefer red / visual-red channel for GRS contrast; blue is often weaker for this feature.
+  · Check orientation: N-up, E–W not mirrored (use flip checkboxes if stack is reversed).
+  · Paste your WinJUPOS lon/lat to test equality (Δsky ″) — that is the real accuracy check.
+  · dual_measure.json: large Δsky usually means definition or limb, not “NASA wrong.”
+  · Method soup / SOTA = scatter only — never the published centre.
+  · Quality flags: lat outside GRS band or untrusted CM → do not treat as absolute System III.
+  · On synthetics, truth_recovery sky_error_arcsec is the honest self-test metric.

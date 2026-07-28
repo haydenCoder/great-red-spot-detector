@@ -1,0 +1,50 @@
+
+────────────────────────────────────────────────────────────────────────
+  YOUR MEASUREMENT  vs  NASA / REFERENCE
+────────────────────────────────────────────────────────────────────────
+
+  HOW TO READ THIS
+  · YOUR = what this software measured on your image (bias-corrected when available)
+  · NASA/REF = offline GRS trend model + JPL Horizons Jupiter geometry
+  · Δ (delta) = YOUR − NASA/REF   (lon is wrap-aware, −180…+180°)
+  · |Δ| small = closer agreement (lat is more trustworthy than lon on the schematic model)
+
+  ┌────────────────────┬──────────────────┬──────────────────┬──────────────────┐
+  │ quantity           │ YOUR answer      │ NASA / REF       │ DIFFERENCE (Δ)   │
+  ├────────────────────┼──────────────────┼──────────────────┼──────────────────┤
+  │ Longitude III      │ 189.115593 °     │ 167.491761 °     │ +21.623832 °     │
+  │ Latitude           │ -18.566104 °     │ -22.000000 °     │ +3.433896 °      │
+  │ Length (oval)      │ 10.558122 °      │ 18.962129 °      │ -8.404007 °      │
+  │ Width (oval)       │ 8.642734 °       │ 8.694470 °       │ -0.051735 °      │
+  └────────────────────┴──────────────────┴──────────────────┴──────────────────┘
+
+  PLAIN ENGLISH
+  · Your lon is 21.6238° east of the NASA/model lon (YOUR=189.1156°  REF=167.4918°)
+  · Your lat is 3.4339° north of the NASA/model lat (YOUR=-18.5661°  REF=-22.0000°)
+  · NASA compare grade: POOR / CHECK DEFINITION
+  · Source: model+Horizons
+  · Epoch used: 2026-01-10T15:39:26
+
+  JUPITER GEOMETRY FROM NASA HORIZONS (not GRS longitude)
+  Distance Earth–Jupiter               4.231960 AU
+  Apparent diameter                    46.584949 arcsec
+  Sub-observer latitude                0.261914 °
+  North pole PA                        64.496690 °
+  Horizons CM III (if present)         64.496690 °
+  Light time                           2795.097000 s
+
+  NASA MODULE NOTES
+  · NASA/JPL Horizons is used for Jupiter geometry (Δ, orientation), not an official GRS longitude product.
+  · Offline GRS lon model is schematic — for synthetic tests use truth_recovery arcsec.
+  · Absolute System III: use WinJUPOS/SPICE CM override or Horizons sub-observer lon via ephemeris_pro.
+  · Target science accuracy: 0.1–2 arcsec on-sky depending on regime.
+
+  COPY-PASTE NUMBERS
+  YOUR_LON_III_DEG     = 189.11559273
+  YOUR_LAT_DEG         = -18.56610363
+  NASA_REF_LON_III_DEG = 167.49176112
+  NASA_REF_LAT_DEG     = -22.00000000
+  DELTA_LON_DEG        = 21.62383161
+  DELTA_LAT_DEG        = 3.43389637
+  DELTA_LENGTH_DEG     = -8.40400711
+  DELTA_WIDTH_DEG      = -0.05173506

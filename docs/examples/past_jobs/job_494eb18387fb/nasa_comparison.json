@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "source": "model+Horizons",
+  "user_time_iso": "2026-01-10T15:39:26",
+  "measured": {
+    "lon_iii_deg": 189.11559273224148,
+    "lat_deg": -18.56610362687233,
+    "length_deg": 10.558121756571804,
+    "width_deg": 8.642734460502165
+  },
+  "reference": {
+    "lon_iii_deg": 167.49176112435043,
+    "lat_deg": -22.0,
+    "length_deg": 18.962128871190767,
+    "width_deg": 8.694469523148149,
+    "jupiter_distance_au": 4.23195983918294,
+    "jupiter_app_diam_arcsec": 46.584949158247575,
+    "sub_obs_lat_deg": 0.2619141,
+    "north_pa_deg": 64.49669,
+    "horizons_cm_iii_deg": 64.49669,
+    "light_time_s": 2795.0969999999998
+  },
+  "deltas": {
+    "lon_iii_deg": 21.62383160789105,
+    "lat_deg": 3.43389637312767,
+    "length_deg": -8.404007114618963,
+    "width_deg": -0.051735062645983376
+  },
+  "flags": [],
+  "notes": [
+    "NASA/JPL Horizons is used for Jupiter geometry (\u0394, orientation), not an official GRS longitude product.",
+    "Offline GRS lon model is schematic \u2014 for synthetic tests use truth_recovery arcsec.",
+    "Absolute System III: use WinJUPOS/SPICE CM override or Horizons sub-observer lon via ephemeris_pro.",
+    "Target science accuracy: 0.1\u20132 arcsec on-sky depending on regime."
+  ],
+  "grade": "POOR / CHECK DEFINITION"
+}

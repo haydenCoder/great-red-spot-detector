@@ -1,0 +1,27 @@
+╔════════════════════════════════════════════════════════════╗
+║            PUBLISH THIS (official GRS position)            ║
+╚════════════════════════════════════════════════════════════╝
+  Definition     GS-BARY
+  Lon III        349.0965903962512 °
+  Lat            -26.79310975093916 °
+  Quality        REJECT  publish_ok=False  absolute_ok=False  cm_trusted=True
+  CM III         310.42832498776556 °  (spice_auto)
+  How to cite    GRS GS-BARY lon=349.0965903962512° lat=-26.79310975093916° (CM III=310.42832498776556° source=spice_auto). Method soup not used for the published centre.
+
+  METHOD SOUP / SOTA — scatter only, NOT published centre
+  Soup methods   83  role=scatter_only
+  SOTA lon       31.91287492700793  (Δ vs publish=-42.81628453075672°)
+  Pipeline lon   38.71942218047829  (Δ vs publish=-49.62283178422706°)
+  Limb outline spread   68.25660287040655 ″
+  Definition lon spread 177.60128147738254 °
+
+  VS WINJUPOS
+  Agreement      NO_MANUAL_PICK
+  Equal?         False
+  Δsky           None ″
+  Note           Paste your WinJUPOS manual GRS lon/lat to test equality. Also use the same CM (WinJUPOS table or CM override) and the same definition (core).
+
+  QUALITY WARNINGS
+  • limb sky spread 68.26" > 10.0" (JUPOS: limb is critical)
+  • definition lon spread 177.6° > 40.0°
+  • |publish−pipeline| lon=49.6° > 30.0°

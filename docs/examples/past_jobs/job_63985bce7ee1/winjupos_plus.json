@@ -1,0 +1,52 @@
+{
+  "mode": "winjupos_plus",
+  "ok": true,
+  "publish_definition": "GS-MAP",
+  "lon_iii_deg": 184.8169615787293,
+  "lat_planetocentric_deg": -30.720354526408087,
+  "lat_planetographic_deg": -34.197974556439874,
+  "length_deg_isophote_or_oval": null,
+  "extent_ew_deg": 1.125781792911738,
+  "west_edge_lon_iii_deg": 190.673604866519,
+  "east_edge_lon_iii_deg": 189.44577403432257,
+  "width_deg": null,
+  "cm_iii_deg": 100.75546025533211,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23195983918294,
+  "user_time_iso": "2026-01-10 15:39:26",
+  "recommended_limb_outline": {
+    "name": "outer_large_outline",
+    "isophote_frac": 0.12,
+    "a_eq_px": 219.89692542456797,
+    "xc": 254.11648141577996,
+    "yc": 251.56261724628862,
+    "lon_iii_deg": 13.211985190169898,
+    "lat_deg": -30.402590591858214,
+    "note": "Fainter limb (larger disk) \u2014 soft seeing edge"
+  },
+  "limb_sky_spread_arcsec": 3.611091609700143,
+  "definition_lon_spread_deg": 177.42980275062268,
+  "vs_manual_winjupos": {
+    "agreement": "NO_MANUAL_PICK",
+    "sky_error_arcsec": null,
+    "equal_to_winjupos": false
+  },
+  "desk_score_0_100": 77.0,
+  "desk_grade": "DESK_GOOD",
+  "desk_flags": [
+    "LIMB_ELEVATED",
+    "DEFINITION_SCATTER"
+  ],
+  "citation_line": "GRS GS-MAP  \u03bb_III=184.8170\u00b0  \u03c6_c=-30.720\u00b0  \u03c6_g=-34.198\u00b0  EW=1.125781792911738\u00b0  CM=100.75546025533211\u00b0 (spice_auto)  \u0394=4.2320 AU",
+  "how_to_use": [
+    "Paste the same mid-exposure UTC and CM into WinJUPOS for a fair \u0394.",
+    "Compare \u03c6_g (planetographic) to WinJUPOS latitude, not only \u03c6_c.",
+    "Use GS-MAP / core definition to match a careful WJ core pick.",
+    "If desk_grade is DESK_HOLD, fix CM (SPICE/WJ) or limb before publishing.",
+    "Method soup / SOTA are scatter only \u2014 not the published centre."
+  ],
+  "honesty": "Automated optical metrology with fixed definitions and formal gates. Not radio VLBI; not a Nobel claim. Compete with careful WinJUPOS on the same frame.",
+  "champion_grade": "STRONG",
+  "champion_score": 76.0,
+  "champion_sigma_sky_arcsec": 25.87358627829048
+}

@@ -1,0 +1,78 @@
+{
+  "policy": "GS-MAP_THEN_GS-BARY_PUBLISH; SOUP_SCATTER_ONLY",
+  "publish_definition": "GS-ORANGE",
+  "publish_lon_iii_deg": 289.86310473877654,
+  "publish_lat_deg": -22.581453950955297,
+  "cm_iii_deg": 310.42832498776556,
+  "cm_source": "spice_auto",
+  "distance_au": 4.23170102126672,
+  "pipeline_lon_iii_deg": 312.9808814166171,
+  "pipeline_lat_deg": -17.85340186522343,
+  "pipeline_delta_lon_deg": -23.11777667784054,
+  "sota_lon_iii_deg": 310.56872831410897,
+  "sota_lat_deg": -21.978251818657995,
+  "sota_delta_lon_deg": -20.705623575332424,
+  "sota_role": "scatter_confidence_only",
+  "soup_n_methods": 83,
+  "soup_role": "scatter_only",
+  "soup_note": "Method soup (83 estimators) and SOTA consensus are for definition scatter / confidence only \u2014 NOT the published GRS position.",
+  "limb_outline_sky_spread_arcsec": 67.01748270872315,
+  "definition_lon_spread_deg": 177.52950267030752,
+  "winjupos_equality": {
+    "compared": false,
+    "equal_to_winjupos": false,
+    "agreement": "NO_MANUAL_PICK",
+    "note": "Paste your WinJUPOS manual GRS lon/lat to test equality. Also use the same CM (WinJUPOS table or CM override) and the same definition (core)."
+  },
+  "how_to_cite": "GRS GS-ORANGE lon=289.86310473877654\u00b0 lat=-22.581453950955297\u00b0 (CM III=310.42832498776556\u00b0 source=spice_auto). Method soup not used for the published centre.",
+  "quality": {
+    "publish_ok": false,
+    "absolute_ok": false,
+    "grade": "REJECT",
+    "flags": [
+      "LIMB_SPREAD_FAIL",
+      "DEFINITION_SCATTER_FAIL"
+    ],
+    "warnings": [
+      "limb sky spread 67.02\" > 10.0\" (JUPOS: limb is critical)",
+      "definition lon spread 177.5\u00b0 > 40.0\u00b0"
+    ],
+    "notes": [
+      "Sources: JUPOS Tips for Measurers (limb/outline, timing, outlier reject); BAA Jupiter Section (transit timing ~0.6\u00b0/min); SPICE/System III absolute CM.",
+      "Publish definition should be GS-MAP/GS-BARY core \u2014 not method soup.",
+      "Prefer red/IR channel for GRS contrast (JUPOS spectral priority)."
+    ],
+    "cm_source": "spice_auto",
+    "cm_trusted": true,
+    "publish_lon_iii_deg": 289.86310473877654,
+    "publish_lat_deg": -22.581453950955297,
+    "lat_core_ok": true,
+    "lat_wide_ok": true,
+    "limb_sky_spread_arcsec": 67.01748270872315,
+    "definition_lon_spread_deg": 177.52950267030752,
+    "publish_vs_pipeline_lon_deg": 23.11777667784054,
+    "time_error_seconds": 0.0,
+    "timing_lon_uncertainty_deg": 0.0,
+    "grs_lat_core_band_deg": [
+      -28.0,
+      -16.0
+    ],
+    "grs_lat_wide_band_deg": [
+      -36.0,
+      -10.0
+    ]
+  },
+  "publish_ok": false,
+  "absolute_ok": false,
+  "cm_trusted": true,
+  "quality_grade": "REJECT",
+  "publish_lat_planetocentric_deg": -22.581453950955297,
+  "publish_lat_planetographic_deg": -25.435064210443016,
+  "lat_kind_primary": "planetocentric",
+  "lat_note": "Primary lat is planetocentric (engine geometry). WinJUPOS/JUPOS usually quote planetographic \u2014 both exported.",
+  "champion_grade": "CHAMPION",
+  "champion_score": 100.0,
+  "champion_sigma_sky_arcsec": 64.52293872409065,
+  "champion_sigma_lon_deg": 175.05149406114666,
+  "champion_absolute_ok": true
+}

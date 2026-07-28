@@ -1,0 +1,7 @@
+Job product stack: COMPLETE
+UNBEATABLE_AUTO: False
+Publish: GS-BARY
+Present: publish.json, publish.txt, champion.json, champion.txt, SUPERDUPER_BEST_ANSWER.txt, SUPERDUPER_BEST_ANSWER.json, REPORT_THIS_ONE_LINE.txt, pro_ephemeris.json
+Missing: job_result.json
+
+Automated optical product stack is complete for this app version. Further gains require better input data, not more estimator soup.

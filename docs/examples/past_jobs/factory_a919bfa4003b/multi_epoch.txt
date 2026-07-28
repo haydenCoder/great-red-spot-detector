@@ -1,0 +1,19 @@
+MULTI-EPOCH DIFFERENTIAL GRS TRACKING
+==================================================
+Reference: synth_195b74629be4  2023-11-03T01:39:20
+Ref lon/lat: 307.53253 / -22.00782
+N points: 2
+Drift lon: -0.00930 ± 0.00000 °/day
+Drift lat: -0.00295 °/day
+RMS residual lon: 0.00000°
+RMS residual sky: 0.00000"
+Smoother: none
+
+POINTS:
+  synth_195b74629be4    day=  +0.000  lon=307.5325  Δlon=+0.0000°  Δsky=0.000"
+  synth_8ffe1557dce9    day=+1250.036  lon=295.9104  Δlon=-11.6221°  Δsky=3.969"
+
+NOTES:
+- Differentials are phase-referenced to the reference epoch (common-mode CM cancels).
+- Drift is weighted linear fit of Δlon vs days; RTS smoother optional for n≥3.
+- Absolute System III still requires professional CM on each night for publication lon.

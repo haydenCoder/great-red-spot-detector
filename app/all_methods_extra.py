@@ -147,7 +147,9 @@ def m_fwhm_lat(cyl, nav, lon_iii, lat) -> MethodHit:
 def m_profile_gaussian_fit(cyl, nav, lon_iii, lat) -> MethodHit:
     """Gaussian fit to inverted 1D lon profile (subpixel μ)."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=4.0)
-    row = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        row = np.nanmean(np.where(valid, band, np.nan), axis=0)
     row = np.nan_to_num(row, nan=float(np.nanmedian(row)))
     inv = np.max(row) - row
     inv = np.clip(inv - np.percentile(inv, 40), 0, None)

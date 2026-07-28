@@ -49,3 +49,8 @@ app/models/*.tmp.*
 
 # Pre-refactor backups
 *.bak_before_deadstrip
+
+# Accuracy campaign outputs (regenerated; can be large)
+runs/
+image-search/
+app/native/*.so

@@ -346,50 +346,62 @@ def fit_limb_nav(
     a = float(r_est)
     n_iter = 6 if n_rays >= 800 else 5
     n_rad = 360 if n_rays >= 800 else 300
+    # Precompute ray directions once (fixed across iterations)
+    _angs = 2.0 * np.pi * np.arange(n_rays, dtype=np.float64) / n_rays
+    _cos, _sin = np.cos(_angs), np.sin(_angs)
+
     for _ in range(n_iter):
-        pts_x = []
-        pts_y = []
-        for i in range(n_rays):
-            ang = 2 * math.pi * i / n_rays
-            rs = np.linspace(0.48 * a, 1.30 * a, n_rad)
-            xs_r = xc + rs * math.cos(ang)
-            ys_r = yc + rs * math.sin(ang)
-            x0 = np.clip(np.floor(xs_r).astype(int), 0, w - 2)
-            y0 = np.clip(np.floor(ys_r).astype(int), 0, h - 2)
-            dx = xs_r - x0
-            dy = ys_r - y0
-            prof = (
-                im[y0, x0] * (1 - dx) * (1 - dy)
-                + im[y0, x0 + 1] * dx * (1 - dy)
-                + im[y0 + 1, x0] * (1 - dx) * dy
-                + im[y0 + 1, x0 + 1] * dx * dy
-            )
-            # peak in inner half of ray
-            imid = max(2, len(prof) // 2)
-            pmax = float(np.max(prof[:imid]))
-            if pmax <= 1e-12:
-                continue
-            # Low isophote → larger outline (outer limb); high → smaller outline
-            thr = thr_frac * pmax
-            above = np.where(prof >= thr)[0]
-            if len(above) == 0:
-                g = np.gradient(prof)
-                j = int(np.argmin(g))
-                r = rs[min(max(j, 0), len(rs) - 1)]
-            else:
-                j = int(above[-1])
-                if 0 <= j < len(prof) - 1:
-                    p0, p1 = float(prof[j]), float(prof[j + 1])
-                    if abs(p0 - p1) < 1e-12:
-                        r = float(rs[j])
-                    else:
-                        u = (p0 - thr) / (p0 - p1)
-                        u = min(max(u, 0.0), 1.0)
-                        r = float(rs[j] + u * (rs[1] - rs[0]))
-                else:
-                    r = float(rs[min(j, len(rs) - 1)])
-            pts_x.append(xc + r * math.cos(ang))
-            pts_y.append(yc + r * math.sin(ang))
+        # Vectorised isophote ray-trace: all n_rays x n_rad samples at once.
+        # The previous version looped over rays in Python and built the sample
+        # profile per ray, which dominated limb-fit cost. Identical contract:
+        # bilinear sample, peak over the inner half, outermost >= thr crossing,
+        # linear sub-sample refine, gradient-minimum fallback.
+        rs = np.linspace(0.48 * a, 1.30 * a, n_rad)              # (n_rad,)
+        xs_r = xc + rs[None, :] * _cos[:, None]                  # (n_rays, n_rad)
+        ys_r = yc + rs[None, :] * _sin[:, None]
+        x0 = np.clip(np.floor(xs_r).astype(np.int64), 0, w - 2)
+        y0 = np.clip(np.floor(ys_r).astype(np.int64), 0, h - 2)
+        dx = xs_r - x0
+        dy = ys_r - y0
+        prof = (
+            im[y0, x0] * (1 - dx) * (1 - dy)
+            + im[y0, x0 + 1] * dx * (1 - dy)
+            + im[y0 + 1, x0] * (1 - dx) * dy
+            + im[y0 + 1, x0 + 1] * dx * dy
+        )
+
+        imid = max(2, n_rad // 2)
+        pmax = prof[:, :imid].max(axis=1)                        # (n_rays,)
+        valid_ray = pmax > 1e-12
+        thr = thr_frac * pmax                                    # (n_rays,)
+
+        above = prof >= thr[:, None]
+        any_above = above.any(axis=1)
+        # index of the OUTERMOST sample at/above threshold
+        last = (n_rad - 1) - np.argmax(above[:, ::-1], axis=1)
+
+        step = float(rs[1] - rs[0])
+        r_hit = rs[np.clip(last, 0, n_rad - 1)]
+        # linear refine between last and last+1 where possible
+        can_ref = any_above & (last < n_rad - 1)
+        if np.any(can_ref):
+            idx = np.where(can_ref)[0]
+            p0 = prof[idx, last[idx]]
+            p1 = prof[idx, last[idx] + 1]
+            den = p0 - p1
+            u = np.where(np.abs(den) < 1e-12, 0.0, (p0 - thr[idx]) / np.where(np.abs(den) < 1e-12, 1.0, den))
+            r_hit[idx] = rs[last[idx]] + np.clip(u, 0.0, 1.0) * step
+        # rays with no crossing: steepest intensity drop
+        no_hit = valid_ray & ~any_above
+        if np.any(no_hit):
+            idx = np.where(no_hit)[0]
+            g = np.gradient(prof[idx], axis=1)
+            r_hit[idx] = rs[np.clip(np.argmin(g, axis=1), 0, n_rad - 1)]
+
+        keep_ray = valid_ray
+        pts_x = (xc + r_hit * _cos)[keep_ray]
+        pts_y = (yc + r_hit * _sin)[keep_ray]
+
         if len(pts_x) < 40:
             break
         xs_p = np.asarray(pts_x, dtype=np.float64)

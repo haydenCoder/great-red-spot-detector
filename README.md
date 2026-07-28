@@ -1,4 +1,4 @@
-# Great Red Spot Detector
+# Jupiter Great Red Spot Detector
 
 A small desktop app for measuring **where Jupiter’s Great Red Spot is** on your stacked image — System III longitude and latitude.
 

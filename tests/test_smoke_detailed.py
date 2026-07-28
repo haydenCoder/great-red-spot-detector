@@ -181,6 +181,63 @@ class TestEphemerisProvenance(unittest.TestCase):
         self.assertLess(drift, 0.1, f"Sys III rate drifted {drift:.4f} deg over 6 h")
 
 
+class TestAtomicModelWrite(unittest.TestCase):
+    """
+    DEFECT J: nn_grs._atomic_savez is not atomic and leaks a full-size orphan.
+
+        tmp = path.with_suffix(path.suffix + ".tmp")   # -> "w.npz.tmp"
+        np.savez_compressed(tmp, **arrays)             # -> writes "w.npz.tmp.npz"
+        tmp.replace(path)                              # -> FileNotFoundError
+
+    numpy appends ".npz" when the target does not already end in it, so the
+    file numpy actually wrote is never the file `replace()` looks for. The
+    FileNotFoundError is swallowed by a bare `except Exception`, which falls
+    back to writing the weights DIRECTLY to the destination -- exactly the
+    non-atomic, corruptible write the helper exists to prevent -- and leaves
+    the 16 MB temp file behind.
+
+    This is the direct cause of the two orphaned *.tmp.npz weight files that
+    were committed to app/models/ (33 MB, byte-identical to the real weights).
+    """
+
+    @pytest.mark.xfail(
+        strict=False,
+        reason=(
+            "DEFECT J: np.savez_compressed appends '.npz', so the temp file "
+            "written is 'w.npz.tmp.npz' while replace() targets 'w.npz.tmp'. "
+            "The resulting FileNotFoundError is swallowed and the code falls "
+            "back to a non-atomic direct write, orphaning the temp file."
+        ),
+    )
+    def test_atomic_savez_leaves_no_orphan_and_is_atomic(self):
+        import tempfile as _tf
+
+        import numpy as np
+
+        from nn_grs import _atomic_savez
+
+        with _tf.TemporaryDirectory(prefix="grs_atomic_") as d:
+            root = Path(d)
+            target = root / "w.npz"
+            _atomic_savez(target, a=np.ones(3))
+
+            self.assertTrue(target.exists(), "weights not written at all")
+            leftovers = sorted(p.name for p in root.iterdir() if p.name != "w.npz")
+            self.assertEqual(
+                leftovers, [],
+                f"KNOWN DEFECT J: atomic write leaked temp file(s) {leftovers}; "
+                "the real save path is therefore non-atomic",
+            )
+
+    def test_no_orphaned_temp_weights_are_tracked(self):
+        """The repository must not ship temp-file debris."""
+        models = Path(__file__).resolve().parents[1] / "app" / "models"
+        if not models.exists():
+            self.skipTest("no models directory")
+        orphans = sorted(p.name for p in models.glob("*.tmp.npz"))
+        self.assertEqual(orphans, [], f"orphaned temp weights present: {orphans}")
+
+
 # ---------------------------------------------------------------------------
 # 3. Single-run package structure and internal consistency
 # ---------------------------------------------------------------------------

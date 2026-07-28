@@ -42,3 +42,10 @@ app/admin_session.json
 
 # NOTE: training weights + checkpoint + Train_SPIRE_Background.command
 # are TRACKED on purpose (restored from past project history).
+
+# Atomic-write temp debris (see DEFECT J in docs/AUDIT_GEOMETRY_AND_SMOKE_6.5.1.md)
+*.tmp.npz
+app/models/*.tmp.*
+
+# Pre-refactor backups
+*.bak_before_deadstrip

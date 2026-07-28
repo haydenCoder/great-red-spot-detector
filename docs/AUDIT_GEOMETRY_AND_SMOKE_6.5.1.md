@@ -4,8 +4,31 @@
 **Scope:** projection geometry, latitude conventions, metric conversions,
 ephemeris provenance, end-to-end reproducibility and certification gates.
 
-**No production code was modified.** Every finding is pinned by an executable
-test, so fixes can be verified by watching `xfail` flip to `xpass`.
+**No measurement or production logic was modified.** Every finding is pinned by
+an executable test, so fixes can be verified by watching `xfail` flip to
+`xpass`. The only repository changes beyond tests are the removal of tracked
+build debris (Defect J) and a `pytest` marker registration.
+
+---
+
+## Findings at a glance
+
+| # | Defect | Area | Severity | Effect |
+|---|--------|------|----------|--------|
+| **A** | Latitude recovered is *parametric*, not planetocentric | projection | **High** | −1.20° at GRS (~0.45″) |
+| **B** | PA rotation applied after anisotropic scaling | projection | **High** | up to −1.06° lon at real PA; 5.0° at PA 90° |
+| **C** | GRS prior −22.0° used as planetocentric; literature is planetographic | priors | Medium | 2.2° misplaced prior |
+| **D** | `km_per_deg_lat()` ignores meridian radius of curvature | metrics | Medium | +4.1% on every arcsec error bar |
+| **E** | `km_per_deg_lon()` uses spherical radius | metrics | Low | +1.0% at GRS |
+| **F** | Version strings disagree (6.5.1 vs 6.5.0) | release | Low | cosmetic |
+| **G** | Analytical ephemeris 63° median CM error | ephemeris | *By design* | already σ-flagged; pinned |
+| **H** | Fixed seed does not fix synthetic epoch | reproducibility | **High** | certify not reproducible |
+| **I** | Median sits at the 0.75″ certify gate | accuracy | Medium | SHIP/HOLD verdict flips |
+| **J** | `_atomic_savez` non-atomic, leaks 16 MB per save | correctness | Medium | can corrupt live weights |
+
+A and B are the headline items: together they reach **~0.8″ at realistic
+position angles**, exceeding the product's own 0.75″ median gate before any
+seeing, timing or CM error is added.
 
 ---
 
@@ -14,7 +37,7 @@ test, so fixes can be verified by watching `xfail` flip to `xpass`.
 | File | Cases | Runtime |
 |------|-------|---------|
 | `tests/test_geometry_100.py` | 149 collected (100+ parametrised geometry cases) | ~0.7 s |
-| `tests/test_smoke_detailed.py` | 28 (8 fast, 20 marked `slow`) | ~0.3 s fast / ~24 min full |
+| `tests/test_smoke_detailed.py` | 30 (10 fast, 20 marked `slow`) | ~0.4 s fast / ~24 min full |
 
 Fast subset: `pytest -m "not slow"`. Full run: `pytest`.
 
@@ -300,12 +323,63 @@ These were probed and found sound — worth recording so they are not re-audited
 
 ---
 
+### DEFECT J — `_atomic_savez` is not atomic and leaks a 16 MB orphan per save (correctness, medium)
+
+`nn_grs._atomic_savez`:
+
+```python
+tmp = path.with_suffix(path.suffix + ".tmp")   # -> "w.npz.tmp"
+np.savez_compressed(tmp, **arrays)             # -> actually writes "w.npz.tmp.npz"
+tmp.replace(path)                              # -> FileNotFoundError
+```
+
+`np.savez_compressed` **appends `.npz`** when the given path does not already
+end in it. So the file numpy writes is never the file `replace()` looks for.
+The resulting `FileNotFoundError` is caught by a bare `except Exception:` whose
+fallback writes the weights **directly to the destination** — precisely the
+non-atomic, corruptible write the helper exists to prevent — and the temp file
+is left behind at full size.
+
+Verified live: `_atomic_savez(dir/"w.npz", a=ones(3))` leaves both `w.npz` and
+`w.npz.tmp.npz`.
+
+This is the **direct cause** of the tracked artefacts noted below: both
+`app/models/spire_net_weights.npz.tmp.npz` and
+`spire_net_weights.GOOD.npz.tmp.npz` are byte-identical (md5
+`6a60797f…`) to the real weights — orphans from a training save that were then
+committed.
+
+Two consequences beyond the wasted 33 MB:
+
+* A crash during weight saving now **corrupts the live weights**, since the
+  fallback path writes in place. The atomicity guarantee in the docstring
+  ("so a crash mid-write doesn't wipe the file") does not hold.
+* `_atomic_write_text` uses `.tmp.{pid}` and is **not** affected — only the
+  `savez` variant.
+
+Fix: build the temp path so it already ends in `.npz`
+(e.g. `path.with_suffix(".tmp.npz")`), or pass the numpy-normalised name to
+`replace()`. Then `except Exception: pass` around the fallback should at least
+log, so a failed atomic write is not invisible.
+
+**Resolved in this branch (artefacts only):** the two orphaned `.tmp.npz` files
+and `app/grs_complete_system.py.bak_before_deadstrip` (433 KB) were untracked
+and deleted, and `.gitignore` now excludes `*.tmp.npz` and `*.bak_before_deadstrip`.
+SPICE/SPIRE-Net loading was re-verified after removal. **The underlying code
+defect in `_atomic_savez` is left unfixed and pinned by an xfail test**, in
+keeping with this audit's no-production-changes rule.
+
+Tests: `test_atomic_savez_leaves_no_orphan_and_is_atomic` (xfail),
+`test_no_orphaned_temp_weights_are_tracked` (now passes after cleanup, and will
+fail again if the debris reappears).
+
+---
+
 ## Non-accuracy observations
 
-* **Tracked build artefacts** — `app/models/spire_net_weights.npz.tmp.npz` and
-  `spire_net_weights.GOOD.npz.tmp.npz` are committed `.tmp` files, **16.6 MB
-  each (33 MB total)**, byte-identical to their non-`.tmp` counterparts.
-  `app/grs_complete_system.py.bak_before_deadstrip` (433 KB) is also tracked.
+* **Tracked build artefacts** — *fixed in this branch*; see Defect J for the
+  root cause. 33 MB of orphaned weights plus a 433 KB pre-refactor backup were
+  untracked, deleted, and added to `.gitignore`.
 * **122 silent `except: pass` blocks** across 31 modules (`nn_grs.py` 22,
   `desktop_app.py` 18). In the measurement path these can mask a failed method
   as a merely-absent one.
@@ -332,4 +406,6 @@ These were probed and found sound — worth recording so they are not re-audited
    at module level, rather than hard-coding −22.0.
 5. **I** — re-measure after 1–4; the median may well clear 0.75″ once the
    geometry biases are removed.
-6. **F**, artefacts, `_gauss` — hygiene.
+6. **J** — one-line temp-path fix; also stop swallowing the fallback silently,
+   since this defect hid in a bare `except` for an entire release.
+7. **F**, `_gauss` — hygiene. (Artefacts already cleaned in this branch.)

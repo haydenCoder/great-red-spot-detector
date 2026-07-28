@@ -112,7 +112,7 @@ def fetch_horizons(t: dt.datetime, timeout: float = 10.0) -> Optional[Dict[str, 
     text = None
     for label, ctx in (("secure", _ssl_context()), ("unverified", ssl._create_unverified_context())):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "GRS-Observatory/6.1"})
+            req = urllib.request.Request(url, headers={"User-Agent": "GRS-Observatory/6.5"})
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
                 text = resp.read().decode("utf-8", errors="replace")
             if label == "unverified":

@@ -991,8 +991,8 @@ def attach_gold_to_package(
             ah = package["ai_hard_case"]
             if ah.get("engaged") and ah.get("nn_used"):
                 CONSOLE.ok(
-                    f"AI hard-case assist: difficulty={ah.get('difficulty'):.2f} "
-                    f"w={ah.get('blend_weight'):.2f}"
+                    f"AI hard-case assist: difficulty={ah.get('difficulty', 0.0):.2f} "
+                    f"w={ah.get('blend_weight', 0.0):.2f}"
                 )
             else:
                 CONSOLE.info(

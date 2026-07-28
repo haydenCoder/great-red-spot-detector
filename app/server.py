@@ -334,7 +334,7 @@ def health():
         from product_core import PRODUCT_VERSION
         _ver = PRODUCT_VERSION
     except Exception:
-        _ver = "6.1.0"
+        _ver = "6.5.0"
     return jsonify({
         "ok": True,
         "app": "GRS Observatory — optical GRS metrology",

@@ -1,12 +1,9 @@
-SPIRE-Net CNN weights + training checkpoint
+SPIRE-Net CNN weights — REQUIRED with the app
 ==============================================
-Ship with the app under app/models/:
-
-  spire_net_weights.npz           — active weights (frozen for normal Process)
-  spire_net_weights.GOOD.npz      — last known-good backup
-  spire_net_meta.json             — training meta
-  spire_train_checkpoint.json     — overnight train resume state (history, best_loss)
-  *.tmp.npz                       — optional temp copies from last save
-
-Do not delete the primary .npz files when sharing the project.
-Train launcher (repo root): Train_SPIRE_Background.command
+Bundled source: /Users/haydenchung/great-red-spot-detector/app/models
+Active dir:     /Users/haydenchung/great-red-spot-detector/app/models
+weights present: True  size=16637245
+meta present:    True
+Do not delete spire_net_weights.npz when sharing the folder.
+Train only if you know what you are doing.
+See docs/GRS_OBSERVATORY_BOOK.md §7.

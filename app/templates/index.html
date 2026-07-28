@@ -203,7 +203,10 @@
         </div>
 
         <div id="tab-dashboard" class="tabpane" role="tabpanel">
-          <div id="dashCards" class="dash-grid">
+          <p class="muted small results-hint">Small table of key numbers. Open <strong>Full report</strong> for everything.</p>
+          <pre id="dashTable" class="codeblock mono">Run a job — dashboard table appears here.</pre>
+          <!-- hidden legacy ids so app.js still updates without errors -->
+          <div id="dashCards" class="dash-grid" hidden>
             <div class="dash-card"><div class="dk">Status</div><div class="dv" id="dStatus">Idle</div></div>
             <div class="dash-card"><div class="dk">Source</div><div class="dv" id="dSource">—</div></div>
             <div class="dash-card"><div class="dk">Run #</div><div class="dv mono" id="dRun">—</div></div>
@@ -217,29 +220,16 @@
             <div class="dash-card"><div class="dk">CM source</div><div class="dv" id="dCm">—</div></div>
             <div class="dash-card"><div class="dk">Drift °/day</div><div class="dv mono" id="dDrift">—</div></div>
             <div class="dash-card"><div class="dk">Calibration</div><div class="dv" id="dCal">—</div></div>
-            <div class="dash-card wide"><div class="dk">Summary</div><div class="dv small" id="dHead">Run a job to fill this in.</div></div>
+            <div class="dash-card wide"><div class="dk">Summary</div><div class="dv small" id="dHead">—</div></div>
             <div class="dash-card wide"><div class="dk">Output folder</div><div class="dv small mono" id="dOut">—</div></div>
           </div>
-          <div class="nasa-compare-panel gold-panel">
-            <h3 class="nasa-h">Multi-method consensus (scatter check)</h3>
-            <div id="goldBox" class="nasa-compare-box">
-              <div class="muted small">
-                Several estimators clipped for agreement. Useful for confidence —
-                the number to report is still the publish / best-answer card, not every soup method.
-              </div>
-            </div>
-          </div>
-          <div class="nasa-compare-panel">
-            <h3 class="nasa-h">Planet geometry (Horizons — not GRS lon)</h3>
-            <div id="nasaCompareBox" class="nasa-compare-box">
-              <div class="muted small">Sanity only. Prefer your publish number + a WinJUPOS paste for a real check.</div>
-            </div>
-          </div>
-          <div id="budgetBars" class="budget"></div>
+          <div id="goldBox" hidden></div>
+          <div id="nasaCompareBox" hidden></div>
+          <div id="budgetBars" class="budget" hidden></div>
         </div>
 
         <div id="tab-results" class="tabpane" role="tabpanel">
-          <p class="muted small results-hint">Key numbers only. Full dump: <code>job_result.json</code>.</p>
+          <p class="muted small results-hint">Everything: publish, champion, dual, budgets, headline, JSON.</p>
           <pre id="resultsBox" class="codeblock">No results yet.</pre>
         </div>
         <div id="tab-eph" class="tabpane" role="tabpanel"><pre id="ephBox" class="codeblock">Resolve ephemeris or run a job first.</pre></div>

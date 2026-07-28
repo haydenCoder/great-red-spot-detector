@@ -427,13 +427,73 @@
       </div>`;
   }
 
+  function renderDashboardTable(result) {
+    const el = $("dashTable");
+    if (!el) return;
+    const h = result.headline || {};
+    const pub = result.publish || {};
+    const ch = result.champion || {};
+    const pe = result.pro_ephemeris || {};
+    const eq = (pub.winjupos_equality) || {};
+    const dual = result.dual_measure || {};
+    const lon = pub.publish_lon_iii_deg ?? h.publish_lon_iii_deg ?? h.lon_iii_deg;
+    const lat = pub.publish_lat_deg ?? h.publish_lat_deg ?? h.lat_deg;
+    const latg = pub.publish_lat_planetographic_deg ?? h.lat_planetographic_deg;
+    const cm = pub.cm_iii_deg ?? h.cm_iii_deg ?? pe.cm_iii_deg;
+    const cms = pub.cm_source ?? h.cm_source ?? pe.cm_source;
+    const def = pub.publish_definition ?? h.publish_definition ?? h.primary_method;
+    const grade = h.superduper_grade || ch.grade || h.champion_grade || h.grade || "—";
+    const sig = pub.publish_sigma_sky_arcsec ?? h.champion_sigma_sky_arcsec ?? h.sigma_total_sky_arcsec;
+    const ew = h.extent_ew_deg ?? ch.extent_ew_deg ?? h.length_deg;
+    const utc = h.user_time || h.synth_epoch || "—";
+    const f4 = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(4));
+    const f3 = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(3));
+    const f2 = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(2));
+    const rows = [
+      ["UTC", utc],
+      ["lon_III °", f4(lon)],
+      ["lat_c °", f3(lat)],
+      ["lat_g °", f3(latg)],
+      ["CM_III °", `${f4(cm)}  [${cms || "—"}]`],
+      ["definition", def || "—"],
+      ["grade", grade],
+      ["σ_sky ″", f2(sig)],
+      ["EW °", f2(ew)],
+      ["vs_WJ", eq.agreement || h.winjupos_agreement || "—"],
+      ["Δsky_WJ ″", f2(eq.sky_error_arcsec ?? h.vs_winjupos_sky_arcsec)],
+      ["gates", `${h.ultimate_lock_pass ?? "—"}/${h.ultimate_lock_total ?? "—"}`],
+    ];
+    if (dual && (dual.automatic || dual.human)) {
+      const a = dual.automatic || {};
+      const hu = dual.human || {};
+      const c = dual.comparison || {};
+      rows.push(["dual", dual.official || "—"]);
+      rows.push(["auto lon", f4(a.lon_iii_deg)]);
+      rows.push(["hand lon", f4(hu.lon_iii_deg)]);
+      rows.push(["Δsky dual ″", `${f2(c.sky_delta_arcsec)}  (${c.agreement || "—"})`]);
+    }
+    let w1 = 10, w2 = 12;
+    rows.forEach(([a, b]) => {
+      w1 = Math.max(w1, String(a).length);
+      w2 = Math.max(w2, Math.min(48, String(b).length));
+    });
+    const bar = `+-${"-".repeat(w1)}-+-${"-".repeat(w2)}-+`;
+    const lines = ["DASHBOARD", bar, `| ${"field".padEnd(w1)} | ${"value".padEnd(w2)} |`, bar];
+    rows.forEach(([a, b]) => {
+      lines.push(`| ${String(a).padEnd(w1)} | ${String(b).slice(0, w2).padEnd(w2)} |`);
+    });
+    lines.push(bar);
+    el.textContent = lines.join("\n");
+  }
+
   function renderResult(result) {
     updateDashboard(result);
+    renderDashboardTable(result);
     renderNasaCompare(result);
     const h = result.headline;
     const src = sourceKindLabel(result);
 
-    // Prefer the long human report (YOUR vs NASA tables, tips, full dump)
+    // Full report tab: prefer long text, else full JSON dump
     if (result.text && String(result.text).length > 80) {
       setText("resultsBox", result.text);
     } else {

@@ -939,25 +939,31 @@ class GRSDesktopApp(tk.Tk):
         )
         self.preview_lbl.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
-        # Results tab
+        # Dashboard first — small table
+        tab_dash = tk.Frame(self.nb, bg=PANEL)
+        self.nb.add(tab_dash, text="  Dashboard  ")
+        self.dash = scrolledtext.ScrolledText(
+            tab_dash, bg=CONSOLE_BG, fg=CONSOLE_FG, font=("Menlo", 13),
+            wrap=tk.NONE, relief=tk.FLAT, padx=10, pady=10,
+        )
+        self.dash.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        self.dash.insert(
+            tk.END,
+            "DASHBOARD (small table)\n"
+            "Run Process — key numbers appear here.\n"
+            "Full Results tab has the complete dump.\n",
+        )
+
+        # Full Results — everything
         tab_res = tk.Frame(self.nb, bg=PANEL)
         self.nb.add(tab_res, text="  Full Results  ")
         self.results = scrolledtext.ScrolledText(
             tab_res, bg=CONSOLE_BG, fg=CONSOLE_FG, insertbackground=CONSOLE_FG,
-            font=("Menlo", 12), wrap=tk.WORD, relief=tk.FLAT, borderwidth=0,
+            font=("Menlo", 11), wrap=tk.WORD, relief=tk.FLAT, borderwidth=0,
             highlightthickness=0, padx=8, pady=8,
         )
         self.results.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-
-        # Dashboard tab
-        tab_dash = tk.Frame(self.nb, bg=PANEL)
-        self.nb.add(tab_dash, text="  Dashboard  ")
-        self.dash = scrolledtext.ScrolledText(
-            tab_dash, bg=CONSOLE_BG, fg=CONSOLE_FG, font=("Menlo", 12),
-            wrap=tk.WORD, relief=tk.FLAT, padx=8, pady=8,
-        )
-        self.dash.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-        self.dash.insert(tk.END, "Run a job to populate the dashboard.\n\nMetrics strip above updates after every Process or Synthetic run.\n")
+        self.results.insert(tk.END, "Full Results: complete report after Process.\n")
 
         # ── Console (right panel) ──
         right = tk.Frame(
@@ -1130,9 +1136,14 @@ class GRSDesktopApp(tk.Tk):
         self.console.see(tk.END)
 
     def _results(self, text: str):
+        """Fill Full Results; Dashboard is updated in _update_metrics."""
         self.results.delete("1.0", tk.END)
         self.results.insert(tk.END, text)
-        self.nb.select(1)
+        # Show Dashboard (small table) first after a run
+        try:
+            self.nb.select(1)
+        except Exception:
+            pass
 
     def _update_metrics(self, package: Dict[str, Any]):
         if not package.get("publish"):
@@ -1183,51 +1194,18 @@ class GRSDesktopApp(tk.Tk):
         ep = h.get("synth_epoch") or h.get("user_time") or "—"
         self.metric_vars["epoch"].set(str(ep)[:19])
 
-        # Compact dashboard — numbers only
-        self.dash.delete("1.0", tk.END)
-        ch = package.get("champion") or {}
-        sd = package.get("superduper") or {}
-        sdr = (sd.get("report_this") or {})
-        lat_g = pub.get("publish_lat_planetographic_deg") or h.get("lat_planetographic_deg")
-        cm = pub.get("cm_iii_deg") or h.get("cm_iii_deg")
-        cm_src = pub.get("cm_source") or h.get("cm_source")
-        definition = pub.get("publish_definition") or h.get("publish_definition")
-        sig = pub.get("publish_sigma_sky_arcsec") or h.get("champion_sigma_sky_arcsec") or h.get("sigma_total_sky_arcsec")
-        ew = h.get("extent_ew_deg") or ch.get("extent_ew_deg") or h.get("length_deg")
-        lines = [
-            "RESULTS",
-            "=======",
-            f"lon_III    {lon if lon is not None else '—'} °",
-            f"lat_c      {lat if lat is not None else '—'} °",
-            f"lat_g      {lat_g if lat_g is not None else '—'} °",
-            f"CM_III     {cm if cm is not None else '—'} °  [{cm_src or '—'}]",
-            f"def        {definition or '—'}",
-            f"grade      {ch.get('grade') or h.get('champion_grade') or grade}",
-            f"σ_sky      {sig if sig is not None else '—'} ″",
-            f"EW         {ew if ew is not None else '—'} °",
-            f"UTC        {h.get('user_time') or h.get('synth_epoch') or '—'}",
-            f"vs_WJ      {eq.get('agreement') or h.get('winjupos_agreement') or '—'}  "
-            f"Δsky={eq.get('sky_error_arcsec') if eq.get('sky_error_arcsec') is not None else '—'} ″",
-            f"gates      {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')}  "
-            f"abs={pub.get('absolute_ok') if pub.get('absolute_ok') is not None else ch.get('absolute_publish_ok')}",
-            f"cite       {sdr.get('citation_line') or h.get('superduper_citation') or h.get('citation_line') or '—'}",
-            "",
-        ]
-        dual = package.get("dual_measure") or {}
-        if dual:
-            a = dual.get("automatic") or {}
-            hu = dual.get("human") or {}
-            cmp_ = dual.get("comparison") or {}
-            lines += [
-                "DUAL",
-                f"  use   {dual.get('official')}",
-                f"  auto  {a.get('lon_iii_deg')} / {a.get('lat_deg')}",
-                f"  hand  {hu.get('lon_iii_deg')} / {hu.get('lat_deg')}",
-                f"  Δsky  {cmp_.get('sky_delta_arcsec')} ″  ({cmp_.get('agreement')})",
-                "",
-            ]
-        lines.append("(job_result.json has full dump)")
-        self.dash.insert(tk.END, "\n".join(lines))
+        # Dashboard = small table only
+        try:
+            from result_report import format_dashboard_table, format_human_report
+            self.dash.delete("1.0", tk.END)
+            self.dash.insert(tk.END, format_dashboard_table(package))
+            # Full Results = everything
+            full = package.get("text") or format_human_report(package)
+            self.results.delete("1.0", tk.END)
+            self.results.insert(tk.END, full)
+        except Exception as e:
+            self.dash.delete("1.0", tk.END)
+            self.dash.insert(tk.END, f"Dashboard error: {e}\n")
 
     def _show_preview(self, path: Optional[Path]):
         if not path or not Path(path).exists():

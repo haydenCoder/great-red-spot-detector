@@ -24,6 +24,8 @@ if str(APP) not in sys.path:
 
 from precision_engine import (  # noqa: E402
     NavState,
+    lonlat_to_planet_xyz,
+    planet_xyz_to_px,
     fit_limb_nav,
     make_cylindrical,
     planetocentric_to_planetographic,
@@ -36,26 +38,19 @@ from precision_engine import (  # noqa: E402
 
 
 def _forward_xy(lon_iii: float, lat: float, nav: NavState):
-    """Same orthographic contract as make_cylindrical (single point)."""
+    """Same orthographic contract as make_cylindrical (single point).
+
+    Delegates to the shared spheroid helpers so this test cannot drift away
+    from the engine. It previously inlined a private copy of the projection
+    that placed the point on the UNIT SPHERE and then scaled y by b_pol_px;
+    that is what let the parametric-latitude and PA-shear bugs pass unnoticed
+    (a self-consistent-but-wrong projector satisfies its own inverse).
+    """
     lon_rel = wrap_diff(lon_iii, nav.cm_iii_deg)
-    lon_r = math.radians(lon_rel)
-    lat_r = math.radians(lat)
-    Xe = math.cos(lat_r) * math.sin(lon_r)
-    Ye = math.sin(lat_r)
-    Ze = math.cos(lat_r) * math.cos(lon_r)
-    D = math.radians(float(nav.sub_lat_deg or 0.0))
-    cD, sD = math.cos(D), math.sin(D)
-    Yp = Ye * cD - Ze * sD
-    Zp = Ye * sD + Ze * cD
-    Xp = Xe
-    if Zp <= 0.02:
+    X, Y, Z = lonlat_to_planet_xyz(lon_rel, lat, nav.flattening)
+    xs, ys, zlos = planet_xyz_to_px(float(X), float(Y), float(Z), nav)
+    if zlos <= 0.02:
         return None
-    pa = math.radians(float(nav.north_pa_deg or 0.0))
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xsky = Xp * cP - Yp * sP
-    Ysky = Xp * sP + Yp * cP
-    xs = nav.xc + Xsky * nav.a_eq_px
-    ys = nav.yc - Ysky * nav.b_pol_px
     return xs, ys
 
 

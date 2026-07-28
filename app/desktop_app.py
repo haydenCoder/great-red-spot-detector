@@ -551,7 +551,15 @@ class GRSDesktopApp(tk.Tk):
             name = PRODUCT_NAME
             tag = PRODUCT_TAGLINE
         except Exception:
-            name, ver, tag = "Jupiter Great Red Spot Detector", "6.5.0", "Optical GRS metrology"
+            # Read VERSION rather than hardcoding: literal fallbacks go stale.
+            ver = "unknown"
+            try:
+                _vp = Path(__file__).resolve().parent.parent / "VERSION"
+                if _vp.exists():
+                    ver = _vp.read_text(encoding="utf-8").strip() or "unknown"
+            except Exception:
+                pass
+            name, tag = "Jupiter Great Red Spot Detector", "Optical GRS metrology"
         lic_line = ""
         if self._license_status:
             lic_line = f"\nLicense: {self._license_status.plan_label}"

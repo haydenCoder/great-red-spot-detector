@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.5.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 6.5.1 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -108,6 +108,31 @@ Full write-up: [`docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`](docs/TECHNIC
 | Frozen CNN soft prior | Factory night / hard-synth / multi-epoch buttons (in CLI only) |
 | Bundled SPICE kernels | Online SPICE auto-download |
 | Champion Ultimate + SUPERDUPER archival cards | — |
+
+### v6.5.1 accuracy fixes (2026-07-28)
+
+Full geometry + smoke audit; see `docs/AUDIT_GEOMETRY_AND_SMOKE_6.5.1.md`.
+All ten findings are fixed and pinned by tests:
+
+- **Projection rewritten on the true oblate spheroid.** Latitude is now genuinely
+  planetocentric (was the *parametric* latitude — up to 1.7° bias), and the
+  north-PA rotation now happens before the isotropic plate scale, so rotated
+  disks are no longer sheared (was up to 1.06° longitude at real Jupiter PA).
+- Forward and inverse projection share one helper, so they cannot drift apart;
+  the synthetic renderer uses the same geometry (agreement ~1e-12).
+- `km_per_deg_lat()` returns the planetocentric meridian arc length instead of a
+  constant (was 5.7% low at the GRS); `km_per_deg_lon()` uses the spheroid
+  parallel radius. Both feed every quoted arcsecond error bar.
+- GRS latitude prior converted from the literature planetographic −22.4° to
+  −19.82° planetocentric instead of being hardcoded −22.0°.
+- **Seeded synthetics are reproducible again**: the epoch sampling window no
+  longer depends on `datetime.now()`, so certify runs are auditable.
+- `_atomic_savez` is actually atomic (the temp path now keeps `.npz` last), and
+  no longer orphans a 16 MB file or silently degrades to a corrupting in-place
+  write.
+- `_gauss` scipy-free fallback is a real separable Gaussian — the old box/FFT
+  path shifted the image by `k//2` px, biasing every centroid.
+- Version strings read the `VERSION` file everywhere; no hardcoded literals.
 
 ### v6.5.0 audit fixes (2026-07-28)
 

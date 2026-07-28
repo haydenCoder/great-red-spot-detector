@@ -35,7 +35,7 @@ import numpy as np
 
 from verbose_log import CONSOLE
 from ram_ssd import choose_max_resolution, free_memory, estimate_rgb_gb
-from precision_engine import FLAT, JUP_REQ_KM, wrap_deg
+from precision_engine import FLAT, GRS_LAT0, JUP_REQ_KM, wrap_deg
 
 try:
     from PIL import Image
@@ -97,15 +97,27 @@ def _parse_time(s: str) -> dt.datetime:
     raise ValueError(f"Bad time: {s}")
 
 
+# Fixed sampling window for synthetic observation epochs.
+#
+# This MUST NOT depend on the wall clock. It previously ended at
+# datetime.now() + 800 days, which made the span grow by one second per elapsed
+# second, so rng.integers(0, span) returned a different epoch for the SAME SEED
+# on every run — different CM III, different GRS truth longitude, a completely
+# different frame. That silently made every seeded certification run
+# irreproducible. Both bounds are now constants.
+SYNTH_EPOCH_START = dt.datetime(2010, 1, 1, 0, 0, 0)
+SYNTH_EPOCH_END = dt.datetime(2030, 1, 1, 0, 0, 0)
+
+
 def random_observation_time(rng: Optional[np.random.Generator] = None) -> dt.datetime:
+    """Draw a synthetic observation epoch from a FIXED window.
+
+    Deterministic for a given seed: identical input rng state always yields the
+    identical epoch, no matter when the function is called.
+    """
     rng = rng or np.random.default_rng()
-    t0 = dt.datetime(2010, 1, 1, 0, 0, 0)
-    try:
-        now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
-    except Exception:
-        now = dt.datetime.now()
-    t1 = now + dt.timedelta(days=800)
-    span = max(int((t1 - t0).total_seconds()), 86400)
+    t0 = SYNTH_EPOCH_START
+    span = max(int((SYNTH_EPOCH_END - t0).total_seconds()), 86400)
     sec = int(rng.integers(0, span))
     return (t0 + dt.timedelta(seconds=sec)).replace(microsecond=0)
 
@@ -636,7 +648,12 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
     else:
         lon_span = 18.0 if mode == "metrology" else 32.0
         grs_lon = (cm + rng.uniform(-lon_span, lon_span)) % 360.0
-    grs_lat = -22.0 + float(rng.normal(0, 0.08 if mode == "metrology" else 0.12))
+    # Render the GRS at the SAME physical latitude the engine expects. The
+    # literature -22.4 deg is planetographic; GRS_LAT0 is that value converted to
+    # planetocentric (~-19.82), which is the convention used throughout the
+    # renderer and the measurement stack. Hardcoding -22.0 planetocentric here
+    # put the synthetic GRS ~2.2 deg away from the engine's search prior.
+    grs_lat = GRS_LAT0 + float(rng.normal(0, 0.08 if mode == "metrology" else 0.12))
     grs_L = 12.0 + float(rng.uniform(-0.6 if mode == "metrology" else -1.0, 1.2 if mode == "metrology" else 1.6))
     grs_W = 8.0 + float(rng.uniform(-0.4 if mode == "metrology" else -0.5, 0.7 if mode == "metrology" else 0.9))
 
@@ -648,13 +665,30 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
 
     dtype = np.float32
     yy, xx = np.mgrid[0:h, 0:w].astype(dtype)
+    # Render on the TRUE oblate spheroid, using the same geometry contract as
+    # precision_engine.px_to_lonlat. The disk outline is an ellipse because the
+    # spheroid projects to one, not because the y-axis is squashed by hand.
+    #
+    # Invert the line of sight analytically: for sky (X, Y) in units of R_eq,
+    # the near-side surface point satisfies X^2 + Z^2 + Y^2/k^2 = 1 with
+    # k = 1-f, so Z = sqrt(1 - X^2 - Y^2/k^2). The visible disk is where that
+    # radicand is non-negative, which reproduces the correct limb ellipse
+    # (semi-minor axis b = a(1-f)) without ever dividing Y by b.
     X = (xx - xc) / (a + 1e-6)
-    Y = (yc - yy) / (b + 1e-6)
-    rr = X * X + Y * Y
-    disk = rr <= 1.0
-    mu = np.sqrt(np.clip(1.0 - rr, 0, 1)).astype(dtype)
-    lon_rel = np.arctan2(X, np.maximum(mu, 1e-6))
-    lat = np.arcsin(np.clip(Y, -1, 1))
+    Ys = (yc - yy) / (a + 1e-6)          # NOTE: equatorial scale on BOTH axes
+    k = 1.0 - FLAT
+    radicand = 1.0 - X * X - (Ys / k) ** 2
+    disk = radicand >= 0.0
+    Z = np.sqrt(np.clip(radicand, 0.0, None)).astype(dtype)
+    # mu = cos(emission angle) for limb darkening: the outward normal of an
+    # oblate spheroid is not radial, so use the true gradient normal.
+    nx, ny, nz = X, Ys / (k * k), Z
+    nlen = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
+    mu = np.clip(nz / nlen, 0.0, 1.0).astype(dtype)
+    lon_rel = np.arctan2(X, np.maximum(Z, 1e-6))
+    # planetocentric latitude from the body-frame point (X, Ys, Z)
+    rad = np.sqrt(X * X + Ys * Ys + Z * Z) + 1e-9
+    lat = np.arcsin(np.clip(Ys / rad, -1, 1))
     lon_abs = (cm + np.degrees(lon_rel)) % 360.0
     lat_deg = np.degrees(lat)
     lat_n = lat

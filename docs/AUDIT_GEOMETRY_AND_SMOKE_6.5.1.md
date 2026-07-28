@@ -4,10 +4,15 @@
 **Scope:** projection geometry, latitude conventions, metric conversions,
 ephemeris provenance, end-to-end reproducibility and certification gates.
 
-**No measurement or production logic was modified.** Every finding is pinned by
-an executable test, so fixes can be verified by watching `xfail` flip to
-`xpass`. The only repository changes beyond tests are the removal of tracked
-build debris (Defect J) and a `pytest` marker registration.
+**STATUS: all ten findings are now FIXED.** This document records the audit that
+found them and the change that resolved each one. Every fix is locked in by an
+executable test; the suite contains no `xfail` markers for these defects any
+more, so a regression fails the build rather than being tolerated.
+
+Verified end to end after the fixes (seeds 25838 / 10000 / 17919, 1080p
+metrology): **median 0.622″, max 0.634″** against gates of 0.75″ and 8.0″.
+Before the fixes the same seeds gave a median of 0.797″ (gate breach) and a
+10.416″ wrong-feature outlier.
 
 ---
 
@@ -15,16 +20,18 @@ build debris (Defect J) and a `pytest` marker registration.
 
 | # | Defect | Area | Severity | Effect |
 |---|--------|------|----------|--------|
-| **A** | Latitude recovered is *parametric*, not planetocentric | projection | **High** | −1.20° at GRS (~0.45″) |
-| **B** | PA rotation applied after anisotropic scaling | projection | **High** | up to −1.06° lon at real PA; 5.0° at PA 90° |
-| **C** | GRS prior −22.0° used as planetocentric; literature is planetographic | priors | Medium | 2.2° misplaced prior |
-| **D** | `km_per_deg_lat()` ignores meridian radius of curvature | metrics | Medium | +4.1% on every arcsec error bar |
-| **E** | `km_per_deg_lon()` uses spherical radius | metrics | Low | +1.0% at GRS |
-| **F** | Version strings disagree (6.5.1 vs 6.5.0) | release | Low | cosmetic |
-| **G** | Analytical ephemeris 63° median CM error | ephemeris | *By design* | already σ-flagged; pinned |
-| **H** | Fixed seed does not fix synthetic epoch | reproducibility | **High** | certify not reproducible |
-| **I** | Median sits at the 0.75″ certify gate | accuracy | Medium | SHIP/HOLD verdict flips |
-| **J** | `_atomic_savez` non-atomic, leaks 16 MB per save | correctness | Medium | can corrupt live weights |
+| # | Defect | Severity | Fix |
+|---|--------|----------|-----|
+| **A** | Latitude recovered was *parametric*, not planetocentric (−1.20° at GRS) | **High** | `px_to_lonlat` now solves the LOS/spheroid intersection |
+| **B** | PA rotation applied after anisotropic scaling (up to −1.06° lon) | **High** | rotate in the planet frame; single isotropic plate scale last |
+| **C** | GRS prior −22.0° treated as planetocentric; literature is planetographic | Medium | one shared `GRS_LAT0`; all bands derived from it |
+| **D** | `km_per_deg_lat()` returned a constant | Medium | planetocentric meridian arc length ds/dφ |
+| **E** | `km_per_deg_lon()` used a spherical radius | Low | spheroid parallel radius r(φ)cos φ |
+| **F** | Version strings disagreed (6.5.1 vs 6.5.0) | Low | every source reads `VERSION` |
+| **G** | Analytical ephemeris 63° median CM error | *By design* | left as-is; σ-flagging pinned by test |
+| **H** | Fixed seed did not fix the synthetic epoch | **High** | fixed sampling window, no wall clock |
+| **I** | Median sat at / above the 0.75″ gate | Medium | resolved by A–D; now 0.622″ |
+| **J** | `_atomic_savez` non-atomic, leaked 16 MB per save | Medium | temp path keeps `.npz` last; fallback logs |
 
 A and B are the headline items: together they reach **~0.8″ at realistic
 position angles**, exceeding the product's own 0.75″ median gate before any
@@ -409,3 +416,37 @@ fail again if the debris reappears).
 6. **J** — one-line temp-path fix; also stop swallowing the fallback silently,
    since this defect hid in a bare `except` for an entire release.
 7. **F**, `_gauss` — hygiene. (Artefacts already cleaned in this branch.)
+
+---
+
+## Fix notes — things the audit did not predict
+
+**Recentring the latitude bands was mandatory, not optional.** Fixing Defect C
+in isolation made accuracy *worse*: correcting the prior to −19.82° while the
+acceptance/search bands stayed centred on −22.0° planetocentric left them ~2.2°
+pole-ward of the feature. On seed 25838 the measurement locked a decoy oval and
+produced a **10.416″** error (dlon +40.9°) where the original code scored
+0.244″. All GRS bands in `precision_engine` and `accuracy_gates` are now
+*derived* from the single `GRS_LAT0` constant, and `synthetic_hq` renders at the
+same latitude, so the prior, the search window, the publish gate and the truth
+model cannot disagree again.
+
+**The pre-existing geometry test had to be updated, and that was the point.**
+`tests/test_geometry_limb_lonlat.py` inlined a private copy of the buggy
+projection in `_forward_xy`, so it kept passing while the engine was wrong. It
+now delegates to the shared `lonlat_to_planet_xyz` / `planet_xyz_to_px` helpers.
+Its planted-GRS recovery and PA-180 tests pass unchanged against the corrected
+engine, which is good evidence the rewrite preserved real behaviour.
+
+**`km_per_deg_lat` needed the planetocentric arc length, not the geodetic M(φ).**
+The audit originally proposed M(φ), the meridian radius of curvature. That would
+have been a *fresh* bug: M(φ) is parametrised by geodetic latitude, but every
+latitude in this codebase is planetocentric, and on Jupiter the two differ by up
+to 14% (1247.8 vs 1091.1 km/deg at the equator). The implementation and its
+oracle both use ds/dφ_c = sqrt((dr/dφ_c)² + r²).
+
+**Extra stale version literals.** The audit found two in `server.py`; there were
+also hardcoded fallbacks in `desktop_app.py`, `grs_complete_system.py` and
+`product_core.py`. All now read `VERSION`, falling back to `"unknown"` rather
+than a number that can silently go stale. A test scans `app/*.py` for version
+literals that disagree with `VERSION`.

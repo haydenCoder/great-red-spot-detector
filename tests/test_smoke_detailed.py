@@ -84,11 +84,20 @@ class TestProductMetadata(unittest.TestCase):
         self.assertIn(f'version = "{version_file}"', pyproject)
 
         readme = (root / "README.md").read_text(encoding="utf-8")
-        if f"**Version:** {version_file}" not in readme:
-            self.skipTest(
-                f"KNOWN DEFECT F: README.md advertises a different version than "
-                f"VERSION ({version_file}); see audit report"
-            )
+        self.assertIn(
+            f"**Version:** {version_file}", readme,
+            "README advertises a version different from the VERSION file",
+        )
+
+        # No module may hardcode a version literal that can go stale.
+        import re
+        app = root / "app"
+        stale = []
+        for py in sorted(app.glob("*.py")):
+            for m in re.finditer(r'=\s*"(\d+\.\d+\.\d+)"', py.read_text(encoding="utf-8", errors="replace")):
+                if m.group(1) != version_file:
+                    stale.append(f"{py.name}:{m.group(1)}")
+        self.assertEqual(stale, [], f"hardcoded stale version literals: {stale}")
 
     def test_product_info_shape(self):
         from product_core import PRODUCT_NAME, ProductInfo
@@ -200,15 +209,6 @@ class TestAtomicModelWrite(unittest.TestCase):
     were committed to app/models/ (33 MB, byte-identical to the real weights).
     """
 
-    @pytest.mark.xfail(
-        strict=False,
-        reason=(
-            "DEFECT J: np.savez_compressed appends '.npz', so the temp file "
-            "written is 'w.npz.tmp.npz' while replace() targets 'w.npz.tmp'. "
-            "The resulting FileNotFoundError is swallowed and the code falls "
-            "back to a non-atomic direct write, orphaning the temp file."
-        ),
-    )
     def test_atomic_savez_leaves_no_orphan_and_is_atomic(self):
         import tempfile as _tf
 
@@ -320,6 +320,18 @@ class TestSyntheticPackageDetailed(unittest.TestCase):
         self.assertGreaterEqual(L, W, "GRS is elongated in longitude")
 
     def test_error_budget_components_add_in_quadrature(self):
+        """
+        sigma_total = hypot(random, systematic), optionally with a third
+        filter-closure term folded in:
+
+            sig_tot = hypot(sig_rand, sig_sys)
+            if closure: sig_tot = hypot(sig_tot, 0.5 * closure)
+
+        So the total must be >= each component and >= their quadrature sum, but
+        it may legitimately EXCEED random + systematic when closure is present.
+        Reconstruct it exactly from the published components instead of
+        asserting a linear-sum bound that does not hold.
+        """
         h = self.pkg["headline"]
         tot = h.get("sigma_total_sky_arcsec")
         ran = h.get("sigma_random_sky_arcsec")
@@ -329,8 +341,19 @@ class TestSyntheticPackageDetailed(unittest.TestCase):
         tot, ran, sysm = float(tot), float(ran), float(sysm)
         for v in (tot, ran, sysm):
             self.assertTrue(math.isfinite(v) and v >= 0.0)
+
+        quad = math.hypot(ran, sysm)
         self.assertGreaterEqual(tot, max(ran, sysm) - 1e-9, "total below a component")
-        self.assertLessEqual(tot, ran + sysm + 1e-6, "total exceeds linear sum")
+        self.assertGreaterEqual(tot, quad - 1e-6, "total below the random+systematic quadrature sum")
+
+        # Identify the extra term and verify the total is exactly reproducible.
+        comps = ((self.pkg.get("error_budget") or {}).get("components_sky_arcsec")) or {}
+        closure = float(comps.get("filter_closure_half") or 0.0)
+        expect = math.hypot(quad, closure) if closure > 0 else quad
+        self.assertAlmostEqual(
+            tot, expect, places=6,
+            msg=f"total {tot} != hypot(random={ran}, systematic={sysm}, closure={closure})",
+        )
 
     def test_quoted_uncertainty_covers_the_actual_error(self):
         """
@@ -381,66 +404,55 @@ class TestSyntheticPackageDetailed(unittest.TestCase):
 # ---------------------------------------------------------------------------
 class TestDeterminismRootCause(unittest.TestCase):
     """
-    DEFECT H (reproducibility): synthetic_hq.random_observation_time() derives
-    its sampling span from datetime.now():
+    DEFECT H (reproducibility) — FIXED.
 
-        t1 = now + timedelta(days=800)
-        span = int((t1 - t0).total_seconds())
-        sec = int(rng.integers(0, span))
+    random_observation_time() used to derive its sampling span from
+    datetime.now(), so `span` grew by one per elapsed wall-clock second and the
+    SAME SEED drew a DIFFERENT epoch on every run. The window is now bounded by
+    the module constants SYNTH_EPOCH_START/END.
 
-    `span` therefore grows by one per elapsed wall-clock second, so the SAME
-    SEED draws a DIFFERENT observation epoch on every run. A different epoch
-    means a different CM III, a different GRS truth longitude and a different
-    frame. Seeded certify runs are consequently not reproducible or auditable,
-    despite product_core.certify documenting its seeds as
-    "deterministic seeds so runs are reproducible".
-
-    This is a fast, isolated proof — no rendering required.
+    Fast, isolated regression guard — no rendering required.
     """
 
-    def test_random_observation_time_is_not_seed_stable(self):
+    def test_random_observation_time_is_seed_stable(self):
         import numpy as np
 
         from synthetic_hq import random_observation_time
 
-        t0 = dt.datetime(2010, 1, 1)
-        epochs = []
-        for offset_s in (0, 720, 86_400):
-            now = dt.datetime.utcnow() + dt.timedelta(seconds=offset_s)
-            span = max(int(((now + dt.timedelta(days=800)) - t0).total_seconds()), 86_400)
-            sec = int(np.random.default_rng(2024).integers(0, span))
-            epochs.append(t0 + dt.timedelta(seconds=sec))
+        epochs = {random_observation_time(np.random.default_rng(2024)) for _ in range(6)}
+        self.assertEqual(len(epochs), 1, f"same seed produced {len(epochs)} epochs: {epochs}")
 
-        # Same seed, three notional wall-clock moments, three different epochs.
-        self.assertEqual(len(set(epochs)), 3, f"expected drift, got {epochs}")
+    def test_epoch_window_does_not_depend_on_wall_clock(self):
+        import inspect
 
-        # Confirm the real function participates in the same RNG contract.
-        got = random_observation_time(np.random.default_rng(2024))
-        self.assertIsInstance(got, dt.datetime)
-        self.assertGreaterEqual(got, t0)
+        from synthetic_hq import SYNTH_EPOCH_END, SYNTH_EPOCH_START, random_observation_time
 
-    def test_drift_is_large_enough_to_change_system_iii(self):
+        src = inspect.getsource(random_observation_time)
+        for banned in ("now(", "utcnow", "today("):
+            self.assertNotIn(banned, src, f"epoch sampling still reads the wall clock ({banned})")
+        self.assertLess(SYNTH_EPOCH_START, SYNTH_EPOCH_END)
+
+    def test_different_seeds_still_give_different_epochs(self):
+        import numpy as np
+
+        from synthetic_hq import random_observation_time
+
+        got = {random_observation_time(np.random.default_rng(s)) for s in (1, 2, 3, 4, 5)}
+        self.assertGreater(len(got), 1, "seed no longer varies the epoch")
+
+    def test_epoch_drift_would_have_mattered(self):
         """
-        Quantify the impact: ~3 minutes of epoch drift per 12 minutes of
-        wall-clock is ~1.8 deg of System III, far above the sub-degree
-        accuracy this product certifies to.
+        Why this defect was worth fixing: the ~174 s of epoch drift observed
+        between two runs 12 minutes apart is ~1.8 deg of System III, far above
+        the sub-degree accuracy this product certifies to.
         """
         from accuracy_gates import timing_longitude_uncertainty_deg
 
-        drift_seconds = 174.0  # measured between two runs 12 minutes apart
-        self.assertGreater(timing_longitude_uncertainty_deg(drift_seconds), 1.0)
+        self.assertGreater(timing_longitude_uncertainty_deg(174.0), 1.0)
 
 
 @pytest.mark.slow
 class TestDeterminism(unittest.TestCase):
-    @pytest.mark.xfail(
-        strict=False,
-        reason=(
-            "DEFECT H: random_observation_time() folds datetime.now() into the "
-            "sampling span, so a fixed seed does not fix the synthetic epoch. "
-            "See TestDeterminismRootCause for the fast isolated proof."
-        ),
-    )
     def test_same_seed_gives_same_answer(self):
         """
         A seeded synthetic must be bit-reproducible end to end, otherwise the
@@ -505,18 +517,6 @@ class TestMultiSeedAccuracy(unittest.TestCase):
         failed = [(r["seed"], r["error"]) for r in self.results if not r.get("ok")]
         self.assertEqual(failed, [], f"pipeline crashed on {len(failed)}/{self.N} frames")
 
-    @pytest.mark.xfail(
-        strict=False,
-        reason=(
-            "DEFECT I: on an independent sample the median truth-recovery error "
-            "sits at or above the 0.75\" median gate that product_core.certify "
-            "advertises (observed 0.797\" over seeds 10000/17919/25838). Because "
-            "DEFECT H makes seeded runs non-reproducible, certify draws a fresh "
-            "random sample every invocation, so the shipped 'SHIP' grade is not "
-            "stable across runs. Non-flaky small-sample bound is asserted "
-            "separately below."
-        ),
-    )
     def test_median_meets_certification_gate(self):
         s = self._skys()
         self.assertTrue(s, "no successful runs")

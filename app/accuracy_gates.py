@@ -49,13 +49,20 @@ WEAK_CM_SOURCES = frozenset({
     "",
 })
 
-# ── GRS feature band (planetographic-ish lat, deg) ──────────────────────────
+# ── GRS feature band (PLANETOCENTRIC lat, deg) ──────────────────────────────
+# Derived from the shared prior so the gates, the search bands and the renderer
+# can never disagree. The literature GRS latitude (-22.4) is PLANETOGRAPHIC;
+# precision_engine.GRS_LAT0 is its planetocentric equivalent (~-19.82). These
+# used to be absolute literals centred on -22 planetocentric, i.e. ~2.2 deg
+# pole-ward of the real feature.
+from precision_engine import GRS_LAT0 as _GRS_LAT0
+
 # Tight band: typical GRS core (SEB)
-GRS_LAT_CORE_MIN = -28.0
-GRS_LAT_CORE_MAX = -16.0
+GRS_LAT_CORE_MIN = _GRS_LAT0 - 8.0
+GRS_LAT_CORE_MAX = _GRS_LAT0 + 4.0
 # Wide band: still plausible for GRS-family dark ovals (reject poles/EZ)
-GRS_LAT_WIDE_MIN = -36.0
-GRS_LAT_WIDE_MAX = -10.0
+GRS_LAT_WIDE_MIN = _GRS_LAT0 - 16.0
+GRS_LAT_WIDE_MAX = _GRS_LAT0 + 10.0
 
 # Lon cluster: methods beyond this vs robust median are wrong-feature
 METHOD_LON_CLUSTER_DEG = 18.0

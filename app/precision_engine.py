@@ -108,18 +108,55 @@ def wrap_diff(a: float, b: float) -> float:
     return float((a - b + 180.0) % 360.0 - 180.0)
 
 
-def km_per_deg_lon(lat_deg: float) -> float:
-    """Kilometres per degree of longitude at a given latitude on Jupiter.
-
-    Depends on latitude because Jupiter is oblate — 1° of longitude
-    covers less km near the poles than at the equator.
+def spheroid_radius_km(lat_c_deg: float, flattening: float = FLAT) -> float:
     """
-    return (2 * math.pi * JUP_REQ_KM / 360.0) * math.cos(deg2rad(lat_deg))
+    Geocentric radius of the spheroid at planetocentric latitude φ.
+
+        r(φ) = R_eq / sqrt( cos²φ + (sinφ / (1-f))² )
+
+    R_eq at the equator, R_pol at the poles.
+    """
+    la = deg2rad(float(lat_c_deg))
+    k = max(1.0 - float(flattening), 1e-9)
+    return JUP_REQ_KM / math.sqrt(math.cos(la) ** 2 + (math.sin(la) / k) ** 2)
 
 
-def km_per_deg_lat() -> float:
-    """Kilometres per degree of latitude on Jupiter (uses polar radius)."""
-    return 2 * math.pi * JUP_RPOL_KM / 360.0
+def km_per_deg_lon(lat_deg: float) -> float:
+    """Kilometres per degree of longitude at a given planetocentric latitude.
+
+    A parallel of latitude has radius r(φ)·cos φ on the spheroid, so this is
+    r(φ)·cos φ·π/180. Using R_eq·cos φ (a sphere) over-estimates by ~1.0% at
+    the GRS and ~3.5% at 45°.
+    """
+    la = deg2rad(float(lat_deg))
+    return spheroid_radius_km(lat_deg) * math.cos(la) * math.pi / 180.0
+
+
+def km_per_deg_lat(lat_deg: float = 0.0) -> float:
+    """Kilometres of surface arc per degree of PLANETOCENTRIC latitude.
+
+    Everything in this codebase carries planetocentric latitude (see
+    GRSPrecisionResult.lat_kind), so this returns ds/dφ_c — the meridian arc
+    length per degree of planetocentric latitude — NOT the geodetic meridian
+    radius of curvature M(φ_g). The two differ a lot on Jupiter (1247.8 vs
+    1091.1 km/deg at the equator); mixing them is a 14% error.
+
+    In polar form the meridian is r(φ_c), so
+
+        ds/dφ_c = sqrt( (dr/dφ_c)² + r² )
+
+    Runs from 1247.8 km/deg at the equator to 1166.8 km/deg at the poles.
+    The previous implementation returned the constant 2π·R_pol/360 = 1166.8 km,
+    i.e. the polar value everywhere: 6.9% low at the equator and 5.7% low at
+    the GRS. That error propagated into every quoted arcsecond error bar.
+    """
+    la = deg2rad(float(lat_deg))
+    k = max(1.0 - FLAT, 1e-9)
+    u = math.cos(la) ** 2 + (math.sin(la) / k) ** 2
+    du = math.sin(2.0 * la) * (1.0 / (k * k) - 1.0)
+    r = JUP_REQ_KM * u ** -0.5
+    dr = -0.5 * JUP_REQ_KM * u ** -1.5 * du
+    return math.sqrt(dr * dr + r * r) * math.pi / 180.0
 
 
 def deg_to_arcsec_on_sky(deg: float, km_per_deg: float, distance_au: float) -> float:
@@ -142,7 +179,7 @@ def sky_error_arcsec(dlon_deg: float, dlat_deg: float, lat_deg: float, distance_
     the sky plane.
     """
     as_lon = deg_to_arcsec_on_sky(dlon_deg, km_per_deg_lon(lat_deg), distance_au)
-    as_lat = deg_to_arcsec_on_sky(dlat_deg, km_per_deg_lat(), distance_au)
+    as_lat = deg_to_arcsec_on_sky(dlat_deg, km_per_deg_lat(lat_deg), distance_au)
     return float(math.hypot(as_lon, as_lat))
 
 
@@ -174,6 +211,25 @@ def planetographic_to_planetocentric(lat_g_deg: float, flattening: float = FLAT)
     return rad2deg(math.atan(t / (ratio ** 2)))
 
 
+# ── GRS latitude prior ──────────────────────────────────────────────────────
+# The literature GRS latitude (~-22.4 deg, JUPOS/WinJUPOS/BAA) is PLANETOGRAPHIC.
+# Every measurement path in this module works in PLANETOCENTRIC latitude, so the
+# prior must be converted once rather than hard-coded as -22.0. On Jupiter the
+# two conventions differ by ~2.6 deg at this latitude, which was biasing the
+# template/map/moment latitude priors pole-ward.
+GRS_LAT_PLANETOGRAPHIC = -22.4
+GRS_LAT0 = None  # set below, once the converter is defined
+
+
+GRS_LAT0 = planetographic_to_planetocentric(GRS_LAT_PLANETOGRAPHIC)
+# Acceptance bands, expressed as offsets from the prior so they stay centred on
+# the GRS if the prior is ever retuned. Previously these were absolute literals
+# centred on -22 planetocentric, i.e. ~2.2 deg pole-ward of the true feature.
+GRS_LAT_BAND_TIGHT = (GRS_LAT0 - 6.0, GRS_LAT0 + 6.0)     # ~-25.8 .. -13.8
+GRS_LAT_BAND_WIDE = (GRS_LAT0 - 13.0, GRS_LAT0 + 8.0)     # ~-32.8 .. -11.8
+GRS_LAT_BAND_SEARCH = (GRS_LAT0 - 10.0, GRS_LAT0 + 6.0)   # map search window
+
+
 def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
     """Gaussian blur — tries scipy first, falls back to FFT convolution.
 
@@ -188,15 +244,23 @@ def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
         from scipy.ndimage import gaussian_filter
         return gaussian_filter(img, sigma=sigma, mode="nearest")
     except Exception:
-        # Box-filter approximation when scipy unavailable
-        k = max(3, int(sigma * 4) | 1)  # kernel size, always odd
-        ker = np.ones((k, k), dtype=np.float64) / (k * k)
-        from numpy.fft import fft2, ifft2
-        padded = np.pad(img, k // 2, mode='edge')
-        ker_padded = np.zeros_like(padded)
-        ker_padded[k // 2:k // 2 + k, k // 2:k // 2 + k] = ker
-        result = np.real(ifft2(fft2(padded) * fft2(ker_padded)))
-        return result[k // 2:k // 2 + img.shape[0], k // 2:k // 2 + img.shape[1]]
+        # True separable Gaussian when scipy is unavailable.
+        #
+        # The previous box-filter/FFT fallback did not re-centre its kernel, so
+        # the result was translated by (k//2, k//2) — a delta at (32,32) came
+        # out at (40,40) for sigma=2. That silently biased every centroid by
+        # ~8 px on any install without scipy.
+        a = np.asarray(img, dtype=np.float64)
+        rad = max(1, int(math.ceil(3.0 * sigma)))
+        t = np.arange(-rad, rad + 1, dtype=np.float64)
+        ker = np.exp(-0.5 * (t / sigma) ** 2)
+        ker /= ker.sum()
+        pad = ((rad, rad), (rad, rad))
+        out = np.pad(a, pad, mode="edge")
+        # convolve rows then columns (separable, zero net shift)
+        out = np.apply_along_axis(lambda m: np.convolve(m, ker, mode="same"), 1, out)
+        out = np.apply_along_axis(lambda m: np.convolve(m, ker, mode="same"), 0, out)
+        return out[rad:rad + a.shape[0], rad:rad + a.shape[1]]
 
 
 def to_mono(image: np.ndarray) -> np.ndarray:
@@ -357,42 +421,123 @@ def fit_limb_nav(
     return NavState(xc=xc, yc=yc, a_eq_px=a, cm_iii_deg=cm_iii_deg, distance_au=distance_au)
 
 
+def lonlat_to_planet_xyz(lon_rel_deg, lat_c_deg, flattening: float = FLAT):
+    """
+    Planetocentric (lon_rel, lat) → body-frame Cartesian, in units of R_eq.
+
+    Returns the point on the SPHEROID SURFACE, i.e. scaled by r(φ)/R_eq, not a
+    point on the unit sphere. Axes: +x toward increasing lon_rel, +y toward the
+    north pole, +z toward the observer at (lon_rel=0, lat=0).
+
+    Works with scalars or numpy arrays.
+    """
+    lon_r = np.deg2rad(lon_rel_deg)
+    lat_r = np.deg2rad(lat_c_deg)
+    k = max(1.0 - float(flattening), 1e-9)
+    # r(φ)/R_eq for the oblate spheroid
+    r = 1.0 / np.sqrt(np.cos(lat_r) ** 2 + (np.sin(lat_r) / k) ** 2)
+    return (
+        r * np.cos(lat_r) * np.sin(lon_r),
+        r * np.sin(lat_r),
+        r * np.cos(lat_r) * np.cos(lon_r),
+    )
+
+
+def planet_xyz_to_px(X, Y, Z, nav: "NavState"):
+    """
+    Body-frame Cartesian (units of R_eq) → image pixels.
+
+    Order matters and is the whole point of this helper:
+
+        1. tilt by sub-observer latitude D  (rotation about the sky x-axis)
+        2. rotate by north position angle   (rotation in the sky plane)
+        3. apply the SINGLE equatorial plate scale a_eq_px to both axes
+
+    The plate scale is applied LAST and is isotropic. The limb ellipse is
+    produced by the spheroid geometry in lonlat_to_planet_xyz, not by squashing
+    the y-axis. Rotating coordinates that have already been scaled by two
+    different axis lengths shears the disk, because rotation and anisotropic
+    scaling do not commute — that was the old PA bug.
+
+    Returns (x_px, y_px, z_los); z_los > 0 is the visible hemisphere.
+    """
+    D = deg2rad(float(getattr(nav, "sub_lat_deg", 0.0) or 0.0))
+    cD, sD = math.cos(D), math.sin(D)
+    Yp = Y * cD - Z * sD
+    Zp = Y * sD + Z * cD
+    Xp = X
+
+    pa = deg2rad(float(getattr(nav, "north_pa_deg", 0.0) or 0.0))
+    cP, sP = math.cos(pa), math.sin(pa)
+    Xsky = Xp * cP - Yp * sP
+    Ysky = Xp * sP + Yp * cP
+
+    s = nav.a_eq_px
+    return nav.xc + Xsky * s, nav.yc - Ysky * s, Zp
+
+
 def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
     """
     Image pixel → System III longitude + planetocentric latitude.
 
-    This is the inverse of the orthographic projection used by make_cylindrical.
-    It applies north_pa_deg (sky rotation) and sub_lat_deg when present so
-    moment / bary / map methods all share the same geometry contract.
+    Exact inverse of lonlat_to_planet_xyz + planet_xyz_to_px for the oblate
+    spheroid. Applies north_pa_deg and sub_lat_deg so every method shares one
+    geometry contract.
 
-    The coordinate system took me ages to get right — the sky-plane PA
-    rotation and sub-earth latitude tilt both need to be accounted for,
-    otherwise you get systematic lat offsets that look like bugs but are
-    really just wrong geometry.
+    Method: undo the isotropic plate scale, undo the PA rotation, then
+    intersect the line of sight with the spheroid. Because the body is oblate
+    the LOS intersection is a quadratic in z rather than the sphere's
+    z = sqrt(1-r²); solving it properly is what makes the recovered latitude
+    genuinely planetocentric instead of the *parametric* latitude the previous
+    asin(y/b_pol) shortcut returned.
     """
-    # Sky plane (east, north-ish) relative to disk centre
-    Xsky = (x - nav.xc) / (nav.a_eq_px + 1e-12)
-    Ysky = (nav.yc - y) / (nav.b_pol_px + 1e-12)
-    # Undo north PA: sky = R(pa) · planet_xy  →  planet_xy = R(-pa) · sky
+    s = nav.a_eq_px + 1e-12
+    Xsky = (x - nav.xc) / s
+    Ysky = (nav.yc - y) / s
+
+    # Undo north PA: sky = R(pa)·planet_xy → planet_xy = R(-pa)·sky
     pa = deg2rad(float(getattr(nav, "north_pa_deg", 0.0) or 0.0))
     cP, sP = math.cos(pa), math.sin(pa)
     Xp = Xsky * cP + Ysky * sP
     Yp = -Xsky * sP + Ysky * cP
-    rr = Xp * Xp + Yp * Yp
-    if rr > 1.0:
-        s = math.sqrt(rr) + 1e-12
-        Xp /= s
-        Yp /= s
-        rr = 1.0
-    Zp = math.sqrt(max(0.0, 1.0 - rr))
-    # Undo sub-observer latitude tilt (same as make_cylindrical)
+
     D = deg2rad(float(getattr(nav, "sub_lat_deg", 0.0) or 0.0))
     cD, sD = math.cos(D), math.sin(D)
-    Ye = Yp * cD + Zp * sD
-    Ze = -Yp * sD + Zp * cD
-    Xe = Xp
-    lon_rel = rad2deg(math.atan2(Xe, Ze))
-    lat = rad2deg(math.asin(max(-1.0, min(1.0, Ye))))
+    k = max(1.0 - float(nav.flattening), 1e-9)
+    inv_k2 = 1.0 / (k * k)
+
+    # LOS is +Zp. A point is (Xp, Yp, t) in tilted frame; untilt to body frame:
+    #   Yb = Yp·cD + t·sD ;  Zb = -Yp·sD + t·cD ;  Xb = Xp
+    # Spheroid: Xb² + Zb² + Yb²/k² = 1. Substitute and solve the quadratic in t.
+    A = cD * cD + (sD * sD) * inv_k2
+    B = 2.0 * Yp * sD * cD * (inv_k2 - 1.0)
+    C = Xp * Xp + (Yp * Yp) * (cD * cD * inv_k2 + sD * sD) - 1.0
+    disc = B * B - 4.0 * A * C
+
+    if disc < 0.0:
+        # Off-limb: fall back to the closest on-limb point along this ray so
+        # callers still get a usable (clamped) coordinate instead of a crash.
+        t = -B / (2.0 * A)
+        n = math.hypot(Xp, Yp)
+        if n > 1e-12:
+            shrink = 0.999999 / n
+            Xp *= shrink
+            Yp *= shrink
+            C = Xp * Xp + (Yp * Yp) * (cD * cD * inv_k2 + sD * sD) - 1.0
+            B = 2.0 * Yp * sD * cD * (inv_k2 - 1.0)
+            disc = max(B * B - 4.0 * A * C, 0.0)
+            t = (-B + math.sqrt(disc)) / (2.0 * A)
+    else:
+        # Near-side intersection = larger root (t is along +LOS toward observer)
+        t = (-B + math.sqrt(disc)) / (2.0 * A)
+
+    Xb = Xp
+    Yb = Yp * cD + t * sD
+    Zb = -Yp * sD + t * cD
+
+    lon_rel = rad2deg(math.atan2(Xb, Zb))
+    rad = math.sqrt(Xb * Xb + Yb * Yb + Zb * Zb)
+    lat = rad2deg(math.asin(max(-1.0, min(1.0, Yb / (rad + 1e-15)))))
     return wrap_deg(nav.cm_iii_deg + lon_rel), lat
 
 
@@ -412,23 +557,10 @@ def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height
     lons = np.linspace(-90.0, 90.0, width)
     lats = np.linspace(90.0, -90.0, height)
     lon_g, lat_g = np.meshgrid(lons, lats)
-    lon_r = np.deg2rad(lon_g)
-    lat_r = np.deg2rad(lat_g)
-    Xe = np.cos(lat_r) * np.sin(lon_r)
-    Ye = np.sin(lat_r)
-    Ze = np.cos(lat_r) * np.cos(lon_r)
-    D = deg2rad(float(getattr(nav, "sub_lat_deg", 0.0) or 0.0))
-    cD, sD = math.cos(D), math.sin(D)
-    Yp = Ye * cD - Ze * sD
-    Zp = Ye * sD + Ze * cD
-    Xp = Xe
-    mu = Zp
-    pa = deg2rad(float(getattr(nav, "north_pa_deg", 0.0) or 0.0))
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xsky = Xp * cP - Yp * sP
-    Ysky = Xp * sP + Yp * cP
-    xs = nav.xc + Xsky * nav.a_eq_px
-    ys = nav.yc - Ysky * nav.b_pol_px
+    # Shared spheroid forward model — identical contract to px_to_lonlat, so
+    # the map and its inverse cannot drift apart.
+    Xe, Ye, Ze = lonlat_to_planet_xyz(lon_g, lat_g, nav.flattening)
+    xs, ys, mu = planet_xyz_to_px(Xe, Ye, Ze, nav)
     h, w = im.shape
     x0 = np.floor(xs).astype(np.int64)
     y0 = np.floor(ys).astype(np.int64)
@@ -449,7 +581,7 @@ def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height
 
 
 def _template_match_grs(cyl: np.ndarray, nav: NavState,
-                        lat0: float = -22.0, length_deg: float = 12.0, width_deg: float = 8.0) -> Dict[str, float]:
+                        lat0: Optional[float] = None, length_deg: float = 12.0, width_deg: float = 8.0) -> Dict[str, float]:
     """
     Dark elliptical template match on cylindrical map — the primary method.
 
@@ -462,6 +594,8 @@ def _template_match_grs(cyl: np.ndarray, nav: NavState,
     GRS has been shrinking over the last few decades so the prior size isn't
     exact, but it's close enough to anchor the search.
     """
+    if lat0 is None:
+        lat0 = GRS_LAT0
     h, w = cyl.shape
 
     def lat_to_y(lat: float) -> int:
@@ -556,7 +690,7 @@ def _template_match_grs(cyl: np.ndarray, nav: NavState,
             lon_rel = -90.0 + (px_s / max(w - 1, 1)) * 180.0
             lat = 90.0 - ((y0 + py_s) / max(h - 1, 1)) * 180.0
             # reject far from GRS latitude band
-            if not (-35.0 <= lat <= -12.0):
+            if not (GRS_LAT_BAND_WIDE[0] <= lat <= GRS_LAT_BAND_WIDE[1]):
                 continue
             if abs(lon_rel) > 80.0:
                 continue
@@ -585,7 +719,7 @@ def _template_match_grs(cyl: np.ndarray, nav: NavState,
     lat = 90.0 - ((y0 + py) / max(h - 1, 1)) * 180.0
     return {
         "lon_iii_deg": wrap_deg(nav.cm_iii_deg + lon_rel),
-        "lat_deg": float(lat) if -40 <= lat <= -8 else lat0,
+        "lat_deg": float(lat) if (GRS_LAT0 - 18.0) <= lat <= (GRS_LAT0 + 12.0) else lat0,
         "length_deg": length_deg,
         "width_deg": width_deg,
         "score": float(inv2[py, px]),
@@ -617,7 +751,7 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
     cD, sD = math.cos(D), math.sin(D)
     Ye = Yp * cD + Zp * sD
     lat = np.degrees(np.arcsin(np.clip(Ye, -1.0, 1.0)))
-    band = (rr <= 0.98) & (lat > -28) & (lat < -16)
+    band = (rr <= 0.98) & (lat > GRS_LAT_BAND_TIGHT[0]) & (lat < GRS_LAT_BAND_TIGHT[1])
     if band.sum() < 30:
         band = rr <= 0.95
     # Blend mono highpass with red darkness (GRS is redder/darker)
@@ -650,7 +784,7 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
             compactness = area / (1.0 + (xs.max() - xs.min()) * (ys.max() - ys.min()) + 1e-6)
             score = (
                 1.2 * math.log(area + 1.0)
-                - 3.5 * abs(la + 22.0)
+                - 3.5 * abs(la - GRS_LAT0)
                 - 18.0 * mean_i
                 + 4.0 * compactness
             )
@@ -715,7 +849,7 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
         km_per_px_eq = JUP_REQ_KM / (nav.a_eq_px + 1e-12)
         km_per_px_pol = JUP_RPOL_KM / (nav.b_pol_px + 1e-12)
         length = (a_px * km_per_px_eq) / (km_per_deg_lon(lat) + 1e-12)
-        width = (b_px * km_per_px_pol) / (km_per_deg_lat() + 1e-12)
+        width = (b_px * km_per_px_pol) / (km_per_deg_lat(lat) + 1e-12)
     try:
         score_out = float(best_score)
     except NameError:
@@ -731,7 +865,7 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
     }
 
 
-def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: float = -22.0) -> Dict[str, float]:
+def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: Optional[float] = None) -> Dict[str, float]:
     """Dark peak only inside SEB/GRS latitude band — position-only, no size estimate.
 
     Early versions of this searched the full map and kept locking onto the
@@ -739,13 +873,15 @@ def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: float = -22.0) -> D
     SEB band fixed that completely. Lesson learned: always constrain your
     search domain when you know where the feature should be.
     """
+    if lat0 is None:
+        lat0 = GRS_LAT0
     h, w = cyl.shape
 
     def lat_to_y(lat: float) -> int:
         return int(np.clip((90.0 - lat) / 180.0 * (h - 1), 0, h - 1))
 
-    y0 = lat_to_y(-14.0)
-    y1 = lat_to_y(-32.0)
+    y0 = lat_to_y(GRS_LAT_BAND_SEARCH[1])
+    y1 = lat_to_y(GRS_LAT_BAND_SEARCH[0])
     if y1 < y0:
         y0, y1 = y1, y0
     band = cyl[y0 : y1 + 1, :].copy()
@@ -775,7 +911,7 @@ def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: float = -22.0) -> D
     abs_x = cx
     lon_rel = -90.0 + (abs_x / max(w - 1, 1)) * 180.0
     lat = 90.0 - (abs_y / max(h - 1, 1)) * 180.0
-    if not (-35.0 <= lat <= -12.0):
+    if not (GRS_LAT_BAND_WIDE[0] <= lat <= GRS_LAT_BAND_WIDE[1]):
         raise RuntimeError(f"map_dark lat {lat:.1f} outside GRS band")
     if abs(lon_rel) > 88.0:
         raise RuntimeError("map_dark too near map edge")
@@ -807,7 +943,7 @@ def _method_is_sane(m: Dict[str, float], ref_lon: Optional[float] = None) -> boo
     lon = float(m.get("lon_iii_deg", 0))
     L = float(m.get("length_deg", 12))
     W = float(m.get("width_deg", 8))
-    if not (-36.0 <= lat <= -10.0):
+    if not ((GRS_LAT0 - 14.0) <= lat <= (GRS_LAT0 + 10.0)):
         return False
     if ref_lon is not None and abs(wrap_diff(lon, ref_lon)) > 18.0:
         return False
@@ -973,14 +1109,14 @@ def measure_grs_precision(
     if tmpl is not None:
         tmpl_quality = float(tmpl.get("dark_contrast", 0.0)) + 0.01 * float(tmpl.get("score", 0.0))
         # latitude prior quality
-        tmpl_quality *= float(np.exp(-0.5 * ((float(tmpl["lat_deg"]) + 22.0) / 5.0) ** 2))
+        tmpl_quality *= float(np.exp(-0.5 * ((float(tmpl["lat_deg"]) - GRS_LAT0) / 5.0) ** 2))
 
     mom_quality = 0.0
     if mom is not None:
         L, W = float(mom.get("length_deg", 0)), float(mom.get("width_deg", 0))
         # thin filaments / micro-blobs are low quality
         size_ok = (4.0 <= L <= 22.0) and (2.0 <= W <= 14.0)
-        mom_quality = (2.0 if size_ok else 0.15) * float(np.exp(-0.5 * ((float(mom["lat_deg"]) + 22.0) / 5.0) ** 2))
+        mom_quality = (2.0 if size_ok else 0.15) * float(np.exp(-0.5 * ((float(mom["lat_deg"]) - GRS_LAT0) / 5.0) ** 2))
 
     # Seed: prefer high-quality template; else size-sane moment; else first
     if tmpl is not None and tmpl_quality >= 0.05:
@@ -1118,7 +1254,7 @@ def measure_grs_precision(
     err_lat = max(err_lat, 0.35 * px_to_deg)
 
     as_lon = deg_to_arcsec_on_sky(err_lon, km_per_deg_lon(lat), nav.distance_au)
-    as_lat = deg_to_arcsec_on_sky(err_lat, km_per_deg_lat(), nav.distance_au)
+    as_lat = deg_to_arcsec_on_sky(err_lat, km_per_deg_lat(lat), nav.distance_au)
     as_sky = float(math.hypot(as_lon, as_lat))
     quality = float(max(0.0, 1.0 - as_sky / 10.0))
 
@@ -1249,7 +1385,7 @@ def monte_carlo_precision(
     lat_s = float(np.std(lb, ddof=1))
     sky = sky_error_arcsec(lon_s, lat_s, lat_m, nav.distance_au)
     as_lon = deg_to_arcsec_on_sky(lon_s, km_per_deg_lon(lat_m), nav.distance_au)
-    as_lat = deg_to_arcsec_on_sky(lat_s, km_per_deg_lat(), nav.distance_au)
+    as_lat = deg_to_arcsec_on_sky(lat_s, km_per_deg_lat(lat_m), nav.distance_au)
     elapsed = __import__("time").time() - t0
     CONSOLE.ok(
         f"MC DONE in {elapsed:.1f}s: σ_lon={lon_s:.3f}° ({as_lon:.3f}\")  "

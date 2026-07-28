@@ -36,6 +36,24 @@ sys.path.insert(0, str(APP_DIR))
 from flask import Flask, jsonify, render_template, request, send_from_directory
 
 from verbose_log import CONSOLE
+
+
+def _version_fallback() -> str:
+    """Last-resort version when product_core cannot be imported.
+
+    Reads the VERSION file rather than hardcoding a literal, which is how the
+    previous "6.5.0" fallbacks silently went stale after the 6.5.1 release.
+    """
+    for _p in (APP_DIR.parent / "VERSION", APP_DIR / "VERSION"):
+        try:
+            if _p.exists():
+                v = _p.read_text(encoding="utf-8").strip()
+                if v:
+                    return v
+        except Exception:
+            pass
+    return "unknown"
+
 from ram_ssd import cleanup_ssd_cache, free_memory
 from synthetic_hq import SynthSpec, generate
 from precision_engine import (
@@ -334,7 +352,7 @@ def health():
         from product_core import PRODUCT_VERSION
         _ver = PRODUCT_VERSION
     except Exception:
-        _ver = "6.5.0"
+        _ver = _version_fallback()
     return jsonify({
         "ok": True,
         "app": "Jupiter Great Red Spot Detector — optical GRS metrology",
@@ -1717,7 +1735,7 @@ def main():
         from product_core import PRODUCT_VERSION
         ver = PRODUCT_VERSION
     except Exception:
-        ver = "6.5.0"
+        ver = _version_fallback()
     CONSOLE.clear()
     CONSOLE.ok(f"Jupiter Great Red Spot Detector v{ver} — optical GRS metrology")
     CONSOLE.info(f"http://{host}:{port}  |  16GB RAM  |  SSD: app/ssd_cache")

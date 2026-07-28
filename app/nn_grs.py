@@ -104,13 +104,26 @@ def _atomic_savez(path: Path, **arrays) -> None:
         a = np.asarray(v)
         if a.dtype.kind == "f" and (not np.isfinite(a).all()):
             raise ValueError(f"refusing to save corrupt array '{k}' (NaN/Inf present)")
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    # np.savez_compressed APPENDS ".npz" when the target does not already end
+    # in it. Naming the temp file "<name>.npz.tmp" therefore made numpy write
+    # "<name>.npz.tmp.npz" while replace() looked for "<name>.npz.tmp" — the
+    # FileNotFoundError was swallowed below and the fallback wrote the weights
+    # directly to the destination (non-atomic, the exact failure this helper
+    # exists to prevent), orphaning a full-size temp file every save.
+    # Keep the ".npz" suffix LAST so numpy writes exactly the path we replace.
+    tmp = path.with_suffix(path.suffix + ".tmp.npz")
     try:
         np.savez_compressed(tmp, **arrays)
         tmp.replace(path)
     except ValueError:
         raise
-    except Exception:
+    except Exception as e:
+        # Never fail silently here again: a broken atomic path degrades to a
+        # NON-ATOMIC write, which can corrupt live weights if we crash mid-save.
+        try:
+            CONSOLE.warn(f"atomic weight save failed ({e!r}) — falling back to direct write")
+        except Exception:
+            pass
         try:
             np.savez_compressed(path, **arrays)
         except Exception:

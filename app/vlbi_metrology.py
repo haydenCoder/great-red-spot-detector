@@ -911,7 +911,7 @@ def measure_grs_vlbi(
     err_lat = max(err_lat, 0.25 * deg_per_px * math.hypot(nav.sigma_yc, nav.sigma_a * 0.3))
 
     as_lon = deg_to_arcsec_on_sky(err_lon, km_per_deg_lon(lat), nav.distance_au)
-    as_lat = deg_to_arcsec_on_sky(err_lat, km_per_deg_lat(), nav.distance_au)
+    as_lat = deg_to_arcsec_on_sky(err_lat, km_per_deg_lat(lat), nav.distance_au)
     as_sky = float(math.hypot(as_lon, as_lat))
     if not quiet:
         CONSOLE.ok(
@@ -1026,7 +1026,7 @@ def inject_dark_oval_image(
     cy = nav.yc - Ysky * nav.b_pol_px
     km_per_px = (2 * JUP_REQ_KM) / (2 * nav.a_eq_px + 1e-12)
     ax = 0.5 * length_deg * km_per_deg_lon(lat_deg) / km_per_px
-    by = 0.5 * width_deg * km_per_deg_lat() / km_per_px
+    by = 0.5 * width_deg * km_per_deg_lat(lat_deg) / km_per_px
     ax = max(ax, 3.0)
     by = max(by, 2.0)
     ell = ((xx - cx) / ax) ** 2 + ((yy - cy) / by) ** 2
@@ -1241,7 +1241,7 @@ def hierarchical_monte_carlo(
         "std_deg": {"lon_iii_deg": lon_s, "lat_deg": lat_s},
         "std_arcsec": {
             "lon": deg_to_arcsec_on_sky(lon_s, km_per_deg_lon(lat_m), nav.distance_au),
-            "lat": deg_to_arcsec_on_sky(lat_s, km_per_deg_lat(), nav.distance_au),
+            "lat": deg_to_arcsec_on_sky(lat_s, km_per_deg_lat(lat_m), nav.distance_au),
             "sky": sky,
         },
         "target_0_5_arcsec": bool(sky <= 0.5),

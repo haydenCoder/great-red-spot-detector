@@ -80,7 +80,22 @@ try:
 except ImportError:
     PILImage = None
 
-__version__ = "6.5.0"
+def _read_version() -> str:
+    """Single source of truth: the VERSION file at the repo root."""
+    import pathlib
+    _d = pathlib.Path(__file__).resolve().parent
+    for _p in (_d.parent / "VERSION", _d / "VERSION"):
+        try:
+            if _p.exists():
+                _v = _p.read_text(encoding="utf-8").strip()
+                if _v:
+                    return _v
+        except Exception:
+            pass
+    return "unknown"
+
+
+__version__ = _read_version()
 __author__ = "GRS Ground Pipeline"
 
 LOG = logging.getLogger("grs_pipeline")

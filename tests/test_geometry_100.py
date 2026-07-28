@@ -136,16 +136,8 @@ def test_zero_pa_longitude_matches_oracle(sub_lat, lon_rel, lat):
     assert d < 0.15, f"dlon={d:.4f}° at sub_lat={sub_lat} lon_rel={lon_rel} lat={lat}"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "DEFECT A (oblateness): px_to_lonlat divides y by b_pol_px, i.e. treats "
-        "the sky y-coordinate as sin(planetocentric lat). For an oblate spheroid "
-        "the correct relation involves the spheroid radius r(phi), so the "
-        "recovered latitude is the PARAMETRIC latitude, not planetocentric. "
-        "Systematic bias up to ~1.7deg (~0.6\" sky at 4.3 AU) at GRS latitudes."
-    ),
-)
+# DEFECT A — FIXED. px_to_lonlat now solves the LOS/spheroid intersection, so
+# the recovered latitude is genuinely planetocentric.
 @pytest.mark.parametrize("sub_lat", _SUB_LATS)
 @pytest.mark.parametrize("lon_rel", _LON_RELS)
 @pytest.mark.parametrize("lat", _LATS_OBLATE)
@@ -167,17 +159,8 @@ _PA_LON_RELS = (-35.0, 0.0, 25.0)
 _PA_LATS = (-30.0, -22.0)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "DEFECT B (PA/oblateness rotation order): the projector applies the "
-        "position-angle rotation to coordinates that have ALREADY been scaled "
-        "by two different axis lengths (a_eq_px, b_pol_px). Rotation and "
-        "anisotropic scaling do not commute, so a rotated disk is sheared. "
-        "Longitude error grows to ~5.0deg at PA=90deg; ~0.5-1.1deg at real "
-        "Jupiter PA values (~0.8\" sky at 4.3 AU)."
-    ),
-)
+# DEFECT B — FIXED. The PA rotation now happens in the unscaled planet frame
+# and a single isotropic plate scale is applied last.
 @pytest.mark.parametrize("pa", _PAS)
 @pytest.mark.parametrize("lon_rel", _PA_LON_RELS)
 @pytest.mark.parametrize("lat", _PA_LATS)
@@ -193,12 +176,10 @@ def test_rotated_pa_roundtrip_matches_oracle(pa, lon_rel, lat):
     )
 
 
-def test_pa_defect_is_bounded_and_quantified():
+def test_pa_projection_is_accurate_at_every_position_angle():
     """
-    Regression guard on the CURRENT behaviour of DEFECT B.
-
-    Documents today's error magnitude so a future change cannot silently make
-    the PA handling worse. Update the budget only when the projector is fixed.
+    Regression guard: DEFECT B is fixed, so the worst-case longitude error over
+    a dense PA/lon/lat sweep must stay at numerical-noise level.
     """
     worst = 0.0
     for pa in (0.0, 10.0, 25.0, 45.0, 90.0, 135.0, 180.0):
@@ -210,7 +191,7 @@ def test_pa_defect_is_bounded_and_quantified():
                     continue
                 lon_out, _ = px_to_lonlat(p[1], p[0], nav)
                 worst = max(worst, abs(wrap_diff(lon_out, wrap_deg(nav.cm_iii_deg + lon_rel))))
-    assert worst < 5.5, f"PA longitude defect grew beyond documented budget: {worst:.3f}deg"
+    assert worst < 1e-6, f"PA longitude error regressed to {worst:.6f}deg"
 
 
 @pytest.mark.parametrize("lon_rel", _LON_RELS)
@@ -300,42 +281,52 @@ def test_flattening_matches_nasa_fact_sheet():
     assert abs(FLAT - 0.06487) < 1e-4
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "DEFECT D (metric): km_per_deg_lat() returns a latitude-independent "
-        "constant 2*pi*R_pol/360 = 1166.8 km. The correct value is the meridian "
-        "radius of curvature M(phi), which is 1091 km at the equator and 1334 km "
-        "at the pole. Error is +6.9% at the equator and +4.1% at the GRS."
-    ),
-)
+# DEFECT D — FIXED. km_per_deg_lat(lat) now returns the meridian ARC LENGTH per
+# degree of planetocentric latitude, matching the convention used everywhere in
+# this codebase, instead of a latitude-independent constant.
 @pytest.mark.parametrize("lat", [0.0, -22.0, -45.0, -90.0])
-def test_km_per_deg_lat_uses_meridian_radius_of_curvature(lat):
-    a, b = JUP_REQ_KM, JUP_RPOL_KM
-    e2 = 1.0 - (b / a) ** 2
-    M = a * (1.0 - e2) / (1.0 - e2 * math.sin(math.radians(lat)) ** 2) ** 1.5
-    want = M * math.pi / 180.0
-    got = km_per_deg_lat()
-    assert abs(got - want) / want < 0.01, f"lat={lat}: got {got:.2f} want {want:.2f}"
+def test_km_per_deg_lat_is_planetocentric_arc_length(lat):
+    """
+    Oracle: differentiate the meridian numerically in polar form.
+    ds/dphi_c = sqrt((dr/dphi_c)^2 + r^2), with r the planetocentric radius.
+
+    NOTE this is deliberately NOT the geodetic radius of curvature M(phi_g).
+    Latitudes in this codebase are planetocentric, and on Jupiter the two
+    measures differ by up to 14%, so using M here would be a fresh bug.
+    """
+    def r(phi):
+        return JUP_REQ_KM / math.sqrt(
+            math.cos(phi) ** 2 + (math.sin(phi) / (1.0 - FLAT)) ** 2
+        )
+
+    p = math.radians(lat)
+    h = 1e-7
+    dr = (r(p + h) - r(p - h)) / (2 * h)
+    want = math.sqrt(dr * dr + r(p) ** 2) * math.pi / 180.0
+    got = km_per_deg_lat(lat)
+    assert abs(got - want) / want < 1e-6, f"lat={lat}: got {got:.4f} want {want:.4f}"
+
+
+def test_km_per_deg_lat_is_not_the_old_constant():
+    """The old code returned 1166.8 km at every latitude; that is now only true
+    at the poles."""
+    assert abs(km_per_deg_lat(0.0) - 1247.77) < 0.05
+    assert abs(km_per_deg_lat(-22.0) - 1236.86) < 0.05
+    assert abs(km_per_deg_lat(-90.0) - 1166.82) < 0.05
 
 
 @pytest.mark.parametrize("lat", [0.0, -22.0, -45.0])
 def test_km_per_deg_lon_oblate_radius(lat):
     """
-    DEFECT E (metric, smaller): km_per_deg_lon uses R_eq*cos(lat), i.e. a
-    sphere of equatorial radius. On the true spheroid the parallel radius is
-    r(phi)*cos(phi). Error is 0% at the equator, +1.0% at the GRS, +3.5% at 45deg.
-    Passes at the GRS band; documented here so the bias is visible.
+    DEFECT E — FIXED. km_per_deg_lon now uses the spheroid parallel radius
+    r(phi)*cos(phi) instead of R_eq*cos(phi), so it is exact at all latitudes.
     """
     la = math.radians(lat)
     r = JUP_REQ_KM / math.sqrt(math.cos(la) ** 2 + (math.sin(la) / (1.0 - FLAT)) ** 2)
     want = r * math.cos(la) * math.pi / 180.0
     got = km_per_deg_lon(lat)
     rel = abs(got - want) / want
-    if abs(lat) <= 22.0:
-        assert rel < 0.011, f"lat={lat}: {100*rel:.2f}% error"
-    else:
-        assert rel < 0.05, f"lat={lat}: {100*rel:.2f}% error"
+    assert rel < 1e-12, f"lat={lat}: {100*rel:.4f}% error"
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +363,7 @@ def test_wrap_diff_antipodal_sign_convention():
 def test_sky_error_is_quadrature_sum():
     lat, dist = -22.0, 4.3
     a = deg_to_arcsec_on_sky(0.4, km_per_deg_lon(lat), dist)
-    b = deg_to_arcsec_on_sky(0.3, km_per_deg_lat(), dist)
+    b = deg_to_arcsec_on_sky(0.3, km_per_deg_lat(lat), dist)
     assert abs(sky_error_arcsec(0.4, 0.3, lat, dist) - math.hypot(a, b)) < 1e-12
 
 

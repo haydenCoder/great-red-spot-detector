@@ -1183,35 +1183,34 @@ class GRSDesktopApp(tk.Tk):
         ep = h.get("synth_epoch") or h.get("user_time") or "—"
         self.metric_vars["epoch"].set(str(ep)[:19])
 
-        # Dashboard summary — publish first
+        # Compact dashboard — numbers only
         self.dash.delete("1.0", tk.END)
         ch = package.get("champion") or {}
         sd = package.get("superduper") or {}
         sdr = (sd.get("report_this") or {})
+        lat_g = pub.get("publish_lat_planetographic_deg") or h.get("lat_planetographic_deg")
+        cm = pub.get("cm_iii_deg") or h.get("cm_iii_deg")
+        cm_src = pub.get("cm_source") or h.get("cm_source")
+        definition = pub.get("publish_definition") or h.get("publish_definition")
+        sig = pub.get("publish_sigma_sky_arcsec") or h.get("champion_sigma_sky_arcsec") or h.get("sigma_total_sky_arcsec")
+        ew = h.get("extent_ew_deg") or ch.get("extent_ew_deg") or h.get("length_deg")
         lines = [
-            "SUPERDUPER / PUBLISH THIS (official)",
-            "=" * 40,
-            f"grade:      {ch.get('grade') or h.get('champion_grade') or grade}",
-            f"unbeatable: {ch.get('unbeatable_auto') or h.get('unbeatable_auto')}",
-            f"ultimate:   {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')} gates",
-            f"definition: {pub.get('publish_definition') or h.get('publish_definition')}",
-            f"lon_iii:    {lon}  (centre — use GS-MAP / champion for WJ compare)",
-            f"lat:        {lat}",
-            f"lat_graphic:{pub.get('publish_lat_planetographic_deg') or h.get('lat_planetographic_deg')}",
-            f"σ_sky:      {pub.get('publish_sigma_sky_arcsec') or h.get('champion_sigma_sky_arcsec')}",
-            f"length:     {h.get('length_deg') or pub.get('length_deg') or ch.get('extent_ew_deg')}",
-            f"W edge:     {h.get('west_edge_lon_iii_deg')}",
-            f"E edge:     {h.get('east_edge_lon_iii_deg')}",
-            f"extent:     {h.get('extent_lon_deg') or ch.get('extent_ew_deg')} °",
-            f"cm_source:  {pub.get('cm_source') or h.get('cm_source')}",
-            f"absolute:   {pub.get('absolute_ok') if pub.get('absolute_ok') is not None else ch.get('absolute_publish_ok')}",
-            f"WinJUPOS:   {eq.get('agreement') or h.get('winjupos_agreement') or '—'}",
-            f"equal_WJ:   {eq.get('equal_to_winjupos')}",
-            f"vs_WJ_sky:  {eq.get('sky_error_arcsec')}",
-            f"soup:       {pub.get('soup_n_methods') or h.get('soup_n_methods')} methods = scatter only",
-            f"citation:   {sdr.get('citation_line') or h.get('superduper_citation') or h.get('citation_line') or '—'}",
-            "",
-            "Open SUPERDUPER_BEST_ANSWER.txt in the job folder for the one-page card.",
+            "RESULTS",
+            "=======",
+            f"lon_III    {lon if lon is not None else '—'} °",
+            f"lat_c      {lat if lat is not None else '—'} °",
+            f"lat_g      {lat_g if lat_g is not None else '—'} °",
+            f"CM_III     {cm if cm is not None else '—'} °  [{cm_src or '—'}]",
+            f"def        {definition or '—'}",
+            f"grade      {ch.get('grade') or h.get('champion_grade') or grade}",
+            f"σ_sky      {sig if sig is not None else '—'} ″",
+            f"EW         {ew if ew is not None else '—'} °",
+            f"UTC        {h.get('user_time') or h.get('synth_epoch') or '—'}",
+            f"vs_WJ      {eq.get('agreement') or h.get('winjupos_agreement') or '—'}  "
+            f"Δsky={eq.get('sky_error_arcsec') if eq.get('sky_error_arcsec') is not None else '—'} ″",
+            f"gates      {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')}  "
+            f"abs={pub.get('absolute_ok') if pub.get('absolute_ok') is not None else ch.get('absolute_publish_ok')}",
+            f"cite       {sdr.get('citation_line') or h.get('superduper_citation') or h.get('citation_line') or '—'}",
             "",
         ]
         dual = package.get("dual_measure") or {}
@@ -1220,30 +1219,14 @@ class GRSDesktopApp(tk.Tk):
             hu = dual.get("human") or {}
             cmp_ = dual.get("comparison") or {}
             lines += [
-                "DUAL MEASURE (auto + human)",
-                "=" * 40,
-                f"official:   {dual.get('official')}",
-                f"auto lon:   {a.get('lon_iii_deg')}  ({a.get('publish_definition')})",
-                f"human lon:  {hu.get('lon_iii_deg')}  ({hu.get('publish_definition')})",
-                f"Δsky:       {cmp_.get('sky_delta_arcsec')} ″  ({cmp_.get('agreement')})",
-                f"note:       {cmp_.get('note')}",
+                "DUAL",
+                f"  use   {dual.get('official')}",
+                f"  auto  {a.get('lon_iii_deg')} / {a.get('lat_deg')}",
+                f"  hand  {hu.get('lon_iii_deg')} / {hu.get('lat_deg')}",
+                f"  Δsky  {cmp_.get('sky_delta_arcsec')} ″  ({cmp_.get('agreement')})",
                 "",
             ]
-        lines += [
-            "FULL HEADLINE",
-            "-" * 40,
-        ]
-        for k, v in (h or {}).items():
-            lines.append(f"{k}: {v}")
-        if package.get("error_budget"):
-            lines += ["", "ERROR BUDGET", "-" * 20]
-            eb = package["error_budget"]
-            comps = eb.get("components_sky_arcsec") if isinstance(eb, dict) else None
-            if isinstance(comps, dict):
-                for k, v in comps.items():
-                    lines.append(f"  {k}: {v}")
-            else:
-                lines.append(json.dumps(eb, indent=2, default=str)[:2000])
+        lines.append("(job_result.json has full dump)")
         self.dash.insert(tk.END, "\n".join(lines))
 
     def _show_preview(self, path: Optional[Path]):

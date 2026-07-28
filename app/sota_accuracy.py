@@ -1178,26 +1178,11 @@ def apply_sota_to_package(
 
 def format_sota_section(sota: Dict[str, Any]) -> str:
     if not sota:
-        return "  (SOTA layer not run)\n"
-    lines = [
-        "SOTA ROBUST PRIMARY (best accuracy procedure)",
-        f"  Lon III           {sota.get('lon_iii_deg')}",
-        f"  Lat               {sota.get('lat_deg')}",
-        f"  σ_lon (SE)        {sota.get('sigma_lon_deg')} °",
-        f"  σ_lat (SE)        {sota.get('sigma_lat_deg')} °",
-        f"  σ_sky (approx)    {sota.get('sigma_sky_arcsec_approx')} ″",
-        f"  Quality           {sota.get('quality_grade')}  score={sota.get('quality_score')}",
-        f"  Inliers/outliers  {sota.get('n_inliers')}/{sota.get('n_outliers')}",
-        f"  Methods ok/total  {sota.get('n_methods_ok')}/{sota.get('n_methods_total')}",
-        f"  FITS time         {sota.get('fits_time')}",
-        f"  COPY: SOTA_LON={sota.get('lon_iii_deg')}  SOTA_LAT={sota.get('lat_deg')}",
-        "  Inliers: " + ", ".join((sota.get("inlier_ids") or [])[:40]),
-        "  Outliers excluded: " + ", ".join((sota.get("outlier_ids") or [])[:30]),
-    ]
-    for n in sota.get("quality_notes") or []:
-        lines.append(f"  · {n}")
-    for f in sota.get("quality_flags") or []:
-        lines.append(f"  FLAG: {f}")
-    for r in sota.get("recommendations") or []:
-        lines.append(f"  → {r}")
-    return "\n".join(lines) + "\n"
+        return "SCATTER  (not run)\n"
+    return "\n".join([
+        "SCATTER (not publish)",
+        f"lon/lat   {sota.get('lon_iii_deg')} / {sota.get('lat_deg')}",
+        f"grade     {sota.get('quality_grade')}  score={sota.get('quality_score')}",
+        f"inliers   {sota.get('n_inliers')}/{sota.get('n_outliers')} out",
+        "",
+    ])

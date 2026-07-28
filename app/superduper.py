@@ -111,72 +111,49 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         },
         "desk_grade": wj.get("desk_grade") or h.get("desk_grade"),
         "citation_line": citation,
-        "rules": [
-            "Use lon_iii + φ_g (planetographic) when comparing to WinJUPOS — they use planetographic.",
-            "Same mid-exposure UTC and CM source as your WinJUPOS session or the comparison is meaningless.",
-            "If absolute_publish_ok is false: do NOT publish absolute System III — the error budget is too weak.",
-            "If unbeatable_auto is true: no weaker method in this app overrides it (that's the whole point).",
-            "Method soup / SOTA are scatter only — they're for confidence, not the published centre.",
-            "This is still ground-based optical metrology. Not a claim vs HST / Juno / perfect human WinJUPOS.",
-        ],
-        "honesty": (
-            "Best consolidated product of this job. Optical ground metrology. "
-            "When UNBEATABLE_AUTO: in-app hierarchy is locked. "
-            "Honest ground-based optical metrology — not spacecraft imaging."
-        ),
+        "rules": [],
+        "honesty": "",
         "in_app_dominance": bool(unbeatable),
         "in_app_message": (
-            "Best automated path in this app tonight."
-            if unbeatable
-            else "Ultimate gates incomplete — check the failed list; improve CM/UTC/stack and try again."
+            "gates OK" if unbeatable else "gates incomplete"
         ),
     }
     return card
 
 
-def format_superduper_txt(card: Dict[str, Any]) -> str:
-    """Format the SUPERDUPER card as a readable text file for the output folder.
+def _n(v: Any, d: int = 4) -> str:
+    try:
+        if v is None:
+            return "—"
+        x = float(v)
+        if x != x:
+            return "—"
+        return f"{x:.{d}f}"
+    except Exception:
+        return "—" if v is None else str(v)
 
-    This is the one you paste into your observation log or email to your
-    supervisor. It's designed to be human-readable at a glance.
-    """
+
+def format_superduper_txt(card: Dict[str, Any]) -> str:
+    """Compact best-answer card — numbers only, easy to scan."""
     r = card.get("report_this") or {}
     v = card.get("vs_winjupos") or {}
     u = card.get("ultimate_gates") or {}
-    lines = [
-        "╔" + "═" * 58 + "╗",
-        "║" + " SUPERDUPER BEST ANSWER — REPORT THIS".center(58) + "║",
-        "╚" + "═" * 58 + "╝",
+    return "\n".join([
+        "REPORT THIS",
+        "==========",
+        f"lon_III     {_n(r.get('lon_iii_deg'), 4)} °",
+        f"lat_c       {_n(r.get('lat_planetocentric_deg'), 3)} °",
+        f"lat_g (WJ)  {_n(r.get('lat_planetographic_deg'), 3)} °",
+        f"CM_III      {_n(r.get('cm_iii_deg'), 4)} °  [{r.get('cm_source') or '—'}]",
+        f"definition  {r.get('definition') or '—'}",
+        f"grade       {r.get('grade') or '—'}",
+        f"σ_sky       {_n(r.get('sigma_sky_arcsec'), 2)} ″",
+        f"EW          {_n(r.get('extent_ew_deg'), 2)} °",
+        f"gates       {u.get('n_pass')}/{u.get('n_total')}  abs={r.get('absolute_publish_ok')}",
+        f"vs_WJ       {v.get('agreement') or '—'}  Δsky={_n(v.get('sky_error_arcsec'), 2)} ″",
+        f"cite        {card.get('citation_line') or '—'}",
         "",
-        f"  Grade              {r.get('grade')}",
-        f"  UNBEATABLE_AUTO    {r.get('unbeatable_auto')}",
-        f"  Absolute OK        {r.get('absolute_publish_ok')}",
-        f"  Ultimate gates     {u.get('n_pass')}/{u.get('n_total')}",
-        f"  Failed gates       {u.get('failed') or '—'}",
-        f"  In-app dominance   {card.get('in_app_message')}",
-        "",
-        f"  Definition         {r.get('definition')}",
-        f"  Lon III            {r.get('lon_iii_deg')} °",
-        f"  Lat centric        {r.get('lat_planetocentric_deg')} °",
-        f"  Lat graphic (WJ)   {r.get('lat_planetographic_deg')} °",
-        f"  EW extent          {r.get('extent_ew_deg')} °",
-        f"  σ_sky (total)      {r.get('sigma_sky_arcsec')} ″",
-        f"  CM III             {r.get('cm_iii_deg')} °  [{r.get('cm_source')}]",
-        "",
-        f"  vs WinJUPOS        {v.get('agreement')}",
-        f"  Δ sky vs WJ        {v.get('sky_error_arcsec')} ″",
-        f"  Equal WJ?          {v.get('equal_to_winjupos')}",
-        f"  Desk grade         {card.get('desk_grade')}",
-        "",
-        "  CITATION",
-        f"  {card.get('citation_line')}",
-        "",
-        "  RULES",
-    ]
-    for rule in card.get("rules") or []:
-        lines.append(f"  · {rule}")
-    lines += ["", f"  {card.get('honesty')}", ""]
-    return "\n".join(lines)
+    ])
 
 
 def attach_superduper(package: Dict[str, Any], out_dir: Optional[Path] = None) -> Dict[str, Any]:

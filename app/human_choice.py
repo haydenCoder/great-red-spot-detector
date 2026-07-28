@@ -455,38 +455,15 @@ def write_dual_reports(out_dir: Path, dual: Dict[str, Any]) -> None:
     h = dual.get("human") or {}
     c = dual.get("comparison") or {}
     lines = [
-        "DUAL MEASURE (WinJUPOS-style): AUTOMATIC + HUMAN CHOICE",
-        "=" * 60,
-        f"Official publish source: {dual.get('official')}",
+        "DUAL",
+        "====",
+        f"use       {dual.get('official')}",
+        f"auto      lon={a.get('lon_iii_deg')}  lat={a.get('lat_deg')}  [{a.get('publish_definition')}]",
+        f"hand      lon={h.get('lon_iii_deg')}  lat={h.get('lat_deg')}  [{h.get('publish_definition')}]",
+        f"Δsky      {c.get('sky_delta_arcsec')} ″  ({c.get('agreement')})",
+        f"EW        {h.get('extent_lon_deg')} °  W={h.get('west_edge_lon_iii_deg')}  E={h.get('east_edge_lon_iii_deg')}",
         "",
-        "AUTOMATIC",
-        f"  definition  {a.get('publish_definition')}",
-        f"  lon III     {a.get('lon_iii_deg')}",
-        f"  lat         {a.get('lat_deg')}",
-        "",
-        "HUMAN CHOICE",
-        f"  definition  {h.get('publish_definition')}",
-        f"  lon III     {h.get('lon_iii_deg')}  (centre — GS-MAP if GS-MAP+RIM)",
-        f"  lat         {h.get('lat_deg')}",
-        "",
-        "OUTER RIM (size — not published lon)",
-        f"  west edge   {h.get('west_edge_lon_iii_deg')}",
-        f"  east edge   {h.get('east_edge_lon_iii_deg')}",
-        f"  extent W–E  {h.get('extent_lon_deg')} °",
-        f"  length      {h.get('length_deg')} °",
-        "",
-        "COMPARISON (human − automatic)",
-        f"  Δlon        {c.get('dlon_human_minus_auto_deg')} °",
-        f"  Δlat        {c.get('dlat_human_minus_auto_deg')} °",
-        f"  Δsky        {c.get('sky_delta_arcsec')} ″",
-        f"  agreement   {c.get('agreement')}",
-        f"  note        {c.get('note')}",
-        "",
-        "TIPS (JUPOS / WinJUPOS practice)",
     ]
-    for t in dual.get("guidance") or []:
-        lines.append(f"  · {t}")
-    lines.append("")
     (out_dir / "dual_measure.txt").write_text("\n".join(lines), encoding="utf-8")
 
 

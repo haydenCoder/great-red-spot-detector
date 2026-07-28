@@ -1452,42 +1452,22 @@ def attach_champion_to_package(
         out_dir = Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "champion.json").write_text(json.dumps(d, indent=2, default=str), encoding="utf-8")
+        ul = ch.ultimate_lock or {}
         lines = [
-            "CHAMPION GRS MEASURE v2 (stability limb · GS-MAP · full σ)",
-            "=" * 56,
-            f"Grade:   {ch.grade}   score={ch.world_class_score:.0f}/100",
-            f"UNBEATABLE_AUTO: {ch.unbeatable_auto}  "
-            f"(gates {(ch.ultimate_lock or {}).get('n_pass')}/{(ch.ultimate_lock or {}).get('n_total')})",
-            f"Absolute publish OK: {ch.absolute_publish_ok}",
-            f"Definition: {ch.definition}",
-            f"Lon III:    {ch.lon_iii_deg:.6f} °  ± {ch.sigma_total_lon_deg:.3f} °",
-            f"Lat centric:{ch.lat_planetocentric_deg:.6f} °  ± {ch.sigma_total_lat_deg:.3f} °",
-            f"Lat graphic:{ch.lat_planetographic_deg:.6f} °  (planetographic)",
-            f"EW extent:  {ch.extent_ew_deg}",
-            f"σ_sky total:{ch.sigma_total_sky_arcsec:.4f} ″",
-            f"CM: {ch.cm_iii_deg:.4f} ° [{ch.cm_source}]  σ_CM={ch.sigma_cm_deg:.3f} °",
-            f"Limb sky spread: {ch.limb_sky_spread_arcsec:.4f} ″",
-            f"Flags: {', '.join(ch.flags) or '—'}",
+            "CHAMPION",
+            "========",
+            f"grade     {ch.grade}  score={ch.world_class_score:.0f}",
+            f"lon_III   {ch.lon_iii_deg:.4f} °  ±{ch.sigma_total_lon_deg:.3f}",
+            f"lat_c     {ch.lat_planetocentric_deg:.3f} °",
+            f"lat_g     {ch.lat_planetographic_deg:.3f} °",
+            f"CM_III    {ch.cm_iii_deg:.4f} °  [{ch.cm_source}]",
+            f"def       {ch.definition}",
+            f"σ_sky     {ch.sigma_total_sky_arcsec:.2f} ″",
+            f"EW        {ch.extent_ew_deg}",
+            f"gates     {ul.get('n_pass')}/{ul.get('n_total')}  unbeatable={ch.unbeatable_auto}  abs={ch.absolute_publish_ok}",
+            f"limb_spr  {ch.limb_sky_spread_arcsec:.2f} ″",
+            f"flags     {', '.join(ch.flags) or '—'}",
             "",
-            "ERROR BUDGET (lon °)",
-            f"  CM           {ch.sigma_cm_deg:.4f}",
-            f"  Timing       {ch.sigma_timing_lon_deg:.4f}",
-            f"  Limb outline {ch.sigma_limb_lon_deg:.4f}",
-            f"  Definition   {ch.sigma_definition_lon_deg:.4f}",
-            f"  Methods      {ch.sigma_method_lon_deg:.4f}",
-            f"  TOTAL        {ch.sigma_total_lon_deg:.4f}",
-            "",
-            f"Limb: { (ch.limb_consensus or {}).get('note') }",
-            f"Refine: {ch.refine}",
-            "",
-            "NOTES",
         ]
-        for n in ch.notes:
-            lines.append(f"  · {n}")
-        lines.append("")
-        lines.append(
-            "Honesty: best automated optical path in this app — not spacecraft imaging. "
-            "Same CM+UTC for a fair comparison."
-        )
         (out_dir / "champion.txt").write_text("\n".join(lines), encoding="utf-8")
     return ch

@@ -465,39 +465,21 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def format_publish_section(package: Dict[str, Any]) -> str:
-    """Human-readable publish card — the "what number you should report" section."""
+    """Compact publish card — key numbers only."""
     p = package.get("publish") or apply_publish_policy(package)
     eq = p.get("winjupos_equality") or {}
     q = p.get("quality") or package.get("publish_quality") or {}
+    lat_g = p.get("publish_lat_planetographic_deg")
     lines = [
-        "╔" + "═" * 60 + "╗",
-        "║" + " PUBLISH THIS (official GRS position)".center(60) + "║",
-        "╚" + "═" * 60 + "╝",
-        f"  Definition     {p.get('publish_definition')}",
-        f"  Lon III        {p.get('publish_lon_iii_deg')} °",
-        f"  Lat            {p.get('publish_lat_deg')} °",
-        f"  Quality        {q.get('grade')}  publish_ok={q.get('publish_ok')}  "
-        f"absolute_ok={q.get('absolute_ok')}  cm_trusted={q.get('cm_trusted')}",
-        f"  CM III         {p.get('cm_iii_deg')} °  ({p.get('cm_source')})",
-        f"  How to cite    {p.get('how_to_cite')}",
-        "",
-        "  METHOD SOUP / SOTA — scatter only, NOT published centre",
-        f"  Soup methods   {p.get('soup_n_methods')}  role={p.get('soup_role')}",
-        f"  SOTA lon       {p.get('sota_lon_iii_deg')}  (Δ vs publish={p.get('sota_delta_lon_deg')}°)",
-        f"  Pipeline lon   {p.get('pipeline_lon_iii_deg')}  (Δ vs publish={p.get('pipeline_delta_lon_deg')}°)",
-        f"  Limb outline spread   {p.get('limb_outline_sky_spread_arcsec')} ″",
-        f"  Definition lon spread {p.get('definition_lon_spread_deg')} °",
-        "",
-        "  VS WINJUPOS",
-        f"  Agreement      {eq.get('agreement')}",
-        f"  Equal?         {eq.get('equal_to_winjupos')}",
-        f"  Δsky           {eq.get('sky_error_arcsec')} ″",
-        f"  Note           {eq.get('note')}",
+        "PUBLISH",
+        "=======",
+        f"lon_III   {p.get('publish_lon_iii_deg')} °",
+        f"lat_c     {p.get('publish_lat_deg')} °",
+        f"lat_g     {lat_g} °" if lat_g is not None else None,
+        f"CM_III    {p.get('cm_iii_deg')} °  [{p.get('cm_source')}]",
+        f"def       {p.get('publish_definition')}",
+        f"grade     {q.get('grade')}  ok={q.get('publish_ok')}  abs={q.get('absolute_ok')}",
+        f"vs_WJ     {eq.get('agreement')}  Δsky={eq.get('sky_error_arcsec')} ″",
         "",
     ]
-    if q.get("warnings"):
-        lines.append("  QUALITY WARNINGS")
-        for w in q["warnings"][:5]:
-            lines.append(f"  • {w}")
-        lines.append("")
-    return "\n".join(lines)
+    return "\n".join(x for x in lines if x is not None)

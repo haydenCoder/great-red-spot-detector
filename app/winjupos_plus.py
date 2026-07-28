@@ -216,58 +216,23 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def format_winjupos_plus_txt(block: Dict[str, Any]) -> str:
-    """Format the WinJUPOS+ block as a readable text file.
-
-    Designed to be human-readable — you can paste this into your observation
-    log or email it to your supervisor without having to decode JSON.
-    """
-    lines = [
-        "MEASURE+  — automated validation report",
-        "=" * 56,
-        f"Grade:  {block.get('desk_grade')}  (score {block.get('desk_score_0_100')}/100)",
-        f"Flags:  {', '.join(block.get('desk_flags') or []) or '—'}",
-        "",
-        "PUBLISH (use this as your answer)",
-        f"  Definition     {block.get('publish_definition')}",
-        f"  Lon III        {block.get('lon_iii_deg')}",
-        f"  Lat centric    {block.get('lat_planetocentric_deg')}",
-        f"  Lat graphic    {block.get('lat_planetographic_deg')}  ← WinJUPOS-style",
-        f"  EW extent      {block.get('extent_ew_deg')} °",
-        f"  Length (oval)  {block.get('length_deg_isophote_or_oval')} °",
-        f"  Width          {block.get('width_deg')} °",
-        "",
-        "GEOMETRY",
-        f"  CM III         {block.get('cm_iii_deg')}  [{block.get('cm_source')}]",
-        f"  Distance       {block.get('distance_au')} AU",
-        f"  Epoch          {block.get('user_time_iso')}",
-        "",
-        "LIMB / DEFINITION DISCIPLINE",
-        f"  Limb sky spread     {block.get('limb_sky_spread_arcsec')} ″",
-        f"  Definition lon spr. {block.get('definition_lon_spread_deg')} °",
-    ]
-    rec = block.get("recommended_limb_outline") or {}
-    if rec:
-        lines.append(
-            f"  Recommended outline {rec.get('name')}  isophote={rec.get('isophote_frac')}  "
-            f"a={rec.get('a_eq_px')} px"
-        )
+    """Compact desk-check card — key numbers only."""
     vj = block.get("vs_manual_winjupos") or {}
-    lines += [
+    return "\n".join([
+        "DESK",
+        "====",
+        f"lon_III   {block.get('lon_iii_deg')} °",
+        f"lat_c     {block.get('lat_planetocentric_deg')} °",
+        f"lat_g     {block.get('lat_planetographic_deg')} °",
+        f"CM_III    {block.get('cm_iii_deg')}  [{block.get('cm_source')}]",
+        f"UTC       {block.get('user_time_iso')}",
+        f"def       {block.get('publish_definition')}",
+        f"grade     {block.get('desk_grade')}  ({block.get('desk_score_0_100')})",
+        f"EW        {block.get('extent_ew_deg')} °",
+        f"vs_WJ     {vj.get('agreement')}  Δsky={vj.get('sky_error_arcsec')} ″",
+        f"cite      {block.get('citation_line')}",
         "",
-        "VS YOUR WINJUPOS MANUAL",
-        f"  Agreement      {vj.get('agreement')}",
-        f"  Δ sky          {vj.get('sky_error_arcsec')} ″",
-        f"  Equal?         {vj.get('equal_to_winjupos')}",
-        "",
-        "CITATION",
-        f"  {block.get('citation_line')}",
-        "",
-        "HOW TO USE",
-    ]
-    for tip in block.get("how_to_use") or []:
-        lines.append(f"  · {tip}")
-    lines += ["", block.get("honesty") or "", ""]
-    return "\n".join(lines)
+    ])
 
 
 def attach_winjupos_plus(package: Dict[str, Any], out_dir: Optional[Path] = None) -> Dict[str, Any]:

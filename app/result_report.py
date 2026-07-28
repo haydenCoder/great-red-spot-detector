@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Human-readable full result reports for GRS Observatory.
+Human-readable full result reports for Jupiter Great Red Spot Detector.
 
 Goal: not a wall of pure JSON — clear YOUR numbers, Horizons geometry,
 truth recovery, error bars, tips. Long is fine; garbage is not.

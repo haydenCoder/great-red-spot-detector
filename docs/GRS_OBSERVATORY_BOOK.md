@@ -1,4 +1,4 @@
-# GRS Observatory — The Book
+# Jupiter Great Red Spot Detector — The Book
 
 **Version:** see `VERSION` in the project root (currently **6.5.0**)  
 **Audience:** self-use / lab / careful observers (I wrote this for my coursework, but it should be useful for anyone measuring Jupiter)  
@@ -8,7 +8,7 @@
 
 ## 0. What this software is
 
-GRS Observatory takes a high-resolution Jupiter image (FITS / SER / PNG / JPEG) and tries to measure the Great Red Spot's **System III longitude and latitude** with calibrated uncertainties. I built it because I got frustrated with eyeballing my manual measurement picks and not having a repeatable number I could actually trust — so I ended up writing this whole thing over a couple of weekends (and many late nights). Turns out measuring a cloud band on a planet half a billion km away is harder than I thought!
+Jupiter Great Red Spot Detector takes a high-resolution Jupiter image (FITS / SER / PNG / JPEG) and tries to measure the Great Red Spot's **System III longitude and latitude** with calibrated uncertainties. I built it because I got frustrated with eyeballing my manual measurement picks and not having a repeatable number I could actually trust — so I ended up writing this whole thing over a couple of weekends (and many late nights). Turns out measuring a cloud band on a planet half a billion km away is harder than I thought!
 
 Key features (the ones I'm actually proud of):
 

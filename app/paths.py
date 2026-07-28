@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Central paths for GRS Observatory (works on every device)
+Central paths for Jupiter Great Red Spot Detector (works on every device)
 =========================================================
 
 This resolves where all the data lives on different platforms — source,

@@ -33,7 +33,7 @@ def product_version() -> str:
     return "6.5.0"
 
 
-PRODUCT_NAME = "Great Red Spot Detector"
+PRODUCT_NAME = "Jupiter Great Red Spot Detector"
 PRODUCT_TAGLINE = "Professional ground-based GRS optical metrology"
 PRODUCT_VERSION = product_version()
 

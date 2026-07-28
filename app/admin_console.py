@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Owner / Admin console for GRS Observatory (group oversight)
+Owner / Admin console for Jupiter Great Red Spot Detector (group oversight)
 ===========================================================
 
 No password. Anyone running the app on this machine can open the owner view;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory — commercial license key system (production-ready stub)
+Jupiter Great Red Spot Detector — commercial license key system (production-ready stub)
 ======================================================================
 
 Key format:

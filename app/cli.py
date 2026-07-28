@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory — professional command-line interface
+Jupiter Great Red Spot Detector — professional command-line interface
 =====================================================
 
 Examples:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Limb / multi-mode validation harness for GRS Observatory.
+Limb / multi-mode validation harness for Jupiter Great Red Spot Detector.
 
 Generates synthetic GRS near the limb (large lon_rel from CM), runs SOTA consensus
 with a pipeline seed, and checks we do not lock onto CM with SOTA_EXCELLENT.

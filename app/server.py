@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory server — Flask API for processing GRS measurements remotely
+Jupiter Great Red Spot Detector server — Flask API for processing GRS measurements remotely
 
 This is the web API version of the desktop pipeline. I built it so I could
 process images from a browser without having to run the desktop app locally
@@ -337,7 +337,7 @@ def health():
         _ver = "6.5.0"
     return jsonify({
         "ok": True,
-        "app": "GRS Observatory — optical GRS metrology",
+        "app": "Jupiter Great Red Spot Detector — optical GRS metrology",
         "version": _ver,
         "pipeline": getattr(grs, "__version__", "?"),
         "technology": (
@@ -1719,7 +1719,7 @@ def main():
     except Exception:
         ver = "6.5.0"
     CONSOLE.clear()
-    CONSOLE.ok(f"GRS Observatory v{ver} — optical GRS metrology")
+    CONSOLE.ok(f"Jupiter Great Red Spot Detector v{ver} — optical GRS metrology")
     CONSOLE.info(f"http://{host}:{port}  |  16GB RAM  |  SSD: app/ssd_cache")
     CONSOLE.info("Pillars: pro-eph · VLBI · multi-epoch · hard-synth · FACTORY NIGHT")
     CONSOLE.info("UI: set TIME → Factory Night (or Process / Synthetic / tools)")

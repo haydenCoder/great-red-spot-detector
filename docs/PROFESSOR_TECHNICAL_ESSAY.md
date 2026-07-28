@@ -6953,7 +6953,7 @@ When I first started working on this project, I thought I could just automate ev
 and never touch manual measurement again. That was naive. Interactive reduction with manual measurement
 rests on mid-exposure timing, ephemeris-consistent central meridians, deliberate limb
 outlines, and an explicit choice of feature definition — and those are *exactly* the same
-things GRS Observatory encodes: fail-closed time handling; override, table, SPICE, and
+things Jupiter Great Red Spot Detector encodes: fail-closed time handling; override, table, SPICE, and
 Horizons geometry with recorded source tags; isophotal limb probes that quantify
 outline-size systematics; and a fixed published definition (GS-MAP).
 

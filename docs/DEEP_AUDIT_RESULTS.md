@@ -1,4 +1,4 @@
-# Deep Audit Results — GRS Observatory v6.5.0
+# Deep Audit Results — Jupiter Great Red Spot Detector v6.5.0
 
 **Auditor:** Arena.ai Agent Mode (second pass, deeper than first)  
 **Date:** 2026-07-28  

@@ -66,3 +66,6 @@ py-modules = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["app"]
+markers = [
+  "slow: end-to-end runs that render and measure synthetic frames (minutes)",
+]

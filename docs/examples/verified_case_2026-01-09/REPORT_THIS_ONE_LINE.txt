@@ -1,0 +1,1 @@
+GRS GS-ORANGE  λ_III=289.9023°  φ_c=-22.728°  φ_g=-25.595°  σ_sky≈62.408″  CM=310.42832498776556° (spice_auto)  grade=STRONG

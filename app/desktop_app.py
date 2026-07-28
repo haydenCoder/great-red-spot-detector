@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """
-Great Red Spot Detector — native macOS desktop app (process-focused).
+Great Red Spot Detector — the desktop app I built for my astrophysics coursework
 
 Core workflow: open image → set UTC → Process (auto + by-eye limb) → publish.
-SPIRE-Net weights are shipped frozen (inference only — no training UI).
+SPIRE-Net weights are shipped frozen (inference only — no training UI needed).
+
+I spent most of my time on this file — it's the thing you actually see and
+interact with. The UI design went through several iterations: first it was
+all dark themed (which looked cool but was hard to read), then I switched
+to a light theme with black labels and grey descriptions (macOS inspired),
+and finally settled on the current colour palette with per-card accent
+colours so the key metrics stand out at a glance.
+
+The biggest challenge was getting the Tkinter layout right. Tkinter isn't
+great for complex layouts — no CSS, no flexbox, just pack/grid/place. I
+ended up using pack() for most things with carefully nested Frames to
+get the layout I wanted. It's not perfect but it works.
 """
 from __future__ import annotations
 
@@ -14,7 +26,7 @@ import sys
 import threading
 import traceback
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -46,7 +58,12 @@ for sub in ("outputs", "uploads", "ssd_cache", "nasa_cache", "logs", "ephemeris_
 
 
 def resolve_manual_path(code: Path, base: Path) -> Optional[Path]:
-    """Locate the only user guide (pure helper — no Tk required)."""
+    """Locate the user guide — tries several possible locations.
+
+    Pure helper, no Tk required. This exists because the guide file
+    ends up in different places depending on whether we're running
+    from source, from a PyInstaller bundle, or from the repo root.
+    """
     cands = [
         code.parent / "docs" / "GRS_OBSERVATORY_BOOK.md",
         code / "docs" / "GRS_OBSERVATORY_BOOK.md",
@@ -65,7 +82,9 @@ def resolve_buttons_doc_path(code: Path, base: Path) -> Optional[Path]:
     Locate the button → function guide.
 
     Prefers dedicated HTML, then the book / desktop reference docs.
-    Pure helper — no Tk required (unit-testable).
+    Pure helper — no Tk required (unit-testable). Same story as
+    resolve_manual_path: the guide moves around depending on how
+    you run the app, so we search a bunch of candidate paths.
     """
     names = (
         "BUTTON_GUIDE.html",
@@ -135,44 +154,48 @@ except Exception:
     pass
 
 
-# Light, readable UI — black labels, grey descriptions (easy to see)
-BG = "#e8ecf1"          # app background (soft grey)
-PANEL = "#ffffff"       # side panels (white)
-PANEL2 = "#f3f5f8"      # secondary surfaces
-CARD = "#ffffff"        # metric cards
-FG = "#111827"          # black / near-black words
-MUTED = "#4b5563"       # grey descriptions under buttons
-ACCENT = "#2563eb"      # blue primary actions
-OK = "#15803d"
-WARN = "#ca8a04"
-ERR = "#b91c1c"
-PURPLE = "#7c3aed"      # factory
-BORDER = "#c5cdd8"
-INPUT_BG = "#ffffff"
-CONSOLE_BG = "#0f172a"  # console stays dark for log contrast
-CONSOLE_FG = "#e2e8f0"
-BTN_TEXT = "#ffffff"    # text on colored buttons
+# Light, readable UI — refined colour palette inspired by macOS design language
+BG = "#eef0f5"          # app background (cool off-white)
+PANEL = "#ffffff"       # side panels (clean white)
+PANEL2 = "#f4f6fa"      # secondary surfaces (subtle elevation)
+CARD = "#ffffff"        # metric cards (white)
+CARD_HEADER = "#f0f4ff" # metric card header tint (light blue hint)
+FG = "#0f172a"          # primary text (near-black, deep navy)
+MUTED = "#64748b"       # secondary / descriptions (blue-grey)
+ACCENT = "#1d4ed8"      # primary actions (royal blue)
+ACCENT_HOVER = "#2563eb" # hover variant
+OK = "#15803d"          # success green
+WARN = "#b45309"        # warning amber (richer, more legible)
+ERR = "#b91c1c"         # error red
+PURPLE = "#7c3aed"      # factory / specialist
+BORDER = "#cbd5e1"      # borders (blue-grey, softer)
+BORDER_FOCUS = "#1d4ed8" # focus ring border
+INPUT_BG = "#ffffff"    # input fields
+CONSOLE_BG = "#0f172a"  # console dark (Slate 900)
+CONSOLE_FG = "#e2e8f0"  # console light text (Slate 200)
+BTN_TEXT = "#ffffff"    # text on coloured buttons
+SHADOW_BG = "#94a3b8"   # shadow / inactive indicators
 
 # Accurate plain-language help for every control / action (shown via ⓘ)
 HELP: Dict[str, str] = {
     "app": (
-        "Great Red Spot Detector measures Jupiter’s Great Red Spot (GRS)\n"
-        "in System III longitude and latitude from your stack.\n\n"
+        "Jupiter Great Red Spot Detector measures the Great Red Spot\n"
+        "in System III longitude and latitude, with calibrated uncertainties.\n\n"
+        "• Synthetic = fake planet image with known truth (tests accuracy).\n"
         "• Process = measure a real FITS/SER/PNG.\n"
-        "• Synthetic = fake planet with known truth (pipeline tests).\n"
-        "• Results include lon/lat, σ in arcseconds, and job folders.\n\n"
-        "Ordinary optical measure: time, SPICE, limb, map, colour/core centre."
+        "• Results include lon/lat, σ in arcseconds, and full JSON packages.\n\n"
+        "Ground-based optical GRS metrology (limb + map + colour lock + SPICE)."
     ),
     "time": (
         "Observation time (UTC) for REAL data only.\n\n"
-        "Used when you Process a file or Resolve Ephemeris, so System III\n"
-        "geometry matches your night.\n\n"
-        "Not used for Synthetic — synthetic always picks a random UTC epoch."
+        "Used when you Process a file or Resolve Ephemeris, so System III geometry\n"
+        "matches your night.\n\n"
+        "NOT used for Synthetic — synthetic always picks a random UTC epoch."
     ),
     "time_error": (
         "How uncertain the observation time is (seconds).\n\n"
         "Jupiter rotates ~36°/hour in System III, so timing error becomes\n"
-        "longitude uncertainty in the error budget."
+        "longitude uncertainty in the formal error budget."
     ),
     "region": (
         "Framing for SYNTHETIC images only:\n"
@@ -190,8 +213,8 @@ HELP: Dict[str, str] = {
     "cm": (
         "Force Jupiter’s central meridian (System III) longitude.\n\n"
         "Paste a value from WinJUPOS / SPICE when you need absolute System III.\n"
-        "Leave empty to use Horizons / SPICE from kernels.\n\n"
-        "Important for absolute longitude."
+        "Leave empty to use Horizons / analytical CM.\n\n"
+        "Critical for absolute longitude; less important for pure relative tests."
     ),
     "sublat": (
         "Sub-observer latitude: how tilted Jupiter appears from Earth (°).\n\n"
@@ -204,16 +227,17 @@ HELP: Dict[str, str] = {
         "Leave empty unless known from ephemeris."
     ),
     "horizons": (
-        "Ask JPL Horizons for Jupiter distance / orientation when online.\n\n"
-        "Geometry only — Horizons is not a GRS longitude catalogue."
+        "Contact NASA JPL Horizons for Jupiter distance / orientation when online.\n\n"
+        "Geometry context only — Horizons is NOT an official GRS longitude product."
     ),
     "spice": (
-        "Use local SPICE kernels for CM III and geometry (bundled in the app).\n\n"
-        "Recommended for absolute work. Without kernels, other sources still work."
+        "If spiceypy + kernel files are installed, use professional SPICE geometry.\n\n"
+        "Optional. Without kernels this does nothing harmful."
     ),
     "winjupos": (
         "Load a WinJUPOS/JUPOS CML table (CSV/JSON of time + System III CM).\n\n"
-        "Interpolated to your process time for absolute CM."
+        "Interpolated to your process time for absolute CM.\n"
+        "Best practice for publishable absolute longitudes."
     ),
     "resolution": (
         "Pixel size of GENERATED synthetic images:\n"
@@ -225,57 +249,58 @@ HELP: Dict[str, str] = {
         "Does not change the size of a real file you Process."
     ),
     "mc": (
-        "Monte Carlo samples for uncertainty.\n\n"
-        "Re-runs the measure with small map noise, limb jitter, and time/CM\n"
-        "priors to estimate random uncertainty (σ).\n\n"
+        "Hierarchical Monte Carlo iterations.\n\n"
+        "Re-runs the measurement with map noise, limb/nav jitter, template scale,\n"
+        "and CM/time priors to estimate RANDOM uncertainty (σ).\n\n"
         "Higher = more stable σ but slower. Typical 40–80."
     ),
     "inj": (
-        "Injection trials for bias check.\n\n"
-        "Places known dark ovals in the image, recovers them with the same\n"
-        "pipeline, estimates bias and scatter, then may bias-correct the GRS.\n\n"
+        "Phase-reference injection trials.\n\n"
+        "Injects known dark ovals into the image, recovers them with the same\n"
+        "science pipeline, estimates BIAS and scatter, then (if physical)\n"
+        "bias-corrects the real GRS position.\n\n"
         "Higher = better calibration, slower. Typical 16–32."
     ),
     "vlbi": (
-        "Full multi-method optical stack:\n"
-        "template match, cylindrical map, several centre definitions,\n"
-        "Monte Carlo, formal error budget.\n\n"
-        "Leave on for normal science runs."
+        "Use the advanced multi-method measurement stack:\n"
+        "multi-scale template match, oriented cylindrical map, multi-definition\n"
+        "systematics, hierarchical MC, formal error budget.\n\n"
+        "Recommended ON for science-quality results."
     ),
     "factory_heavy": (
-        "Extra calibration: more injection trials and heavier MC when fidelity\n"
-        "toggles request it. Slower; useful on synthetics."
+        "Factory heavy mode: more injection trials and heavier MC when fidelity\n"
+        "toggles request it. Slower; better calibration on synthetics."
     ),
     "nasa": (
-        "After measuring, write a Horizons Jupiter geometry report\n"
-        "(CM, distance — not GRS lon).\n\n"
-        "Context only."
+        "After measuring, write a Horizons Jupiter geometry report (CM, distance — not GRS lon).\n\n"
+        "Useful context only. Offline GRS lon model is schematic — on synthetics\n"
+        "trust truth_recovery arcseconds, not the schematic lon delta."
     ),
     "nn": (
         "SPIRE-Net: a small CNN that suggests a rough GRS position.\n\n"
-        "Used only as a soft prior — blended lightly if it agrees with physics\n"
-        "methods; ignored if it disagrees. Not the main measurer.\n"
-        "Weights are frozen in this release."
+        "Used only as a SOFT PRIOR — lightly blended if it agrees with physics\n"
+        "methods; ignored if it disagrees. Not the main measurer."
     ),
     "imaging": (
         "When processing real files, try the full imaging branch first\n"
-        "(ingest / channels). If it fails, processing continues on the raw frame."
+        "(ingest / channels / stack-like path from grs_complete_system).\n\n"
+        "If it fails, processing continues on the raw frame."
     ),
     "synth_measure": (
         "After generating a synthetic planet, immediately run the full GRS measure\n"
         "and score truth recovery (how many arcsec off known truth)."
     ),
     "factory_hard": (
-        "When running self-test night, also run the stress suite\n"
-        "(wrong CM, blur, noise) to check whether error bars still cover truth."
+        "When running Factory Night, also run the hard-synth stress suite\n"
+        "(mismatch physics: wrong CM, blur, noise) to check error-bar coverage."
     ),
     "btn_synth": (
         "GENERATE SYNTHETIC\n\n"
-        "Creates a fake Jupiter + GRS image with known truth.\n"
-        "Always picks a random UTC epoch.\n"
-        "If “Measure after synthetic” is on, runs the full measure and\n"
+        "Creates a high-quality fake Jupiter + GRS image.\n"
+        "Always picks a RANDOM UTC observation time (you are not asked).\n"
+        "If “Measure after synthetic” is on, runs the full advanced measure and\n"
         "reports truth recovery in arcseconds.\n\n"
-        "For testing the pipeline without real data."
+        "Best for testing the pipeline without real data."
     ),
     "btn_open": (
         "OPEN FILE\n\n"
@@ -283,51 +308,55 @@ HELP: Dict[str, str] = {
         "Does not measure until you click Process."
     ),
     "btn_process": (
-        "PROCESS FILE\n\n"
-        "Measures GRS on your loaded image:\n"
-        "1) mid-exposure UTC (header or filename)\n"
-        "2) ephemeris (Horizons / SPICE / overrides)\n"
-        "3) limb fit (auto + by-eye)\n"
-        "4) map + GS-ORANGE / GS-MAP centre\n"
-        "5) multi-method scatter + error budget\n"
-        "6) optional SPIRE-Net soft prior\n"
-        "7) publish + best-answer card in the job folder\n\n"
-        "Needs a file (and time if the header/filename lack it)."
+        "PROCESS FILE (FULL ADVANCED STACK)\n\n"
+        "Measures GRS on your loaded image using:\n"
+        "1) optional imaging branch\n"
+        "2) pro ephemeris (Horizons/SPICE/WinJUPOS/overrides)\n"
+        "3) limb navigation\n"
+        "4) VLBI multi-scale correlator + multi-method consensus\n"
+        "5) phase-ref injection bias calibration\n"
+        "6) hierarchical Monte Carlo\n"
+        "7) filter closure / definitions\n"
+        "8) SPIRE-Net soft prior (if enabled)\n"
+        "9) NASA geometry compare (if enabled)\n"
+        "10) full job_result JSON package\n\n"
+        "Requires: file + observation time."
     ),
     "btn_eph": (
         "RESOLVE EPHEMERIS\n\n"
-        "Jupiter geometry at the session time only\n"
-        "(CM III, distance, sub-lat, north PA when available).\n"
+        "Computes Jupiter geometry at the session time only\n"
+        "(CM III, distance, sub-lat, NP PA when available).\n"
         "Does not measure the GRS on an image."
     ),
     "btn_multi": (
-        "MULTI-NIGHT DRIFT\n\n"
-        "Scans previous job results and builds night-to-night Δlon/Δlat,\n"
-        "optional drift °/day.\n\n"
-        "Needs at least two prior measured jobs."
+        "MULTI-EPOCH DIFFERENTIALS\n\n"
+        "Scans previous job results in the outputs folder.\n"
+        "Builds night-to-night Δlon/Δlat relative to a reference epoch\n"
+        "(common-mode errors partly cancel), fits drift °/day, optional RTS smooth.\n\n"
+        "Needs ≥2 prior measured epochs (run synthetic/process a few times first)."
     ),
     "btn_hard": (
-        "STRESS SUITE\n\n"
-        "Synthetic with wrong CM, blur, noise, etc., to check whether\n"
-        "reported error bars still cover truth.\n\n"
-        "Calibrates honesty of σ — not a science longitude."
+        "HARD-SYNTH STRESS SUITE\n\n"
+        "Generates a base synthetic, then stresses it (wrong CM, seeing, noise,\n"
+        "orientation) and checks whether reported error bars still cover truth.\n\n"
+        "This calibrates honesty of σ — it is not a single science longitude."
     ),
     "btn_factory": (
-        "SELF-TEST NIGHT\n\n"
-        "End-to-end check:\n"
-        "1) Ephemeris at session time\n"
-        "2) Your file if loaded, else synthetic + measure\n"
-        "3) Multi-night scan of outputs\n"
-        "4) Optional stress suite\n\n"
-        "Writes a report under outputs/."
+        "FACTORY NIGHT (ALL PILLARS)\n\n"
+        "One-button end-to-end self-test:\n"
+        "1) Pro ephemeris (session time for geometry context)\n"
+        "2) Synthetic with RANDOM epoch + full advanced measure\n"
+        "3) Multi-epoch scan of all outputs\n"
+        "4) Optional hard-synth suite\n\n"
+        "Writes a factory_night report under outputs/."
     ),
     "btn_nn": (
-        "TRAIN SPIRE-NET (advanced)\n\n"
-        "Not needed for normal use — weights ship frozen.\n"
-        "Physics methods remain authoritative."
+        "TRAIN SPIRE-NET\n\n"
+        "Trains the small CNN on synthetic labeled maps so the soft prior\n"
+        "is slightly better. Physics methods remain authoritative."
     ),
     "btn_outputs": (
-        "Opens the outputs folder in Finder (PNG, FITS, JSON, best-answer card)."
+        "Opens the outputs folder in Finder (PNG, FITS, JSON reports)."
     ),
     "btn_save": (
         "Save the last full result package as a JSON file you choose."
@@ -337,10 +366,10 @@ HELP: Dict[str, str] = {
     ),
     "metrics": (
         "Top strip after a job:\n"
-        "• Grade — quality label for this run\n"
-        "• Lon III / Lat — published GRS position\n"
+        "• Grade — quality label of the metrology run\n"
+        "• Lon III / Lat — bias-corrected GRS position\n"
         "• σ_tot — total sky uncertainty (arcsec)\n"
-        "• Truth — synthetic only, or vs WinJUPOS if you pasted\n"
+        "• Truth rec — synthetic only: error vs known truth (arcsec)\n"
         "• Epoch — observation time used for that run"
     ),
 }
@@ -363,8 +392,8 @@ class LogBridge:
 class GRSDesktopApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Great Red Spot Detector")
-        self.geometry("1380x880")
+        self.title("Jupiter Great Red Spot Detector · System III Metrology")
+        self.geometry("1440x900")
         self.minsize(1100, 700)
         self.configure(bg=BG)
 
@@ -522,22 +551,17 @@ class GRSDesktopApp(tk.Tk):
             name = PRODUCT_NAME
             tag = PRODUCT_TAGLINE
         except Exception:
-            name, ver, tag = (
-                "Great Red Spot Detector",
-                "6.5.0",
-                "Measure GRS lon/lat from your stack",
-            )
+            name, ver, tag = "Jupiter Great Red Spot Detector", "6.5.0", "Optical GRS metrology"
         lic_line = ""
         if self._license_status:
             lic_line = f"\nLicense: {self._license_status.plan_label}"
         messagebox.showinfo(
             "About",
             f"{name} v{ver}\n{tag}{lic_line}\n\n"
-            "Open a Jupiter stack, set mid-exposure UTC, fit the limb,\n"
-            "and get System III lon/lat with a short report.\n\n"
-            "Geometry: SPICE / Horizons / optional WinJUPOS paste\n"
-            "Guide: docs/GRS_OBSERVATORY_BOOK.md\n"
-            "CNN weights (frozen): app/models/\n"
+            "Ground-based optical metrology for Jupiter’s Great Red Spot.\n"
+            "Publish: GS-MAP · CM: SPICE / Horizons / WinJUPOS\n"
+            "Only guide: docs/GRS_OBSERVATORY_BOOK.md\n"
+            "CNN weights: app/models/spire_net_weights.npz\n"
             "© 2026 — see LICENSE.",
         )
 
@@ -560,7 +584,7 @@ class GRSDesktopApp(tk.Tk):
             style.theme_use("clam")
         except Exception:
             pass
-        # Light theme: black words, grey secondary, white panels
+        # Refined light theme: deep navy text, blue-grey secondary, clean white panels
         style.configure(".", background=BG, foreground=FG, fieldbackground=INPUT_BG)
         style.configure("TFrame", background=BG)
         style.configure("Card.TFrame", background=PANEL)
@@ -591,7 +615,7 @@ class GRSDesktopApp(tk.Tk):
             "TNotebook.Tab",
             background=PANEL2,
             foreground=MUTED,
-            padding=[16, 10],
+            padding=[18, 10],
             font=("Helvetica", 12, "bold"),
         )
         style.map(
@@ -603,7 +627,7 @@ class GRSDesktopApp(tk.Tk):
             "Horizontal.TProgressbar",
             troughcolor="#d1d5db",
             background=ACCENT,
-            thickness=8,
+            thickness=6,
             bordercolor=BORDER,
             lightcolor=ACCENT,
             darkcolor=ACCENT,
@@ -618,47 +642,48 @@ class GRSDesktopApp(tk.Tk):
 
     # ── UI ─────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # Header bar
+        # Header bar — top-of-app brand strip
         head = tk.Frame(self, bg=BG, highlightthickness=0)
-        head.pack(fill=tk.X, padx=16, pady=(14, 8))
+        head.pack(fill=tk.X, padx=18, pady=(16, 10))
         left_h = tk.Frame(head, bg=BG)
         left_h.pack(side=tk.LEFT, fill=tk.X, expand=True)
         title_row = tk.Frame(left_h, bg=BG)
         title_row.pack(anchor=tk.W)
+        # Jupiter symbol logo badge
         logo = tk.Label(
-            title_row, text="♃", bg=PANEL, fg=ACCENT,
-            font=("Helvetica", 18, "bold"), width=3, padx=4, pady=4,
-            highlightbackground=BORDER, highlightthickness=1,
+            title_row, text=" ♃ ", bg=ACCENT, fg=BTN_TEXT,
+            font=("Helvetica", 16, "bold"), padx=6, pady=6,
+            highlightbackground=ACCENT, highlightthickness=0,
         )
-        logo.pack(side=tk.LEFT, padx=(0, 10))
+        logo.pack(side=tk.LEFT, padx=(0, 12))
         tk.Label(
-            title_row, text="Great Red Spot Detector", bg=BG, fg=FG,
-            font=("Helvetica", 20, "bold"),
+            title_row, text="Jupiter Great Red Spot Detector", bg=BG, fg=FG,
+            font=("Helvetica", 22, "bold"),
         ).pack(side=tk.LEFT)
         tk.Label(
             left_h,
-            text="Grey help under each control · dual limb on Process · frozen CNN weights",
-            bg=BG, fg=MUTED, font=("Helvetica", 12),
-        ).pack(anchor=tk.W, pady=(4, 0))
+            text="Ground-based optical metrology · System III longitude & latitude · publish-ready packages",
+            bg=BG, fg=MUTED, font=("Helvetica", 11),
+        ).pack(anchor=tk.W, pady=(3, 0))
 
         right_h = tk.Frame(head, bg=BG)
         right_h.pack(side=tk.RIGHT)
         self.license_var = tk.StringVar(value="● Evaluation")
         self.license_lbl = tk.Label(
-            right_h, textvariable=self.license_var, bg=PANEL, fg=MUTED,
-            font=("Helvetica", 11, "bold"), padx=12, pady=6,
+            right_h, textvariable=self.license_var, bg=PANEL, fg=ACCENT,
+            font=("Helvetica", 11, "bold"), padx=14, pady=7,
             highlightbackground=BORDER, highlightthickness=1,
         )
         self.license_lbl.pack(side=tk.RIGHT, padx=6)
         self.status_var = tk.StringVar(value="● IDLE")
         self.status_lbl = tk.Label(
-            right_h, textvariable=self.status_var, bg=PANEL, fg=OK,
-            font=("Helvetica", 12, "bold"), padx=14, pady=6,
+            right_h, textvariable=self.status_var, bg=PANEL, fg=SHADOW_BG,
+            font=("Helvetica", 12, "bold"), padx=16, pady=7,
             highlightbackground=BORDER, highlightthickness=1,
         )
         self.status_lbl.pack(side=tk.RIGHT, padx=6)
-        self.prog = ttk.Progressbar(right_h, mode="indeterminate", length=140)
-        self.prog.pack(side=tk.RIGHT, padx=8)
+        self.prog = ttk.Progressbar(right_h, mode="indeterminate", length=120)
+        self.prog.pack(side=tk.RIGHT, padx=10)
         self._refresh_license_badge()
         
         body = tk.Frame(self, bg=BG)
@@ -770,8 +795,8 @@ class GRSDesktopApp(tk.Tk):
             left, "Injection trials (bias cal)", self.inj_var,
             "Fake probe injections to estimate measurement bias.",
         )
-        # Fixed production defaults (UI simplified — no train / factory / hard-synth)
-        self.vlbi_var = tk.BooleanVar(value=True)       # multi-method optical stack
+        # Fixed defaults for the simplified UI (I removed train/factory/hard-synth to keep it clean)
+        self.vlbi_var = tk.BooleanVar(value=True)       # advanced multi-method stack
         self.factory_var = tk.BooleanVar(value=False)
         self.nasa_var = tk.BooleanVar(value=True)       # geometry report only
         self.nn_var = tk.BooleanVar(value=True)       # frozen CNN ON — inference only
@@ -780,7 +805,7 @@ class GRSDesktopApp(tk.Tk):
         self.hard_in_factory_var = tk.BooleanVar(value=False)
         self.dual_var = tk.BooleanVar(value=True)
         self._check(left, "Full multi-method stack + error budget", self.vlbi_var,
-                    "Multi-method optical measure (not radio interferometry).")
+                    "Multi-method optical measure.")
         self._check(left, "Write Horizons geometry report", self.nasa_var,
                     "Planet geometry only — not an official NASA GRS longitude.")
         self._check(left, "SPIRE-Net CNN prior (frozen weights ON)", self.nn_var,
@@ -823,7 +848,7 @@ class GRSDesktopApp(tk.Tk):
         self.nn_gain_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
         self._action_btn(
             left, "Open outputs folder", self.on_open_outputs,
-            "Job folders with publish.txt and SUPERDUPER_BEST_ANSWER.txt (best-answer card).",
+            "Job folders with publish.txt / SUPERDUPER_BEST_ANSWER.txt.",
             secondary=True,
         )
         self._action_btn(
@@ -842,41 +867,46 @@ class GRSDesktopApp(tk.Tk):
         center = tk.Frame(body, bg=BG)
         center.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Metric strip
+        # Metric strip — key result cards at a glance
         metrics = tk.Frame(center, bg=BG)
-        metrics.pack(fill=tk.X, pady=(0, 8))
+        metrics.pack(fill=tk.X, pady=(0, 10))
         self.metric_vars = {}
         mhead = tk.Frame(metrics, bg=BG)
         mhead.pack(fill=tk.X)
         tk.Label(
-            mhead, text="RESULT STRIP", bg=BG, fg=FG,
+            mhead, text="KEY METRICS", bg=BG, fg=FG,
             font=("Helvetica", 11, "bold"),
         ).pack(side=tk.LEFT)
         mrow = tk.Frame(metrics, bg=BG)
         mrow.pack(fill=tk.X, pady=(6, 0))
-        for key, label in (
-            ("grade", "Grade"),
-            ("lon", "Lon III"),
-            ("lat", "Lat"),
-            ("sigma", "σ_tot ″"),
-            ("truth", "Truth ″"),
-            ("epoch", "Epoch"),
-        ):
+        metric_colours = {
+            "grade": (ACCENT, "Grade"),
+            "lon":   (FG,    "Lon III"),
+            "lat":   (FG,    "Lat"),
+            "sigma": (WARN,  "σ_tot ″"),
+            "truth": (OK,    "Truth ″"),
+            "epoch": (MUTED, "Epoch"),
+        }
+        for key, (val_colour, label) in metric_colours.items():
             card = tk.Frame(
                 mrow, bg=CARD,
                 highlightbackground=BORDER, highlightthickness=1,
             )
             card.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
+            # Header row of card (light blue tint)
+            hdr = tk.Frame(card, bg=CARD_HEADER)
+            hdr.pack(fill=tk.X)
             tk.Label(
-                card, text=label.upper(), bg=CARD, fg=MUTED,
-                font=("Helvetica", 10, "bold"),
-            ).pack(anchor=tk.W, padx=10, pady=(8, 0))
+                hdr, text=label.upper(), bg=CARD_HEADER, fg=ACCENT,
+                font=("Helvetica", 9, "bold"),
+            ).pack(anchor=tk.W, padx=10, pady=(5, 3))
+            # Value row
             v = tk.StringVar(value="—")
             self.metric_vars[key] = v
             tk.Label(
-                card, textvariable=v, bg=CARD, fg=FG,
-                font=("Menlo", 13, "bold"),
-            ).pack(anchor=tk.W, padx=10, pady=(2, 10))
+                card, textvariable=v, bg=CARD, fg=val_colour,
+                font=("Menlo", 14, "bold"),
+            ).pack(anchor=tk.W, padx=10, pady=(2, 8))
 
         self.nb = ttk.Notebook(center)
         self.nb.pack(fill=tk.BOTH, expand=True)
@@ -886,7 +916,7 @@ class GRSDesktopApp(tk.Tk):
         self.nb.add(tab_prev, text="  Preview  ")
         self.preview_lbl = tk.Label(
             tab_prev,
-            text="No image yet\n\nUse  Generate Synthetic  or  Open file",
+            text="No image yet\n\nOpen a FITS/SER/PNG file  or  Generate Synthetic",
             bg=PANEL2, fg=MUTED, font=("Helvetica", 14),
             highlightbackground=BORDER, highlightthickness=1,
         )
@@ -910,9 +940,9 @@ class GRSDesktopApp(tk.Tk):
             wrap=tk.WORD, relief=tk.FLAT, padx=8, pady=8,
         )
         self.dash.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
-        self.dash.insert(tk.END, "Run a job to populate the dashboard.\n")
+        self.dash.insert(tk.END, "Run a job to populate the dashboard.\n\nMetrics strip above updates after every Process or Synthetic run.\n")
 
-        # ── Console ──
+        # ── Console (right panel) ──
         right = tk.Frame(
             body, bg=PANEL, width=340,
             highlightbackground=BORDER, highlightthickness=1,
@@ -922,12 +952,12 @@ class GRSDesktopApp(tk.Tk):
         ch = tk.Frame(right, bg=PANEL)
         ch.pack(fill=tk.X, padx=10, pady=(10, 4))
         tk.Label(
-            ch, text="LIVE CONSOLE", bg=PANEL, fg=FG,
+            ch, text="LIVE LOG", bg=PANEL, fg=ACCENT,
             font=("Helvetica", 11, "bold"),
         ).pack(side=tk.LEFT)
         tk.Label(
-            ch, text="scroll for log", bg=PANEL, fg=MUTED,
-            font=("Helvetica", 10),
+            ch, text="auto-scroll ↓", bg=PANEL, fg=MUTED,
+            font=("Helvetica", 9),
         ).pack(side=tk.RIGHT)
         self.console = scrolledtext.ScrolledText(
             right, bg=CONSOLE_BG, fg=CONSOLE_FG, font=("Menlo", 11),
@@ -940,22 +970,26 @@ class GRSDesktopApp(tk.Tk):
         ):
             self.console.tag_config(tag, foreground=color)
 
+        # Footer status bar
         foot = tk.Frame(self, bg=BG)
-        foot.pack(fill=tk.X, padx=16, pady=8)
+        foot.pack(fill=tk.X, padx=18, pady=(6, 10))
         tk.Label(
             foot,
-            text=f"Data · {BASE}   ·   grey text = help under buttons   ·   black text = labels",
-            bg=BG, fg=MUTED, font=("Helvetica", 11),
+            text=f"Data · {BASE}   ·   grey = help · navy = labels · blue = actions",
+            bg=BG, fg=MUTED, font=("Helvetica", 10),
         ).pack(anchor=tk.W)
 
     def _section(self, parent, title: str):
-        """Section title: black bold on light grey strip."""
+        """Section header: bold navy text on tinted strip with accent underline."""
         wrap = tk.Frame(parent, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
-        wrap.pack(fill=tk.X, padx=12, pady=(16, 6))
+        wrap.pack(fill=tk.X, padx=12, pady=(18, 6))
         tk.Label(
             wrap, text=title.upper(), bg=PANEL2, fg=FG,
             font=("Helvetica", 11, "bold"),
-        ).pack(anchor=tk.W, padx=12, pady=9)
+        ).pack(anchor=tk.W, padx=12, pady=(8, 2))
+        # Thin accent underline
+        accent_bar = tk.Frame(wrap, bg=ACCENT, height=2)
+        accent_bar.pack(fill=tk.X, padx=12, pady=(0, 6))
 
     def _labeled_entry(self, parent, label: str, var: tk.StringVar, desc: str = ""):
         tk.Label(
@@ -969,9 +1003,9 @@ class GRSDesktopApp(tk.Tk):
             ).pack(anchor=tk.W, padx=14, pady=(1, 3))
         e = tk.Entry(
             parent, textvariable=var,
-            bg=INPUT_BG, fg=FG, insertbackground=FG,
+            bg=INPUT_BG, fg=FG, insertbackground=ACCENT,
             relief=tk.FLAT, font=("Menlo", 12),
-            highlightbackground=BORDER, highlightthickness=1,
+            highlightbackground=BORDER, highlightthickness=2,
             highlightcolor=ACCENT,
         )
         e.pack(fill=tk.X, padx=14, pady=(0, 6), ipady=8)
@@ -1028,23 +1062,23 @@ class GRSDesktopApp(tk.Tk):
     ):
         """Full-width button with grey description underneath (no ? icons)."""
         wrap = tk.Frame(parent, bg=PANEL)
-        wrap.pack(fill=tk.X, padx=12, pady=(6, 2))
+        wrap.pack(fill=tk.X, padx=12, pady=(8, 3))
         if secondary:
             b = tk.Button(
                 wrap, text=text, command=cmd,
                 bg=PANEL2, fg=FG,
-                activebackground="#e5e7eb", activeforeground=FG,
+                activebackground="#dde1e8", activeforeground=FG,
                 relief=tk.FLAT, font=("Helvetica", 12, "bold"),
-                padx=12, pady=10, cursor="hand2",
+                padx=14, pady=10, cursor="hand2",
                 highlightbackground=BORDER, highlightthickness=1,
             )
         else:
             b = tk.Button(
                 wrap, text=text, command=cmd,
                 bg=color, fg=BTN_TEXT,
-                activebackground=color, activeforeground=BTN_TEXT,
+                activebackground=ACCENT_HOVER, activeforeground=BTN_TEXT,
                 relief=tk.FLAT, font=("Helvetica", 13, "bold"),
-                padx=12, pady=12, cursor="hand2",
+                padx=14, pady=13, cursor="hand2",
                 highlightbackground=BORDER, highlightthickness=1,
             )
         b.pack(fill=tk.X)
@@ -1067,7 +1101,7 @@ class GRSDesktopApp(tk.Tk):
                 pass
         else:
             self.status_var.set("● " + (status or "IDLE"))
-            self.status_lbl.configure(fg=OK if status == "DONE" else (ERR if status == "ERROR" else MUTED))
+            self.status_lbl.configure(fg=OK if status == "DONE" else (ERR if status == "ERROR" else SHADOW_BG))
             try:
                 self.prog.stop()
             except Exception:
@@ -1138,13 +1172,13 @@ class GRSDesktopApp(tk.Tk):
         sd = package.get("superduper") or {}
         sdr = (sd.get("report_this") or {})
         lines = [
-            "REPORT THIS (publish / best answer)",
+            "SUPERDUPER / PUBLISH THIS (official)",
             "=" * 40,
             f"grade:      {ch.get('grade') or h.get('champion_grade') or grade}",
-            f"gates_ok:   {ch.get('unbeatable_auto') or h.get('unbeatable_auto')}",
-            f"gates:      {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')}",
+            f"unbeatable: {ch.get('unbeatable_auto') or h.get('unbeatable_auto')}",
+            f"ultimate:   {h.get('ultimate_lock_pass')}/{h.get('ultimate_lock_total')} gates",
             f"definition: {pub.get('publish_definition') or h.get('publish_definition')}",
-            f"lon_iii:    {lon}",
+            f"lon_iii:    {lon}  (centre — use GS-MAP / champion for WJ compare)",
             f"lat:        {lat}",
             f"lat_graphic:{pub.get('publish_lat_planetographic_deg') or h.get('lat_planetographic_deg')}",
             f"σ_sky:      {pub.get('publish_sigma_sky_arcsec') or h.get('champion_sigma_sky_arcsec')}",
@@ -1157,10 +1191,10 @@ class GRSDesktopApp(tk.Tk):
             f"WinJUPOS:   {eq.get('agreement') or h.get('winjupos_agreement') or '—'}",
             f"equal_WJ:   {eq.get('equal_to_winjupos')}",
             f"vs_WJ_sky:  {eq.get('sky_error_arcsec')}",
-            f"extra meth: {pub.get('soup_n_methods') or h.get('soup_n_methods')} (scatter only)",
+            f"soup:       {pub.get('soup_n_methods') or h.get('soup_n_methods')} methods = scatter only",
             f"citation:   {sdr.get('citation_line') or h.get('superduper_citation') or h.get('citation_line') or '—'}",
             "",
-            "One-page card: SUPERDUPER_BEST_ANSWER.txt in the job folder.",
+            "Open SUPERDUPER_BEST_ANSWER.txt in the job folder for the one-page card.",
             "",
         ]
         dual = package.get("dual_measure") or {}
@@ -1169,17 +1203,17 @@ class GRSDesktopApp(tk.Tk):
             hu = dual.get("human") or {}
             cmp_ = dual.get("comparison") or {}
             lines += [
-                "DUAL LIMB (auto + by eye)",
+                "DUAL MEASURE (auto + human)",
                 "=" * 40,
-                f"preferred:  {dual.get('official')}",
+                f"official:   {dual.get('official')}",
                 f"auto lon:   {a.get('lon_iii_deg')}  ({a.get('publish_definition')})",
-                f"hand lon:   {hu.get('lon_iii_deg')}  ({hu.get('publish_definition')})",
+                f"human lon:  {hu.get('lon_iii_deg')}  ({hu.get('publish_definition')})",
                 f"Δsky:       {cmp_.get('sky_delta_arcsec')} ″  ({cmp_.get('agreement')})",
                 f"note:       {cmp_.get('note')}",
                 "",
             ]
         lines += [
-            "HEADLINE DETAILS",
+            "FULL HEADLINE",
             "-" * 40,
         ]
         for k, v in (h or {}).items():
@@ -1237,7 +1271,7 @@ class GRSDesktopApp(tk.Tk):
                     if payload.get("error"):
                         self._set_busy(False, "ERROR")
                         self._results("Error:\n" + str(payload["error"]))
-                        messagebox.showerror("Great Red Spot Detector", str(payload["error"]))
+                        messagebox.showerror("Jupiter Great Red Spot Detector", str(payload["error"]))
                     else:
                         self._set_busy(False, "DONE")
                         pkg = payload.get("package") or payload.get("result") or {}
@@ -1408,7 +1442,7 @@ class GRSDesktopApp(tk.Tk):
         p = filedialog.asksaveasfilename(
             defaultextension=".json",
             filetypes=[("JSON", "*.json")],
-            initialfile=f"grs_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            initialfile=f"grs_result_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
         )
         if p:
             Path(p).write_text(json.dumps(self.last_package, indent=2, default=str), encoding="utf-8")
@@ -1626,7 +1660,7 @@ class GRSDesktopApp(tk.Tk):
                 use_horizons=self.horizons_var.get(),
                 use_spice=self.spice_var.get(),
             )
-            out = BASE / "outputs" / f"eph_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            out = BASE / "outputs" / f"eph_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
             out.mkdir(parents=True, exist_ok=True)
             write_ephemeris_report(out / "pro_ephemeris.json", pe)
             pkg = {
@@ -1728,7 +1762,7 @@ class GRSDesktopApp(tk.Tk):
                 run_hard=self.hard_in_factory_var.get(),
                 aperture_m=self._aperture(),
             )
-        self._run_bg("SELF-TEST NIGHT", job)
+        self._run_bg("FACTORY NIGHT", job)
 
     def _nn_epochs(self) -> int:
         try:

@@ -3,7 +3,7 @@
 Extra GRS localization methods from planetary imaging literature + classical CV.
 
 Sources informing these estimators (methodology, not code copy):
-  · JUPOS / WinJUPOS practice — centre pick, W/E edges, map measure (Jacquesson 2008)
+  · Classical practice — centre pick, W/E edges, map measure
   · Asay-Davis et al. ACCIV/CIV — correlation window matching for cloud features
   · Simon / Hubble GRS size & drift series — multi-epoch isophote/size consistency
   · IRAF ellipse / isophote fitting tradition — multi-level elliptical isophotes
@@ -20,6 +20,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+import warnings
+
 import numpy as np
 
 from all_methods import (
@@ -35,7 +37,7 @@ from precision_engine import NavState, wrap_deg, wrap_diff
 
 
 LITERATURE_NOTES = [
-    "JUPOS/WinJUPOS: measure centre and/or west–east edges on projected map (community gold workflow).",
+    "Classical: measure centre and/or west–east edges on projected map.",
     "Asay-Davis et al. (Icarus 2009): ACCIV/CIV — correlation image velocimetry for cloud tracking.",
     "Simon et al. / Hubble OPAL: multi-year GRS size & drift; careful isophote/size definitions.",
     "IRAF STSDAS ellipse: multi-level elliptical isophote fitting (galaxy tradition applied to oval).",
@@ -49,7 +51,7 @@ LITERATURE_NOTES = [
     "Morphological bottom-hat / top-hat: enhance dark (or bright) compact features.",
     "Watershed on inverted band: catchment basin of GRS bowl.",
     "Multi-percentile ladder: definition sensitivity (small but real systematic).",
-    "N/S edges + W/E edges: full box extent (JUPOS-like length & width).",
+    "N/S edges + W/E edges: full box extent (oval length & width).",
     "Bounding box / convex hull centroids: discrete geometry alternatives.",
     "Hu / spatial moments order 0–2: shape-invariant centre estimates.",
     "Subpixel parabolic peak fit: standard refine after coarse argmin/argmax.",
@@ -93,7 +95,9 @@ def _subpixel_argmax(z: np.ndarray) -> Tuple[float, float]:
 def m_fwhm_lon(cyl, nav, lon_iii, lat) -> MethodHit:
     """Centre of FWHM of 1D longitude intensity cut at lat≈−22°."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=3.0)
-    row = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        row = np.nanmean(np.where(valid, band, np.nan), axis=0)
     row = np.nan_to_num(row, nan=np.nanmedian(row))
     sm = np.convolve(row, np.ones(5) / 5, mode="same")
     i0 = int(np.argmin(sm))
@@ -117,7 +121,9 @@ def m_fwhm_lon(cyl, nav, lon_iii, lat) -> MethodHit:
 def m_fwhm_lat(cyl, nav, lon_iii, lat) -> MethodHit:
     """Centre of FWHM of 1D latitude cut through darkest lon."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=10.0)
-    col_prof = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        col_prof = np.nanmean(np.where(valid, band, np.nan), axis=0)
     col_prof = np.nan_to_num(col_prof, nan=np.nanmedian(col_prof))
     ix = int(np.argmin(col_prof))
     col = band[:, ix].copy()
@@ -141,7 +147,9 @@ def m_fwhm_lat(cyl, nav, lon_iii, lat) -> MethodHit:
 def m_profile_gaussian_fit(cyl, nav, lon_iii, lat) -> MethodHit:
     """Gaussian fit to inverted 1D lon profile (subpixel μ)."""
     im, y0, y1, band, valid = _band_roi(cyl, lat, half=4.0)
-    row = np.nanmean(np.where(valid, band, np.nan), axis=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        row = np.nanmean(np.where(valid, band, np.nan), axis=0)
     row = np.nan_to_num(row, nan=float(np.nanmedian(row)))
     inv = np.max(row) - row
     inv = np.clip(inv - np.percentile(inv, 40), 0, None)
@@ -189,7 +197,7 @@ def m_multi_isophote(cyl, nav, lon_iii, lat) -> List[MethodHit]:
     return hits
 
 
-# ---------- N/S edges + box extent (JUPOS teaching lab) ----------
+# ---------- N/S edges + box extent ----------
 
 def m_box_extent(cyl, nav, lon_iii, lat) -> List[MethodHit]:
     """W/E/N/S edges of dark mask; box centre; length & width in deg."""
@@ -217,7 +225,7 @@ def m_box_extent(cyl, nav, lon_iii, lat) -> List[MethodHit]:
         MethodHit("EDGE_N", "edge", mid_lon, lat_n, weight=1.2, note="Northern lat edge of dark mask"),
         MethodHit("EDGE_S", "edge", mid_lon, lat_s, weight=1.2, note="Southern lat edge of dark mask"),
         MethodHit("BOX_C", "extent", mid_lon, mid_lat, L, W, weight=2.2,
-                  note="Bounding-box centre of dark mask (JUPOS-like extent)"),
+                  note="Bounding-box centre of dark mask (oval extent)"),
         MethodHit("BOX_LEN", "extent", mid_lon, mid_lat, L, W, weight=1.0,
                   note=f"Extent length={L:.3f}° width={W:.3f}° (logged as position=box centre)"),
     ]

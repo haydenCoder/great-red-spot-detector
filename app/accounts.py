@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-User identity + owner data log for GRS Observatory
+User identity + owner data log for Jupiter Great Red Spot Detector
 =================================================
 
 Optional name/email tag so owner logs show who ran the app.

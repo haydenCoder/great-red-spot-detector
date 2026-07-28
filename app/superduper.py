@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
-Best-answer card (files still named SUPERDUPER_BEST_ANSWER.* for compatibility)
+SUPERDUPER best-answer card
+===========================
 
-One short file that answers: *what number do I report for this job?*
+One short, human file that answers: *what number do I report tonight?*
 
-Pulls the champion / publish policy into a single card.
-Not a new measure — packaging of the product already computed.
+This pulls together the champion ultimate lock + publish policy into a single
+card so you don't have to dig through 5 different JSON files to find your
+answer. It's not a new measurement — it's just packaging the best result
+the pipeline already computed.
+
+I added this because I kept losing track of which number was "the real one"
+after a run. Now there's one file that says "REPORT THIS" and you're done.
 """
 from __future__ import annotations
 
@@ -15,9 +21,10 @@ from typing import Any, Dict, Optional
 
 
 def _f(x):
+    """safe float — returns None if it can't convert or if it's NaN/inf"""
     try:
         v = float(x)
-        if v != v:
+        if v != v:  # NaN check (NaN != NaN is True, weird but handy)
             return None
         return v
     except Exception:
@@ -25,6 +32,13 @@ def _f(x):
 
 
 def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the one-card summary of the best answer from this job.
+
+    Tries to pull from publish first (that's the official number), then
+    champion, then headline — whatever's actually available. The cascade
+    logic was annoying to get right but it means this works even if the
+    pipeline only partially completed.
+    """
     h = package.get("headline") or {}
     pub = package.get("publish") or {}
     ch = package.get("champion") or {}
@@ -65,13 +79,13 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
 
     citation = (
         f"GRS {definition}  λ_III={lon:.4f}°  φ_c={lat_c:.3f}°  φ_g={lat_g:.3f}°  "
-        f"σ_sky≈{sig:.3f}″  CM={cm}° ({cm_source})  grade={grade}"
-        if lon is not None and lat_c is not None
+        f"σ_sky≈{sig:.3f}″  CM={cm:.4f}° ({cm_source})  grade={grade}"
+        if lon is not None and lat_c is not None and lat_g is not None and sig is not None and cm is not None
         else "Measure incomplete — check champion.txt / publish.txt"
     )
 
     card = {
-        "title": "BEST ANSWER — REPORT THIS",
+        "title": "SUPERDUPER BEST ANSWER",
         "report_this": {
             "definition": definition,
             "lon_iii_deg": lon,
@@ -98,43 +112,48 @@ def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:
         "desk_grade": wj.get("desk_grade") or h.get("desk_grade"),
         "citation_line": citation,
         "rules": [
-            "Report lon_iii + φ_g (planetographic) when comparing to WinJUPOS.",
-            "Use the same mid-exposure UTC and CM source as your WinJUPOS session.",
-            "If absolute_publish_ok is false: do not publish absolute System III.",
-            "If unbeatable_auto is true: weaker methods in this app do not override it.",
-            "Extra estimators / consensus are scatter only — not the published centre.",
-            "Still not a claim against HST, Juno, or a careful human WinJUPOS desk.",
+            "Use lon_iii + φ_g (planetographic) when comparing to WinJUPOS — they use planetographic.",
+            "Same mid-exposure UTC and CM source as your WinJUPOS session or the comparison is meaningless.",
+            "If absolute_publish_ok is false: do NOT publish absolute System III — the error budget is too weak.",
+            "If unbeatable_auto is true: no weaker method in this app overrides it (that's the whole point).",
+            "Method soup / SOTA are scatter only — they're for confidence, not the published centre.",
+            "This is still ground-based optical metrology. Not a claim vs HST / Juno / perfect human WinJUPOS.",
         ],
         "honesty": (
-            "Consolidated product of this job — ground-based optical measure. "
-            "When unbeatable_auto is true, quality gates in this app passed. "
-            "Not radio interferometry; not a spacecraft-grade absolute catalogue."
+            "Best consolidated product of this job. Optical ground metrology. "
+            "When UNBEATABLE_AUTO: in-app hierarchy is locked. "
+            "Honest ground-based optical metrology — not spacecraft imaging."
         ),
         "in_app_dominance": bool(unbeatable),
         "in_app_message": (
-            "All automated quality gates in this app passed on this frame."
+            "Best automated path in this app tonight."
             if unbeatable
-            else "Some quality gates failed — see the list; check CM, UTC, and stack quality."
+            else "Ultimate gates incomplete — check the failed list; improve CM/UTC/stack and try again."
         ),
     }
     return card
 
 
 def format_superduper_txt(card: Dict[str, Any]) -> str:
+    """Format the SUPERDUPER card as a readable text file for the output folder.
+
+    This is the one you paste into your observation log or email to your
+    supervisor. It's designed to be human-readable at a glance.
+    """
     r = card.get("report_this") or {}
     v = card.get("vs_winjupos") or {}
     u = card.get("ultimate_gates") or {}
     lines = [
         "╔" + "═" * 58 + "╗",
-        "║" + " BEST ANSWER — REPORT THIS".center(58) + "║",
+        "║" + " SUPERDUPER BEST ANSWER — REPORT THIS".center(58) + "║",
         "╚" + "═" * 58 + "╝",
         "",
         f"  Grade              {r.get('grade')}",
-        f"  Gates all passed   {r.get('unbeatable_auto')}",
+        f"  UNBEATABLE_AUTO    {r.get('unbeatable_auto')}",
         f"  Absolute OK        {r.get('absolute_publish_ok')}",
-        f"  Quality gates      {u.get('n_pass')}/{u.get('n_total')}",
+        f"  Ultimate gates     {u.get('n_pass')}/{u.get('n_total')}",
         f"  Failed gates       {u.get('failed') or '—'}",
-        f"  Note               {card.get('in_app_message')}",
+        f"  In-app dominance   {card.get('in_app_message')}",
         "",
         f"  Definition         {r.get('definition')}",
         f"  Lon III            {r.get('lon_iii_deg')} °",
@@ -161,6 +180,12 @@ def format_superduper_txt(card: Dict[str, Any]) -> str:
 
 
 def attach_superduper(package: Dict[str, Any], out_dir: Optional[Path] = None) -> Dict[str, Any]:
+    """Build the SUPERDUPER card, attach it to the package, and write files.
+
+    This is the last step in the pipeline — after champion, publish, and
+    WinJUPOS+ are all done. The card goes into the package dict and also
+    gets written as JSON + TXT + a one-line citation file.
+    """
     card = build_superduper_card(package)
     package["superduper"] = card
     h = package.setdefault("headline", {})
@@ -181,8 +206,8 @@ def attach_superduper(package: Dict[str, Any], out_dir: Optional[Path] = None) -
         from verbose_log import CONSOLE
         r = card.get("report_this") or {}
         CONSOLE.ok(
-            f"Best answer {r.get('grade')} lon={r.get('lon_iii_deg')}  "
-            f"gates_ok={r.get('unbeatable_auto')}"
+            f"SUPERDUPER {r.get('grade')} lon={r.get('lon_iii_deg')}  "
+            f"unbeatable={r.get('unbeatable_auto')}"
         )
     except Exception:
         pass

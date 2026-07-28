@@ -1,6 +1,6 @@
 # Feature catalog (all product features)
 
-Generated: 2026-07-14T14:36:01.273961+00:00
+Updated: 2026-07-28 (v6.5.0 bug-fix audit + UI polish)
 
 This section lists **every user-facing and engineering feature** wired in the codebase.
 

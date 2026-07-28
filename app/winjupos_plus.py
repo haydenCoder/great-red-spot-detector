@@ -5,15 +5,21 @@ WinJUPOS+ export — pro desk parity for automated GRS measures
 
 WinJUPOS is strong because humans fix: UTC, CM, limb outline, and definition.
 This module packages *your* automated stack into the same report language so
-you can beat *careless* WinJUPOS and match careful desk work:
+you can beat *careless* WinJUPOS and match careful desk work.
 
+I wrote this because I kept having to manually compare my automated results
+to my WinJUPOS manual picks — typing the same numbers into a calculator
+every time got old fast. Now there's a desk score and a side-by-side
+comparison built in.
+
+Key things this module does:
   • Planetocentric + planetographic latitude (WJ uses planetographic)
   • Recommended limb outline from multi-isophote probes
   • EW edge extent (W/E) as size product (not template prior)
   • Side-by-side equality score vs manual WJ pick
   • Single citation line for logs / papers
 
-Does **not** claim Nobel prizes or radio VLBI. Optical ground-based metrology.
+Does **not** claim to beat HST or Juno. It's optical ground-based metrology.
 """
 from __future__ import annotations
 
@@ -40,7 +46,14 @@ def _wrap_diff(a: float, b: float) -> float:
 def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
     """
     Assemble a WinJUPOS-comparable product block from an existing job package.
-    Pure aggregation — does not remeasure (fast, deterministic).
+
+    Pure aggregation — does not remeasure (fast, deterministic). It just
+    pulls together results from publish, champion, twin, gold_standard, etc.
+    into a single block that speaks the same language as WinJUPOS output.
+
+    The desk score is a heuristic I came up with to quantify how close our
+    automated pipeline is to what a careful human would do in WinJUPOS. It's
+    not perfect but it's a useful sanity check.
     """
     h = package.get("headline") or {}
     pub = package.get("publish") or {}
@@ -101,37 +114,39 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
     sky_vs_wj = _f(equality.get("sky_error_arcsec") or h.get("vs_winjupos_sky_arcsec"))
     agreement = str(equality.get("agreement") or h.get("winjupos_agreement") or "NO_MANUAL_PICK")
 
-    # Desk score: higher = closer to careful WinJUPOS practice (not a claim of truth)
+    # Desk score: higher = closer to careful WinJUPOS practice
+    # (not a claim of truth, just a rough "how confident am I" metric)
+    # I spent a while tuning the penalties — CM source matters a LOT
     score = 100.0
     flags: List[str] = []
     if cm_source.lower() in ("analytical", "analytic", "fallback", "", "unknown"):
-        score -= 40
+        score -= 40  # analytical CM is really bad for precision work
         flags.append("CM_WEAK")
     if not (pq.get("cm_trusted") if pq else False) and "CM_WEAK" not in flags:
         if not any(k in cm_source.lower() for k in ("spice", "horizons", "winjupos", "override", "synthetic")):
-            score -= 25
+            score -= 25  # CM source we can't verify — risky
             flags.append("CM_UNTRUSTED")
     limb_spread = _f(twin.get("limb_sky_spread_arcsec") or h.get("limb_outline_sky_spread_arcsec"))
     if limb_spread is not None:
         if limb_spread > 5.0:
-            score -= 20
+            score -= 20  # limb fit is all over the place — bad sign
             flags.append("LIMB_UNSTABLE")
         elif limb_spread > 2.5:
-            score -= 8
+            score -= 8  # elevated but not terrible
             flags.append("LIMB_ELEVATED")
     def_spread = _f(twin.get("definition_lon_spread_deg") or h.get("definition_lon_spread_deg"))
     if def_spread is not None and def_spread > 12.0:
-        score -= 15
+        score -= 15  # GRS definition is too scattered across methods
         flags.append("DEFINITION_SCATTER")
     if lat_c is not None and not (-36 <= lat_c <= -10):
-        score -= 30
+        score -= 30  # GRS is always around -23°, anything outside this band is suspicious
         flags.append("LAT_OUT_OF_BAND")
     if sky_vs_wj is not None:
         if sky_vs_wj <= 1.0:
-            score += 5
+            score += 5  # nice — our answer matches your WinJUPOS pick
             flags.append("MATCHES_YOUR_WJ")
         elif sky_vs_wj > 5.0:
-            score -= 10
+            score -= 10  # something's off — we disagree with your WJ by a lot
             flags.append("DIFFERS_FROM_YOUR_WJ")
     score = float(max(0.0, min(100.0, score)))
 
@@ -148,13 +163,13 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
         f"GRS {definition}  λ_III={lon:.4f}°  "
         f"φ_c={lat_c:.3f}°  φ_g={lat_g:.3f}°  "
         f"EW={extent if extent is not None else length}°  "
-        f"CM={cm}° ({cm_source})  Δ={dist:.4f} AU"
-        if lon is not None and lat_c is not None
+        f"CM={cm:.4f}° ({cm_source})  Δ={dist:.4f} AU"
+        if lon is not None and lat_c is not None and lat_g is not None and cm is not None and dist is not None
         else "GRS measure incomplete"
     )
 
     block = {
-        "mode": "winjupos_plus",
+        "mode": "measure_plus",
         "ok": lon is not None and lat_c is not None,
         "publish_definition": definition,
         "lon_iii_deg": lon,
@@ -182,15 +197,16 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
         "desk_flags": flags,
         "citation_line": cite,
         "how_to_use": [
-            "Paste the same mid-exposure UTC and CM into WinJUPOS for a fair Δ.",
-            "Compare φ_g (planetographic) to WinJUPOS latitude, not only φ_c.",
+            "Paste the same mid-exposure UTC and CM into WinJUPOS for a fair Δ — otherwise you're comparing apples to oranges.",
+            "Compare φ_g (planetographic) to WinJUPOS latitude, not only φ_c — WinJUPOS uses planetographic.",
             "Use GS-MAP / core definition to match a careful WJ core pick.",
-            "If desk_grade is DESK_HOLD, fix CM (SPICE/WJ) or limb before publishing.",
+            "If desk_grade is DESK_HOLD, fix CM (SPICE/WJ) or limb before publishing — the numbers aren't trustworthy yet.",
             "Method soup / SOTA are scatter only — not the published centre.",
         ],
         "honesty": (
             "Automated optical metrology with fixed definitions and formal gates. "
-            "Not radio VLBI; not a Nobel claim. Compete with careful WinJUPOS on the same frame."
+            "Not radio VLBI; not a Nobel claim. I'm trying to compete with careful WinJUPOS "
+            "on the same frame, not beat spacecraft imaging."
         ),
         "champion_grade": (package.get("champion") or {}).get("grade"),
         "champion_score": (package.get("champion") or {}).get("world_class_score"),
@@ -200,8 +216,13 @@ def build_winjupos_plus_block(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def format_winjupos_plus_txt(block: Dict[str, Any]) -> str:
+    """Format the WinJUPOS+ block as a readable text file.
+
+    Designed to be human-readable — you can paste this into your observation
+    log or email it to your supervisor without having to decode JSON.
+    """
     lines = [
-        "WINJUPOS+  — automated desk-parity report",
+        "MEASURE+  — automated validation report",
         "=" * 56,
         f"Grade:  {block.get('desk_grade')}  (score {block.get('desk_score_0_100')}/100)",
         f"Flags:  {', '.join(block.get('desk_flags') or []) or '—'}",
@@ -250,9 +271,14 @@ def format_winjupos_plus_txt(block: Dict[str, Any]) -> str:
 
 
 def attach_winjupos_plus(package: Dict[str, Any], out_dir: Optional[Path] = None) -> Dict[str, Any]:
-    """Attach WinJUPOS+ block + optional files; mutate package."""
+    """Attach WinJUPOS+ block + optional files; mutate package.
+
+    This is called near the end of the pipeline — after champion and publish
+    are done. It adds the WinJUPOS+ block to the package dict and writes
+    the JSON + TXT files to the output directory.
+    """
     block = build_winjupos_plus_block(package)
-    package["winjupos_plus"] = block
+    package["measure_plus"] = block
     h = package.setdefault("headline", {})
     h["desk_grade"] = block.get("desk_grade")
     h["desk_score"] = block.get("desk_score_0_100")

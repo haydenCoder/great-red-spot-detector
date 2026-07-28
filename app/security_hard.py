@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GRS Observatory — security hardening (practical, not magic)
+Jupiter Great Red Spot Detector — security hardening (practical, not magic)
 
 Blocks common attack patterns relevant to this local Flask + desktop product:
 

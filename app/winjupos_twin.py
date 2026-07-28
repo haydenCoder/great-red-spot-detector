@@ -493,9 +493,9 @@ def format_twin_report(tr: TwinResult) -> str:
     ]
     for p in tr.limb_probes:
         lines.append(
-            f"  · {p.get('name')}: isophote={p.get('isophote_frac')}  "
-            f"a={p.get('a_eq_px'):.1f}px  lon={p.get('lon_iii_deg'):.4f}°  "
-            f"lat={p.get('lat_deg'):.4f}°"
+            f"  · {p.get('name', '—')}: isophote={p.get('isophote_frac', 0.0)}  "
+            f"a={p.get('a_eq_px', 0.0):.1f}px  lon={p.get('lon_iii_deg', 0.0):.4f}°  "
+            f"lat={p.get('lat_deg', 0.0):.4f}°"
         )
     lines.append("")
     lines.append("GRS DEFINITION (core vs edges) — YES this matters")

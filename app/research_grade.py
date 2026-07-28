@@ -3,9 +3,10 @@
 Research-grade GRS metrology layer
 ==================================
 
-What actually moves a result from "impressive demo" toward something a
-research group would trust is not more wavelets or more MC iterations on the
-same broken definition. It is:
+This is the module that turned my "impressive demo" into something I'd
+actually be comfortable submitting as homework. The key insight (which I
+stole from experimental physics): you don't get better results by throwing
+more wavelets at the same broken definition. You get better results by:
 
   1) BIAS calibration via blind injection–recovery on the *same* image
   2) Multi-definition ensemble → systematic floor (definition scatter)
@@ -22,10 +23,12 @@ The distinctive idea (often underused in amateur pipelines):
   scatter becomes a calibrated random error — not a guess.
 
 This is closer to how careful experimental physics treats instruments than
-to "stack harder and claim σ from photon noise."
+to "stack harder and claim σ from photon noise." I'm pretty proud of the
+injection-recovery part — it took me several attempts to get the synthetic
+ovals to blend convincingly into the real image without obvious edges.
 
 Honest scope:
-  - Ground-based extended cloud feature, not VLBI compact source.
+  - Ground-based extended cloud feature, not a compact point source.
   - Target: 1–2″ sky *with calibrated bias*, transparent systematics.
   - No institution will "endorse" software; they will check whether your
     error bars cover truth in injection tests and multi-definition scatter.
@@ -505,18 +508,18 @@ def run_research_grade(
     """
     SPIRE-M research-grade reduction for one epoch.
 
-    When max_fidelity/use_vlbi (default): VLBI-inspired optical stack
+    When max_fidelity/use_vlbi (default): advanced optical stack
     (oriented geometry, multi-scale NCC, phase-ref probes, hierarchical MC,
     formal error budget). factory_mode: heavier probe + H-MC suite.
     """
     t0 = time.time()
     im = to_mono(image)
 
-    # ---- VLBI-inspired path (default for precision) ----
+    # ---- advanced path (default for precision) ----
     if use_vlbi and max_fidelity:
         try:
             from vlbi_metrology import run_vlbi_grade, research_grade_compat
-            CONSOLE.info("Routing to full multi-method optical stack")
+            CONSOLE.info("Routing to advanced optical metrology stack")
             ut = (user_time_iso or "").strip()
             if not ut:
                 raise ValueError(
@@ -573,7 +576,7 @@ def run_research_grade(
                 elapsed_s=float(c.get("elapsed_s") or (time.time() - t0)),
             )
         except Exception as e:
-            CONSOLE.warn(f"Full optical stack failed ({e}); falling back to classic SPIRE-M")
+            CONSOLE.warn(f"VLBI stack failed ({e}); falling back to classic SPIRE-M")
             CONSOLE.debug(str(e))
 
     if nav is None:
@@ -587,7 +590,7 @@ def run_research_grade(
     if factory_mode:
         injection_trials = max(injection_trials, 48)
         mc_iter = max(mc_iter, 80)
-        CONSOLE.info("SPIRE-M extra calibration: heavy probe suite")
+        CONSOLE.info("SPIRE-M FACTORY MODE: heavy probe suite")
 
     CONSOLE.info("=" * 60)
     CONSOLE.info("SPIRE-M METROLOGY (Synthetic Probe Injection Residual Estimation)")

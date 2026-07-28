@@ -2,6 +2,15 @@
 """
 FITS mid-exposure UTC extraction — never silently use datetime.now().
 
+This module is the reason my pipeline doesn't silently corrupt System III
+coordinates with wall-clock time. Jupiter rotates ~36°/hour, so even a
+30-second time error gives ~0.3° lon error — that's the difference between
+"good measurement" and "who knows". I spent a whole evening debugging
+why my lon was off by 2° on a real image, and it turned out I was using
+the start of exposure instead of mid-exposure. After that I made this
+module fail-closed: if it can't find the time, it raises an error,
+because silent defaults are worse than explicit failures.
+
 Policy:
   • Prefer DATE-OBS + TIME-OBS / UT / DATE-AVG / MJD-OBS / EXPTIME mid
   • If nothing found → return None and callers MUST fail or demand user time

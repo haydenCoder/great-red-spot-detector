@@ -1,6 +1,6 @@
 {
-  "updated": "2026-07-27T14:11:22Z",
-  "kernel_dir": "/Users/haydenchung/Downloads/GREAT RED SPOT DETECTER/GRS_Observatory/app/ephemeris_data/spice",
+  "updated": "2026-07-27T16:31:07Z",
+  "kernel_dir": "/home/user/great-red-spot-detector/app/ephemeris_data/spice",
   "kernels": [
     "naif0012.tls",
     "pck00011.tpc",

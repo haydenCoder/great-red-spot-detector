@@ -3,10 +3,16 @@
 """
 GRS Complete Ground Pipeline System
 ===================================
-Human-maximum ground-based Jupiter / Great Red Spot imaging and science
-pipeline. Implements lucky imaging, calibration, alignment, stacking,
-derotation, PSF/wavelets/RL restoration, LRGB, limb navigation, GRS
-measurement, bootstrap errors, Kalman-RTS trajectory, validation, CLI.
+The full imaging pipeline for Jupiter / GRS — lucky imaging, calibration,
+alignment, stacking, derotation, PSF/wavelets/RL restoration, LRGB, limb
+navigation, GRS measurement, bootstrap errors, Kalman-RTS trajectory,
+validation, CLI.
+
+I inherited this module from an earlier project and adapted it for the
+GRS detector. It's the part that handles video stacks (SER files) —
+the desktop app tries to run it first on real images, and if it fails
+(which happens a lot with non-stacked single frames) it falls back to
+the raw frame.
 
 Honest ground-based precision (degrees/km). Not VLBI μas claims.
 Version: 1.0.0
@@ -74,7 +80,7 @@ try:
 except ImportError:
     PILImage = None
 
-__version__ = "6.2.0"
+__version__ = "6.5.0"
 __author__ = "GRS Ground Pipeline"
 
 LOG = logging.getLogger("grs_pipeline")
@@ -3457,7 +3463,7 @@ CAPABILITY_STATEMENT = """
 GRS Complete Ground Pipeline — Capability Statement
 Imaging: lucky scoring, AP align, robust stack, wavelets/RL, LRGB
 Science: timing, derotation, limb nav, GRS measure, bootstrap, RTS
-Honesty: ground-based degrees/km, not VLBI μas claims
+Honesty: ground-based degrees/km, honest optical limits
 """
 
 

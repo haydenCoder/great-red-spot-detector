@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JPL Horizons Jupiter *geometry* only (not a NASA GRS longitude catalog).
+JPL Horizons Jupiter geometry only — planet orientation, not a GRS position catalog.
 
 Reports YOUR measured GRS lon/lat/size as-is, plus real Horizons fields
 (distance, CM III, sub-observer lat, NP PA, light time). Does **not** invent
@@ -112,7 +112,7 @@ def fetch_horizons(t: dt.datetime, timeout: float = 10.0) -> Optional[Dict[str, 
     text = None
     for label, ctx in (("secure", _ssl_context()), ("unverified", ssl._create_unverified_context())):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "GRS-Observatory/6.1"})
+            req = urllib.request.Request(url, headers={"User-Agent": "GRS-Observatory/6.5"})
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
                 text = resp.read().decode("utf-8", errors="replace")
             if label == "unverified":

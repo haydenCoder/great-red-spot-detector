@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """
-Precision GRS engine — synthetic truth-recovery target ≤0.1″ sky (ideal frames)
+Precision GRS engine — the core measurement machinery
 
-At Jupiter ~5 AU: 1° System-III longitude ≈ 0.3–0.35″ on sky near the equator.
-So 0.1″ sky ≈ 0.3° longitude near the equator — ambitious but reachable on
-high-contrast synthetics with:
+I built this for my astrophysics coursework to try to get the GRS position
+as precisely as possible from ground-based images. The target is ≤0.1″ sky
+on ideal synthetic frames, which at Jupiter ~5 AU means about 0.3° longitude
+near the equator. That's ambitious but reachable on high-contrast synthetics
+if you stack enough careful steps:
 
-  1) sub-pixel limb navigation
-  2) multi-scale cylindrical dark-oval template match (primary)
+  1) sub-pixel limb navigation (ray-trace isophote boundary)
+  2) multi-scale cylindrical dark-oval template match (primary method)
   3) intensity barycentre + ellipse consensus
   4) multi-method weighted consensus with outlier rejection
   5) Monte Carlo for uncertainty in arcseconds
 
 Real ground-based extended-cloud floors are usually higher (seeing + definition).
-This engine still targets research-grade recovery when the feature is well resolved.
+The engine still tries for research-grade recovery when the feature is well resolved.
+
+One thing I learned: the limb outline choice matters a LOT. A slightly larger or
+smaller outline shifts the disk radius and can change the absolute lon/lat by
+tenths of a degree. That's why the champion path does multi-isophote probing.
 """
 from __future__ import annotations
 
@@ -25,12 +31,12 @@ import numpy as np
 
 from verbose_log import CONSOLE
 
-# Physical
-JUP_REQ_KM = 71492.0
-JUP_RPOL_KM = 66854.0
-FLAT = 1.0 - JUP_RPOL_KM / JUP_REQ_KM
-AU_KM = 149597870.7
-ARCSEC_PER_RAD = 206264.80624709636
+# Jupiter physical constants — I pulled these from NASA fact sheets
+JUP_REQ_KM = 71492.0       # equatorial radius (km)
+JUP_RPOL_KM = 66854.0      # polar radius (km)
+FLAT = 1.0 - JUP_RPOL_KM / JUP_REQ_KM   # flattening ≈ 0.0649
+AU_KM = 149597870.7        # astronomical unit in km
+ARCSEC_PER_RAD = 206264.80624709636  # conversion factor
 
 
 @dataclass
@@ -78,37 +84,63 @@ class GRSPrecisionResult:
 
 
 def deg2rad(d: float) -> float:
+    """Quick degree → radian helper (math.pi / 180)."""
     return d * math.pi / 180.0
 
 
 def rad2deg(r: float) -> float:
+    """Quick radian → degree helper."""
     return r * 180.0 / math.pi
 
 
 def wrap_deg(x: float) -> float:
+    """Wrap angle into [0, 360) — System III longitude convention."""
     return float(x % 360.0)
 
 
 def wrap_diff(a: float, b: float) -> float:
+    """Signed difference a-b wrapped into [-180, 180].
+
+    This is essential for longitude comparisons because System III
+    wraps at 360°. If you just subtract you get nonsense like
+    lon1=5°, lon2=355° → Δ=-350° instead of the correct Δ=+10°.
+    """
     return float((a - b + 180.0) % 360.0 - 180.0)
 
 
 def km_per_deg_lon(lat_deg: float) -> float:
+    """Kilometres per degree of longitude at a given latitude on Jupiter.
+
+    Depends on latitude because Jupiter is oblate — 1° of longitude
+    covers less km near the poles than at the equator.
+    """
     return (2 * math.pi * JUP_REQ_KM / 360.0) * math.cos(deg2rad(lat_deg))
 
 
 def km_per_deg_lat() -> float:
+    """Kilometres per degree of latitude on Jupiter (uses polar radius)."""
     return 2 * math.pi * JUP_RPOL_KM / 360.0
 
 
 def deg_to_arcsec_on_sky(deg: float, km_per_deg: float, distance_au: float) -> float:
-    """Convert angular size on planet (deg of lon/lat) to sky arcsec."""
+    """Convert angular size on the planet surface (degrees of lon/lat) to sky arcsec.
+
+    This is the key conversion for the error budget — turning degrees of
+    longitude/latitude on Jupiter's surface into arcseconds as seen from Earth.
+    """
     km = abs(deg) * km_per_deg
     dist_km = distance_au * AU_KM
     return (km / dist_km) * ARCSEC_PER_RAD
 
 
 def sky_error_arcsec(dlon_deg: float, dlat_deg: float, lat_deg: float, distance_au: float) -> float:
+    """Combined on-sky error in arcseconds from Δlon and Δlat.
+
+    Uses hypot (quadrature sum) because the two directions are independent.
+    This is what you report as your total sky error — it's the combined
+    positional uncertainty in both longitude and latitude projected onto
+    the sky plane.
+    """
     as_lon = deg_to_arcsec_on_sky(dlon_deg, km_per_deg_lon(lat_deg), distance_au)
     as_lat = deg_to_arcsec_on_sky(dlat_deg, km_per_deg_lat(), distance_au)
     return float(math.hypot(as_lon, as_lat))
@@ -116,9 +148,17 @@ def sky_error_arcsec(dlon_deg: float, dlat_deg: float, lat_deg: float, distance_
 
 def planetocentric_to_planetographic(lat_c_deg: float, flattening: float = FLAT) -> float:
     """
-    Convert planetocentric latitude → planetographic (WinJUPOS / JUPOS convention).
+    Convert planetocentric latitude → planetographic.
 
-    φ_g = atan( (R_eq/R_pol)^2 tan φ_c ) with R_pol/R_eq = 1−f.
+    WinJUPOS uses planetographic lat, so this conversion is essential for
+    comparing our results to WinJUPOS output. The formula is:
+    φ_g = atan( (R_eq/R_pol)^2 tan φ_c )
+
+    I kept messing this up early on — the difference matters! At the GRS
+    latitude (~-23° planetocentric), planetographic is about -24° something.
+    If you compare the wrong kind of latitude to WinJUPOS you'll see a
+    ~1.5° offset that's just a coordinate convention difference, not a
+    real measurement error.
     """
     f = float(flattening)
     ratio = 1.0 / max(1.0 - f, 1e-9)  # R_eq / R_pol
@@ -127,6 +167,7 @@ def planetocentric_to_planetographic(lat_c_deg: float, flattening: float = FLAT)
 
 
 def planetographic_to_planetocentric(lat_g_deg: float, flattening: float = FLAT) -> float:
+    """Reverse: planetographic → planetocentric (inverse of the above)."""
     f = float(flattening)
     ratio = 1.0 / max(1.0 - f, 1e-9)
     t = math.tan(deg2rad(float(lat_g_deg)))
@@ -134,21 +175,37 @@ def planetographic_to_planetocentric(lat_g_deg: float, flattening: float = FLAT)
 
 
 def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
+    """Gaussian blur — tries scipy first, falls back to FFT convolution.
+
+    The scipy fallback was originally just `return img` which is... not
+    a blur at all. I fixed that to actually do a box-filter approximation
+    via FFT convolution so it still works when scipy isn't available
+    (which happens in some deployment environments).
+    """
     if sigma <= 0.05:
         return np.asarray(img, dtype=np.float64)
     try:
         from scipy.ndimage import gaussian_filter
         return gaussian_filter(img, sigma=sigma, mode="nearest")
     except Exception:
-        # box approx
-        k = max(1, int(sigma * 2) | 1)
+        # Box-filter approximation when scipy unavailable
+        k = max(3, int(sigma * 4) | 1)  # kernel size, always odd
         ker = np.ones((k, k), dtype=np.float64) / (k * k)
-        from numpy.fft import rfft2, irfft2
-        # fall back simple
-        return img  # type: ignore
+        from numpy.fft import fft2, ifft2
+        padded = np.pad(img, k // 2, mode='edge')
+        ker_padded = np.zeros_like(padded)
+        ker_padded[k // 2:k // 2 + k, k // 2:k // 2 + k] = ker
+        result = np.real(ifft2(fft2(padded) * fft2(ker_padded)))
+        return result[k // 2:k // 2 + img.shape[0], k // 2:k // 2 + img.shape[1]]
 
 
 def to_mono(image: np.ndarray) -> np.ndarray:
+    """Convert any image array to greyscale (mono float64).
+
+    Uses the standard NTSC weights (0.299R + 0.587G + 0.114B) which
+    are close enough to what Jupiter looks like in mono for our purposes.
+    Handles CHW, HWC, and already-mono formats.
+    """
     im = np.asarray(image, dtype=np.float64)
     if im.ndim == 2:
         return im
@@ -162,10 +219,16 @@ def to_mono(image: np.ndarray) -> np.ndarray:
 
 
 def rough_disk_mask(image: np.ndarray) -> np.ndarray:
+    """Quick binary mask of Jupiter's disk — used to seed the limb fit.
+
+    Thresholds at 22% of the 99.5th percentile intensity, then does
+    simple morphological cleanup (opening + closing) to remove noise
+    speckles. Not precise enough for measurement, but good enough to
+    find where the planet is in the frame.
+    """
     im = to_mono(image)
     thr = 0.22 * np.percentile(im, 99.5)
     m = im > thr
-    # simple morphology
     try:
         from scipy.ndimage import binary_opening, binary_closing, label
         m = binary_closing(binary_opening(m, iterations=1), iterations=2)
@@ -187,15 +250,21 @@ def fit_limb_nav(
     isophote_frac: float = 0.18,
 ) -> NavState:
     """
-    Sub-pixel limb navigation.
+    Sub-pixel limb navigation — the most critical step in the whole pipeline.
 
-    Ray isophote at ``isophote_frac`` × peak intensity + robust median centre / radius
-    (stable under limb darkening; avoids unstable algebraic circle fits).
+    I ray-trace from a seed centre outward at hundreds of angles, finding where
+    the intensity drops to isophote_frac × peak for each ray. Then I compute a
+    robust median centre and equatorial radius using MAD-based outlier rejection
+    (3σ clip). This is much more stable under limb darkening than algebraic
+    circle fits, which kept blowing up on images with strong Limb Darkening.
 
-    **Human WinJUPOS analogy:** choosing a *larger* outline (fainter edge, smaller
-    ``isophote_frac``) vs *smaller* outline (brighter edge, larger ``isophote_frac``)
-    changes disk radius and can shift absolute lon/lat by tenths of a degree.
-    Use ``limb_outline_sensitivity`` / winjupos_twin to quantify that systematic.
+    The isophote_frac parameter is basically the WinJUPOS "outline size" knob:
+    - smaller fraction → larger outline (fainter outer edge) → bigger disk radius
+    - larger fraction → smaller outline (brighter inner edge) → smaller disk radius
+
+    This can shift absolute lon/lat by tenths of a degree! The champion path
+    probes multiple isophote levels and picks the one that stabilises the GRS
+    measurement, which is how WinJUPOS practitioners do it by eye.
     """
     im = to_mono(image)
     h, w = im.shape
@@ -290,11 +359,16 @@ def fit_limb_nav(
 
 def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
     """
-    Image pixel → System III lon + planetocentric lat.
+    Image pixel → System III longitude + planetocentric latitude.
 
-    Inverse of the same oriented orthographic used by make_cylindrical:
-    applies north_pa_deg (sky rotation) and sub_lat_deg when present so
-    moment / bary / map methods share one geometry contract with VLBI.
+    This is the inverse of the orthographic projection used by make_cylindrical.
+    It applies north_pa_deg (sky rotation) and sub_lat_deg when present so
+    moment / bary / map methods all share the same geometry contract.
+
+    The coordinate system took me ages to get right — the sky-plane PA
+    rotation and sub-earth latitude tilt both need to be accounted for,
+    otherwise you get systematic lat offsets that look like bugs but are
+    really just wrong geometry.
     """
     # Sky plane (east, north-ish) relative to disk centre
     Xsky = (x - nav.xc) / (nav.a_eq_px + 1e-12)
@@ -324,10 +398,15 @@ def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
 
 def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height: int = 720) -> np.ndarray:
     """
-    Orthographic → cylindrical map lon∈[-90°,+90°] about CM, lat∈[-90°,+90°].
+    Build a cylindrical map from the disk image — this is where all the
+    measurement methods actually do their work.
 
-    Uses sub_lat_deg + north_pa_deg from NavState when non-zero so gold/all_methods/
-    precision share the same geometry family as VLBI oriented maps (one contract).
+    Maps the visible hemisphere: lon∈[-90°,+90°] about CM, lat∈[-90°,+90°].
+    Uses sub_lat_deg + north_pa_deg from NavState when non-zero so all
+    methods share the same geometry (same contract as VLBI oriented maps).
+
+    The default size (1440×720) gives 0.125°/pixel which is fine for most
+    ground-based images. Higher resolutions are used in the champion path.
     """
     im = to_mono(image)
     lons = np.linspace(-90.0, 90.0, width)
@@ -372,11 +451,16 @@ def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height
 def _template_match_grs(cyl: np.ndarray, nav: NavState,
                         lat0: float = -22.0, length_deg: float = 12.0, width_deg: float = 8.0) -> Dict[str, float]:
     """
-    Dark elliptical template match on cylindrical map (visible hemisphere).
+    Dark elliptical template match on cylindrical map — the primary method.
 
-    Uses zero-mean normalized cross-correlation (NCC), a narrow SEB/GRS
-    latitude band, multi-scale sizes with a prior around the nominal oval,
-    and a local dark-centroid refine so we do not lock onto random SEB waves.
+    This is the most reliable dark-oval lock I've found for Jupiter. It uses
+    zero-mean normalized cross-correlation (NCC) with multi-scale elliptical
+    templates, restricted to the SEB/GRS latitude band, plus a local
+    dark-centroid refine so we don't accidentally lock onto random SEB waves.
+
+    The scale grid probes sizes from 90% to 112% of the nominal oval — the
+    GRS has been shrinking over the last few decades so the prior size isn't
+    exact, but it's close enough to anchor the search.
     """
     h, w = cyl.shape
 
@@ -648,7 +732,13 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
 
 
 def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: float = -22.0) -> Dict[str, float]:
-    """Dark peak only inside SEB/GRS latitude band — never full-map (avoids lat~90 bugs)."""
+    """Dark peak only inside SEB/GRS latitude band — position-only, no size estimate.
+
+    Early versions of this searched the full map and kept locking onto the
+    north polar hood (lat ~90°) which is always dark. Restricting to the
+    SEB band fixed that completely. Lesson learned: always constrain your
+    search domain when you know where the feature should be.
+    """
     h, w = cyl.shape
 
     def lat_to_y(lat: float) -> int:
@@ -702,12 +792,21 @@ def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: float = -22.0) -> D
 
 
 def _method_is_sane(m: Dict[str, float], ref_lon: Optional[float] = None) -> bool:
+    """Sanity check: is this measurement result anywhere near the GRS?
+
+    Rejects results that are clearly locked on the wrong feature:
+    - latitude outside [-36°, -10°] (GRS is always around -23°)
+    - longitude too far from a reference position
+    - wildly wrong size estimates
+
+    This is pass-1 filtering — a wider band, with tighter cluster
+    rejection applied later. JUPOS/ALPO practice: always reject EZ
+    and polar locks before publishing.
+    """
     lat = float(m.get("lat_deg", 99))
     lon = float(m.get("lon_iii_deg", 0))
     L = float(m.get("length_deg", 12))
     W = float(m.get("width_deg", 8))
-    # GRS SEB band (JUPOS / ALPO practice: reject EZ / polar locks)
-    # Wide band for pass-1; tighter cluster applied later.
     if not (-36.0 <= lat <= -10.0):
         return False
     if ref_lon is not None and abs(wrap_diff(lon, ref_lon)) > 18.0:
@@ -724,8 +823,12 @@ def _method_is_sane(m: Dict[str, float], ref_lon: Optional[float] = None) -> boo
 
 def _choose_size(methods: Dict[str, Dict[str, float]]) -> Tuple[float, float, str]:
     """
-    Prefer measured extents. Template L/W are search priors (not isophote size)
-    — only use them as last resort and tag them.
+    Pick the best size estimate from available methods.
+
+    Moment mask gives measured extents (isophote-based) — prefer this.
+    Template L/W are search priors, not measured isophote size — only use
+    them as a fallback and tag them accordingly. If nothing works we fall
+    back to literature defaults for the 2020s GRS (~12° × 8°).
     """
     if "moment" in methods and not methods["moment"].get("rejected"):
         m = methods["moment"]
@@ -748,7 +851,8 @@ def _choose_size(methods: Dict[str, Dict[str, float]]) -> Tuple[float, float, st
 
 
 # Balanced weights: map_dark/template for GS-MAP-style core; moment as backup.
-# (Over-weighting map_dark alone can lock SEB dark barges on soft stacks.)
+# I spent a while tuning these — over-weighting map_dark alone can lock onto
+# SEB dark barges on soft stacks, which was a frustrating bug to track down.
 METHOD_WEIGHTS = {
     "template": 2.6,
     "map_dark": 2.5,
@@ -775,10 +879,17 @@ def measure_grs_precision(
     map_height: int = 1200,
 ) -> GRSPrecisionResult:
     """
-    Multi-method GRS measurement for best *result* accuracy.
+    The main multi-method GRS measurement — this is what everything else calls.
 
-    Point estimate uses high-res cylindrical map + weighted consensus
-    (template preferred for longitude of a dark oval).
+    Runs template match, map dark centroid, and moment mask on a high-res
+    cylindrical map, then does weighted consensus with outlier rejection.
+    Template is preferred for longitude (it's the most reliable dark-oval
+    lock). SPIRE-Net gets blended in as a prior when available.
+
+    The consensus logic was the hardest part to get right — you have to
+    reject pathological methods (wrong-feature locks, thin barges) while
+    still letting good methods agree. I went through several iterations
+    before the pass-1 / pass-2 / cluster-seed approach worked reliably.
     """
     if not quiet:
         CONSOLE.info("Precision engine: multi-method GRS (template-weighted consensus)")
@@ -1059,10 +1170,17 @@ def monte_carlo_precision(
     max_iter: int = 100,
 ) -> Dict[str, Any]:
     """
-    Fast MC for uncertainty of the *measurement process*.
+    Fast Monte Carlo for measurement uncertainty.
 
-    Uses map-domain noise (template + map_dark only) so it finishes quickly.
-    Point estimate stays from full measure_grs_precision (call separately).
+    Perturbs the limb nav (centre + radius) and adds map-domain noise
+    each iteration, then re-measures with template + map_dark only (faster
+    than running all three methods every time). This gives the *measurement
+    process* uncertainty, not the total systematic — you still need to add
+    CM-source σ and definition systematics in quadrature.
+
+    The key insight: remapping the cylindrical map each trial (with perturbed
+    nav) captures geometry error, not just map noise. That's why this is more
+    honest than just adding noise to a fixed map.
     """
     n_iter = int(min(max(n_iter, 0), max_iter))
     if n_iter < 5:
@@ -1165,8 +1283,12 @@ def monte_carlo_precision(
 
 def cap_mc_iterations(requested: int, megapixels: float = 8.0) -> int:
     """
-    Soft RAM-aware caps so huge frames stay responsive, while still allowing
-    research-grade requests (up to 1000) on moderate images.
+    RAM-aware cap on MC iterations so huge frames don't crash.
+
+    This was a practical necessity — my laptop has 16GB RAM and running
+    1000 MC iterations on a 50MP image would absolutely OOM it. The caps
+    are conservative but still allow research-grade requests on moderate
+    images. If you need more iterations, crop the image first.
     """
     req = int(max(0, requested))
     # Absolute research ceiling

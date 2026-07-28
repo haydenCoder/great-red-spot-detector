@@ -3,9 +3,12 @@
 VLBI-inspired advanced metrology for ground-based GRS photography
 ================================================================
 
-Literal radio VLBI reaches microarcseconds on *compact* continuum sources with
-baselines of Earth diameter, phase referencing, and delay models. An optical
-photo of an extended cloud feature cannot match that floor.
+I want to be clear: we are NOT doing real VLBI here. Real VLBI reaches
+microarcseconds on compact sources with baselines spanning Earth's diameter,
+phase referencing, and delay models. An optical photo of an extended cloud
+feature on Jupiter cannot match that floor — we're talking arcseconds, not
+microarcseconds. The "VLBI" label here refers to the *methodology*, not the
+resolution.
 
 This module brings the *methodology* of high-end interferometric metrology to
 lucky-imaging / high-res planetary work:
@@ -27,7 +30,7 @@ Honest optical envelope (ground-based extended feature):
     **1–2″ absolute** when ephemeris/CM are approximate; tighter if SPICE/Horizons
     orientation is supplied.
 
-Naming: "VLBI-grade" = VLBI *methods* applied to planetary imaging, not μas claims.
+Naming: "Advanced-grade" = advanced methods applied to planetary imaging, not microarcsecond claims.
 """
 from __future__ import annotations
 
@@ -170,7 +173,7 @@ class ErrorBudget:
 
 @dataclass
 class VLBIResult:
-    """Publication product — VLBI-inspired ground optical metrology."""
+    """Publication product — Advanced ground-based optical metrology."""
     lon_iii_deg: float
     lat_deg: float
     lat_planetographic_deg: float
@@ -1433,7 +1436,7 @@ def assemble_formal_budget(
 
 
 def optical_diffraction_floor_arcsec(diameter_m: float = 0.35, wavelength_nm: float = 550.0) -> float:
-    """λ/D in arcsec — absolute hard floor for a filled aperture (not VLBI baseline)."""
+    """λ/D in arcsec — absolute hard floor for a filled aperture."""
     return 206265.0 * (wavelength_nm * 1e-9) / max(diameter_m, 0.05)
 
 
@@ -1478,7 +1481,7 @@ def run_vlbi_grade(
     use_pro_ephemeris: bool = True,
 ) -> VLBIResult:
     """
-    Full VLBI-inspired optical metrology reduction for one epoch.
+    Full advanced optical metrology reduction for one epoch.
 
     Absolute System III uses professional ephemeris chain when available:
     override → WinJUPOS → SPICE → Horizons full → analytical.
@@ -1491,7 +1494,7 @@ def run_vlbi_grade(
         CONSOLE.info("VLBI FACTORY MODE: heavy probe + hierarchical MC suite")
 
     CONSOLE.info("=" * 64)
-    CONSOLE.info("VLBI-INSPIRED OPTICAL METROLOGY (ground-based planetary)")
+    CONSOLE.info("ADVANCED OPTICAL METROLOGY (ground-based planetary)")
     CONSOLE.info("Methods: pro-eph · oriented geom · multiscale NCC · phase-ref · H-MC · formal σ")
     CONSOLE.info(f"probes={injection_trials}  H-MC={mc_iter}  aperture={aperture_m}m")
 
@@ -1606,7 +1609,7 @@ def run_vlbi_grade(
     lat_g = planetocentric_to_planetographic(lat)
 
     notes = [
-        "VLBI-inspired optical metrology — methods, not microarcsecond claims.",
+        "advanced optical metrology — methods, not microarcsecond claims.",
         "Primary centre: multi-scale NCC on μ-corrected oriented cylindrical map.",
         "Phase-reference probes use the same correlator; bias capped if unphysical.",
         "Formal σ = random ⊕ definition ⊕ nav ⊕ time ⊕ ephemeris_CM ⊕ bias_unc (±½ closure).",
@@ -1682,7 +1685,7 @@ def write_vlbi_bundle(path: Path, result: VLBIResult, extra: Optional[Dict[str, 
     txt = path.with_suffix(".txt")
     eb = result.error_budget
     lines = [
-        "VLBI-INSPIRED OPTICAL GRS METROLOGY REPORT",
+        "ADVANCED OPTICAL GRS METROLOGY REPORT",
         "=" * 56,
         f"Mode: {result.mode}",
         f"Grade: {result.grade}",

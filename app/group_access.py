@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Usage log for every person who runs GRS Observatory
+Usage log for every person who runs Jupiter Great Red Spot Detector
 ===================================================
 
 No password. Every major action is appended so the owner can see who used

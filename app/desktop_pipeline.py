@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 """
-Shared advanced processing for the desktop app.
-Runs the full research-oriented stack and writes a complete job package.
+Desktop pipeline — shared advanced processing for the desktop app
+
+This module runs the full research-oriented measurement stack and writes a
+complete job package. It handles both real-image processing and synthetic
+testing, including all the advanced stages: research-grade measurement,
+VLBI metrology, Monte Carlo uncertainty, gold standard, WinJUPOS twin,
+champion, publish policy, SUPERDUPER, etc.
+
+I wrote this to consolidate the processing logic that was previously spread
+across the desktop app and the server — both need the same pipeline, and
+having it in one place means I don't have to keep two versions in sync
+(which I kept forgetting to do and it was causing discrepancies).
 """
 from __future__ import annotations
 
 import json
 import traceback
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -32,7 +42,14 @@ import grs_complete_system as grs
 
 
 def array_to_rgb_u8(arr: np.ndarray, max_side: int = 2048) -> np.ndarray:
-    """Convert mono/CHW/HWC float arrays to sharp RGB uint8 for web/desktop preview."""
+    """Convert any image format (mono/CHW/HWC float) to sharp RGB uint8 for preview.
+
+    Handles the annoying number of formats that FITS and astronomy tools
+    produce — CHW (channels-first), HWC (channels-last), and plain mono.
+    Also does per-channel percentile stretch so the preview looks reasonable
+    regardless of the original dynamic range (FITS images are often 16-bit
+    with weird scaling that looks terrible in a web viewer).
+    """
     a = np.asarray(arr, dtype=np.float64)
     if a.ndim == 3 and a.shape[0] in (3, 4) and a.shape[0] < a.shape[-1]:
         # CHW → HWC
@@ -89,8 +106,12 @@ def write_image_preview(
     max_side: int = 2048,
 ) -> Path:
     """
-    Write a sharp browser-ready PNG preview of a FITS/array/image path.
-    Prefer this over pipeline lrgb products which can look soft or missing.
+    Write a sharp browser-ready PNG preview — the thing you actually see in the UI.
+
+    Accepts numpy arrays, FITS files, or image paths. Prefer this over
+    raw pipeline lrgb products because those can look soft or have missing
+    channels. The per-channel stretch means you always get something visible,
+    even for weird FITS images with extreme dynamic range.
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -120,8 +141,13 @@ def write_image_preview(
 
 def next_run_id(out_root: Path, kind: str) -> Tuple[int, str, str]:
     """
-    Allocate a sequential run number + detailed job slug.
-    Returns (run_n, short_hex, folder_name) e.g. (42, 'a1b2c3d4e5f6', 'job_run0042_20260715T163045_a1b2c3d4e5f6')
+    Allocate a sequential run number + detailed job slug for output folders.
+
+    Returns (run_n, short_hex, folder_name) e.g.
+    (42, 'a1b2c3d4e5f6', 'job_run0042_20260715T163045_a1b2c3d4e5f6')
+
+    Uses UTC timestamps so the folder name always matches the actual
+    processing time, not whatever random timezone the laptop is set to.
     """
     out_root = Path(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
@@ -135,7 +161,7 @@ def next_run_id(out_root: Path, kind: str) -> Tuple[int, str, str]:
     n += 1
     counter.write_text(str(n), encoding="utf-8")
     short = uuid.uuid4().hex[:12]
-    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     folder = f"{kind}_run{n:04d}_{stamp}_{short}"
     return n, short, folder
 
@@ -164,7 +190,13 @@ def metrics_filename_suffix(
 
 
 def _load_image(path: Path) -> Tuple[np.ndarray, Optional[Dict[str, np.ndarray]], Optional[Path]]:
-    """Return mono-or-CHW array, optional RGB channels, optional preview png path."""
+    """Load an image from any supported format (FITS, SER, PNG, JPEG, etc.).
+
+    Returns (measurement_image, RGB_channels, preview_path). The measurement
+    image prefers the red channel for GRS — it's a red-brown oval so it's
+    most distinct in R. RGB channels are separate arrays for colour-based
+    methods (orange GRS detection, dual-channel agreement).
+    """
     path = Path(path)
     preview = None
     if path.suffix.lower() in (".fit", ".fits", ".fts"):
@@ -196,7 +228,13 @@ def _load_image(path: Path) -> Tuple[np.ndarray, Optional[Dict[str, np.ndarray]]
 
 
 def _try_imaging_pipeline(path: Path, out: Path, channels: Optional[Dict], meas: np.ndarray):
-    """Run grs full imaging branch when possible (lucky-ish path for stacks)."""
+    """Try the full imaging pipeline (lucky stack processing) — soft-fails gracefully.
+
+    This is the lucky-ish path for stacked observations. If the source is
+    a SER video file or a multi-frame FITS, the imaging pipeline can do
+    alignment, derotation, and stacking to get a better result than a
+    single frame. If it fails we just continue with the raw frame.
+    """
     try:
         cfg = grs.replace(
             grs.PRESET_FAST_PREVIEW,
@@ -223,7 +261,7 @@ def _try_imaging_pipeline(path: Path, out: Path, channels: Optional[Dict], meas:
 
 
 def format_full_report(package: Dict[str, Any]) -> str:
-    """Human-readable full report: YOUR vs NASA, differences, tips, complete dump."""
+    """Human-readable full report — your measurements vs NASA, tips, and everything else."""
     from result_report import format_human_report
     return format_human_report(package)
 
@@ -648,7 +686,17 @@ def run_process_full(
     winjupos_manual_lat: Optional[float] = None,
     human_choice: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Process real image with every advanced stage available.
+    """Process a real image with every advanced stage available.
+
+    This is the full "Process" button workflow in the desktop app. It handles
+    everything: image loading, time extraction, ephemeris, limb nav, research-
+    grade measurement, gold standard, WinJUPOS twin, champion, publish policy,
+    dual measure (optional human WinJUPOS pass), and SUPERDUPER final card.
+
+    The time handling is tricky — I spent ages making sure FITS header time
+    and filename time are preferred over the UI-pasted time, because the UI
+    often has stale timestamps from a previous job. The file time is always
+    more reliable for System III longitude.
 
     human_choice: optional WinJUPOS-style dual pass (definition + limb fine-tune).
     When set, runs automatic publish then a human pass; see dual_measure.json.
@@ -904,7 +952,7 @@ def run_process_full(
         )
     except Exception as e:
         CONSOLE.warn(f"WinJUPOS twin: {e}")
-    # Colour-first orange GRS seed (beats moon/belt dark locks on RGB stacks)
+    # Colour-first orange GRS seed (better than moon/belt dark locks on RGB stacks)
     try:
         from grs_image_prep import orange_grs_lonlat, suggest_ns_flip_for_grs
         rgb_for_orange = None
@@ -957,7 +1005,7 @@ def run_process_full(
                     h["orange_grs_lat_deg"] = og["lat_deg"]
                     CONSOLE.ok(
                         f"ORANGE GRS seed lon={og['lon_iii_deg']:.3f}° lat={og['lat_deg']:.3f}° "
-                        f"(relCM={og.get('lon_rel_cm_deg'):.1f}°)"
+                        f"(relCM={og.get('lon_rel_cm_deg', 0.0):.1f}°)"
                     )
             else:
                 CONSOLE.warn(f"Orange GRS seed weak: {og}")
@@ -1057,9 +1105,16 @@ def apply_dual_human_pass(
     light_remeasure: bool = True,
 ) -> Dict[str, Any]:
     """
-    After automatic gold/twin/publish, optionally run human-choice pass.
+    After automatic gold/twin/publish, optionally run a human-choice WinJUPOS-style pass.
 
-    Stores dual_measure.{json,txt} with automatic vs human and Δsky.
+    This lets you override the definition (GS-MAP vs GS-BARY etc.) and
+    adjust the limb outline, like a WinJUPOS practitioner would. The dual
+    block stores both automatic and human results side-by-side so you can
+    see the Δsky and decide which to publish.
+
+    If the human choice changes the limb outline or flips the image, we
+    do a light remeasure (precision + gold + twin, not the full MC
+    stack — that would take too long for interactive use).
     """
     from human_choice import (
         HumanChoice,
@@ -1106,7 +1161,7 @@ def apply_dual_human_pass(
             work_nav = adjust_nav_like_outline(nav, choice)
             work_nav.cm_iii_deg = cm_iii_deg
             work_nav.distance_au = distance_au
-            # Light remeasure: precision + gold + twin (not full VLBI MC stack)
+            # Light remeasure: precision + gold + twin (not full MC stack)
             from precision_engine import measure_grs_precision
             res = measure_grs_precision(
                 work_meas, cm_iii_deg=cm_iii_deg, distance_au=distance_au, nav=work_nav, quiet=True

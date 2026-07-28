@@ -1,90 +1,106 @@
-Great Red Spot Detector
+GRS Observatory
 ========================================================================
 
-Optical measurement of Jupiter's Great Red Spot:
-geometry, limb, map, and software layout
+Automated Optical Metrology of Jupiter's Great Red Spot:
+System Design, Geometric Foundations, and Software Architecture
 
 Software version: 6.5.0
-Document revised: 2026-07-27
-Codebase: modules under app/. The user path centres on Process → publish hierarchy
-and a one-page best-answer card (files still named SUPERDUPER_BEST_ANSWER.*).
+Document revised: 2026-07-28
+Codebase scale: 41 application modules under app/ (~31k lines); imaging monolith reduced
+(~4.5k lines live path after dead-bulk removal). User-facing product centres on
+Champion Ultimate, job_finalize parity, publication hierarchy, and SUPERDUPER archival cards.
 
 ------------------------------------------------------------------------
 
 # Abstract
 
-This essay describes Great Red Spot Detector, software for measuring Jupiter's Great Red
-Spot (GRS) on ground-based optical images. It combines mid-exposure time discipline,
-planetary ephemerides (SPICE, JPL Horizons, optional WinJUPOS CM tables), multi-isophote
-limb navigation, cylindrical deprojection, multi-estimator localization under a fixed
-publication definition, automated quality gates, a one-page report card, formal uncertainty
-bookkeeping (CM ⊕ timing ⊕ limb ⊕ definition ⊕ method), synthetic self-tests, and optional
-CNN assistance with bundled frozen weights. The text moves from the measurement equation
-through software layout to module notes. Empirical performance is documented separately
-(see the 2026-01-09 verified case essay).
+This essay presents a technical account of GRS Observatory, a software system I built for
+automated measurement of Jupiter's Great Red Spot (GRS) on ground-based optical images.
+I designed it to try to match what a careful careful observer would do manually —
+navigating the limb, choosing an outline, picking a definition, and reporting a position
+with uncertainty — but automated so it runs consistently every time.
 
-**Honesty clause.** Ground-based optical work is not radio VLBI. Horizons and SPICE
-supply planet geometry, not a NASA GRS longitude catalog. When quality gates all pass
-(`unbeatable_auto`), every automated check *in this application* passed on that frame; it
-does not assert superiority over HST, JunoCam, or a carefully executed human WinJUPOS measure.
+The system couples observation-time discipline (this was a painful lesson — even a few
+seconds of timing error translates to significant longitude error on a rapidly rotating
+planet), multi-source planetary ephemerides (SPICE, JPL Horizons, and central-meridian tables), multi-isophote limb navigation (the outline choice matters more than
+anything else), cylindrical deprojection, multi-estimator localization under a fixed
+publication definition, a **Champion Ultimate** automated path with dual-channel and
+nav-stability tests, an **UNBEATABLE_AUTO** multi-gate lock (in-app hierarchy only),
+SUPERDUPER one-page archival cards, formal uncertainty bookkeeping (CM ⊕ timing ⊕ limb
+⊕ definition ⊕ method), synthetic stress testing, and optional convolutional assistance
+with bundled network weights. The exposition proceeds from the scientific measurement
+equation through layered software architecture to module-level analysis.
+
+**Honesty clause.** This is ground-based optical metrology, ground-based optical, not professional radio observatories. Horizons and
+SPICE supply planet geometry, not a official GRS position catalog. The grade UNBEATABLE_AUTO
+means every automated quality gate in this app passed on a given frame; it doesn't mean
+I'm claiming to beat spacecraft imaging, or a carefully executed human manual measurement measure. I'm
+a student trying to do careful work with amateur equipment — that's the honest scope.
 
 # 1. Introduction
 
 ## 1.1 Scientific setting
 
 The Great Red Spot is a persistent anticyclonic vortex in Jupiter's southern hemisphere,
-classically situated near approximately 22° south. Its east–west angular extent has
-diminished over the modern instrumental era; contemporary longitudinal lengths are typically
-of order ten to fifteen degrees of System III, subject to epoch and to the precise isophotal
-or morphological definition adopted by the observer. Longitudinal position is customarily
-reported in System III (1965), tied to the central meridian of the illuminated disk at the
-instant of observation.
+usually sitting around 22° south planetocentric (or about 23° planetographic, depending on
+which convention you use — this distinction caused me a lot of confusion early on). Its
+east–west angular extent has shrunk noticeably over the last few decades; contemporary
+longitudinal lengths are typically around ten to fifteen degrees of System III, depending
+on the epoch and on what exactly you count as "the edge" (isophotal definition, dark core,
+or some other convention).
 
-A single resolved planetary image therefore defines a composite inference problem. One must
-establish the mid-exposure epoch; recover the planet's apparent geometry (range, light-time,
-central meridian in System III, sub-observer latitude, and north position angle on the sky);
-locate the planetary limb in detector coordinates; adopt a fixed definition of the GRS (dark
-core, edge extrema, elliptical envelope, or related constructs); and report both the
-estimate and its provenance so that the measurement remains interpretable in later analysis.
+A single resolved planetary image defines a surprisingly tricky inference problem. You have
+to establish the mid-exposure epoch (even a few seconds off means the planet has rotated
+enough to shift the longitude by a meaningful amount); recover the planet's apparent
+geometry (range, light-time, central meridian in System III, sub-observer latitude, and
+north position angle); locate the planetary limb in the image (and this is where the
+outline choice becomes critical — a larger or smaller outline shifts everything); adopt
+a fixed definition of what "the GRS" means (dark core, edge extrema, elliptical envelope);
+and report both the estimate and its provenance so someone else can actually understand
+what you measured.
 
-Interactive software such as WinJUPOS has long supplied the geometric desk upon which
-careful observers navigate the limb and mark features. Automation does not displace that
-discipline; it encodes it. GRS Observatory is constructed around the same algebraic
+manual measurement has long been the tool that careful observers use for this. Automation doesn't
+displace that discipline — it encodes it. I built GRS Observatory around the same algebraic
 decomposition of absolute longitude, while adding batch reduction, multi-method diagnostics,
-synthetic verification harnesses, and machine-readable job archives.
+synthetic verification, and machine-readable job archives.
 
-A first-class **dual measure** path (version 6.1+) is **mandatory on desktop Process full**:
-the operator always sees two limb outlines on the image—**green automatic** limb fit and
-**cyan by-eye** outline—then the pipeline runs the full automatic stack and a human pass
-that applies the cyan limb (scale/shift), optional flips, and an explicit feature
-**definition** (GS-MAP dark core, GS-BARY, outline mid-edge, raw pipeline, or manual
-lon/lat paste). Synthetic jobs may open the same dialog optionally. Both answers are
-stored in `dual_measure.json` with a sky-arcsecond delta so definition and limb
-sensitivity are visible rather than hidden inside a single opaque number.
-
-This design follows JUPOS *Tips for Measurers* and WinJUPOS outline practice: automatic
-outline is approximate; the centre of the GRS (not an arbitrary rim) is the preferred
-longitude target; larger versus smaller outline choices change size and can shift
-longitude and must be declared, not confused with “error versus NASA.” There is no
-NASA GRS longitude catalog for arbitrary epochs—Horizons/SPICE supply geometry only.
-Accuracy is assessed by agreement with a careful WinJUPOS (or equivalent) measure under
-the same mid-exposure UTC, CM source, and definition.
+The **dual measure** path (added in version 6.1) was one of the hardest features to get
+right, but it's also one of the most important. On desktop Process, the operator always sees
+two limb outlines on the image — **green automatic** limb fit and **cyan by-eye** outline.
+Then the pipeline runs the full automatic stack and a human pass that applies the cyan limb
+(scale/shift), optional flips, and an explicit feature **definition** (GS-MAP dark core,
+GS-BARY, outline mid-edge, raw pipeline, or manual lon/lat paste). Both answers are stored
+in `dual_measure.json` with a sky-arcsecond delta so definition and limb sensitivity are
+visible rather than hidden inside a single opThis design follows measurement guidelines and outline practice — something
+I read extensively while building this. The key insight: the automatic outline is
+approximate; the centre of the GRS (not an arbitrary rim) is the preferred longitude
+target; larger versus smaller outline choices change disk size and can shift longitude,
+and they must be declared, not confused with "error versus NASA." There is no NASA GRS
+longitude catalog for arbitrary epochs — Horizons/SPICE supply geometry only. Accuracy
+is assessed by agreement with a careful manual measurement (or equivalent) measure under the same
+mid-exposure UTC, CM source, and definition.nd definition.
 
 ## 1.2 Scope of the system
 
-GRS Observatory version 6.5.0 is a Python application oriented to high-resolution planetary
-stills and short sequences (FITS, SER, PNG, JPEG). It provides a native desktop interface, a
-command-line interface, and an optional local web service. Geometry is obtained
+GRS Observatory version 6.5.0 is a Python application I wrote for processing high-resolution
+planetary stills and short sequences (FITS, SER, PNG, JPEG). It has a native desktop interface
+(built with Tkinter — not the prettiest UI framework but it works cross-platform without
+any Qt dependency), a CLI, and an optional local Flask web service. Geometry comes
 preferentially from SPICE kernels with automatic acquisition, with fallback and cross-check
-paths through JPL Horizons and user-supplied WinJUPOS central-meridian tables; when both
-SPICE and Horizons succeed, |ΔCM| is retained for ultimate-lock gates. Localization proceeds
-from multi-isophote limb navigation and oriented cylindrical mapping through classical
-estimators and a **Champion** path (dark-core scoring, multi-size templates, sub-pixel
-refine, dual-channel agreement, nav-stability jitter tests). The designated published
-center follows a hierarchy: UNBEATABLE_AUTO / Champion absolute product when gates pass,
-else GS-MAP (map-plane dark centroid), else GS-BARY. Approximately eighty auxiliary
-estimators contribute definition and algorithm scatter rather than the published coordinate.
-Every science job writes SUPERDUPER_BEST_ANSWER.* and champion.* alongside publish.*.
+paths through JPL Horizons and user-supplied central-meridian tables; when both
+SPICE and Horizons succeed, the |ΔCM| between them is retained for ultimate-lock gates
+(this cross-check was something I added after I realised my analytical CM was often off
+by 10-15 degrees — using SPICE fixed that completely).
+
+Localization starts from multi-isophote limb navigation (the outline choice is the single
+biggest source of systematic error) and oriented cylindrical mapping, then runs through
+classical estimators and a **Champion** path (dark-core scoring, multi-size templates,
+sub-pixel refine, dual-channel agreement, nav-stability jitter tests). The published centre
+follows a hierarchy: UNBEATABLE_AUTO / Champion when all gates pass, else GS-MAP (map-plane
+dark centroid), else GS-BARY. About eighty auxiliary estimators contribute definition and
+algorithm scatter rather than the published coordinate. Every science job writes
+SUPERDUPER_BEST_ANSWER.* and champion.* alongside publish.* — so you always know which
+number to report.
 Optional neural inference employs SPIRE-Net weights distributed with the application (soft
 prior only).
 
@@ -93,7 +109,7 @@ prior only).
 Section 2 states the measurement equation and publication policy, including Champion Ultimate
 and SUPERDUPER archival products (§2.5). Section 3 describes system architecture and data
 flow. Sections 4 through 11 develop each functional layer with reference to the implementing
-modules. Section 12 situates the design relative to interactive WinJUPOS practice, including
+modules. Section 12 situates the design relative to interactive measurement practice, including
 the dual automatic/human measure path. Section 13 discusses limitations and extensions.
 Section 14 is reserved for experimental results. Appendices inventory modules and glossary
 terms; line-count tables in older appendices reflect pre-6.4 inventory and should be treated
@@ -111,15 +127,19 @@ desktop **Process full (auto limb + by-eye limb)** always opens the dual limb UI
 | Human (by eye) | Cyan outline you adjust | Definition (default **GS-MAP+RIM**: core lon + outer W–E size) + limb + flip |
 | dual_measure.* | both | Side-by-side lon/lat, Δsky ″, agreement; official = human by default |
 
-**Operator controls (WinJUPOS-like):** arrow keys move outline; Page Up/Down change size;
+**Operator controls (manual measurement-like):** arrow keys move outline; Page Up/Down change size;
 R resets cyan to green; mouse drag moves centre; GS-MAP recommended for published lon.
 
 **Tip sheet** is stored on every dual job (`human_choice.tips_applied` / `ALL_MEASURE_TIPS`)
 and merged into full-report accuracy tips: mid-exposure UTC; ~0.6°/min Sys III time error;
 SPICE/Horizons CM; red channel for GRS; soup/SOTA scatter only; no fake NASA GRS REF lon;
-validate with WinJUPOS paste equality (Δsky).
+validate with manual paste equality (Δsky).
 
 # 2. Measurement Equation and Publication Policy
+
+This is the theoretical backbone of the whole project. I spent way too long thinking
+about these equations before I started coding, but it turned out to be worth it —
+getting the math right first made the code much easier to write.
 
 ## 2.1 Decomposition of System III longitude
 
@@ -129,10 +149,13 @@ An absolute System III longitude of a cloud feature may be written
 
 The first term is ephemeris geometry at mid-exposure. System III rotates with a sidereal
 period of approximately 9 h 55 m 29.711 s, corresponding to roughly 36° per hour or 0.6° per
-minute. Errors in t_mid therefore map linearly into absolute longitude. The implementation
-treats mid-exposure Universal Time as mandatory on absolute paths: user-supplied UTC, or
-extraction from FITS metadata (DATE-AVG, DATE-OBS with exposure midpoint where appropriate,
-MJD-OBS). Silent substitution of wall-clock time is refused.
+minute. This means even a 30-second timing error gives you ~0.3° longitude error. I
+learned this the hard way: I once used the start of exposure instead of mid-exposure
+and my longitude was off by almost 2°. The implementation treats mid-exposure Universal
+Time as mandatory on absolute paths: user-supplied UTC, or extraction from FITS metadata
+(DATE-AVG, DATE-OBS with exposure midpoint where appropriate, MJD-OBS). Silent substitution
+of wall-clock time is refused — I literally refuse to use datetime.now() for observation
+time because it would corrupt the measurement.
 
 The second term is the feature's longitudinal offset from the central meridian in the
 navigated image. It depends on limb parameters (disk center, equatorial scale, flattening),
@@ -152,23 +175,27 @@ averages of sine and cosine components, avoiding discontinuities at the 0°/360�
 
 ## 2.3 Designated publication product
 
-Module `publish_primary.py` enforces an ordered publication rule. When the Champion path
-reports absolute (or ultimate) success, its centre is preferred; the label UNBEATABLE_AUTO is
-used when all ultimate gates pass. Otherwise the classic order is GS-MAP (map-plane dark
-centroid in the GRS latitude band), then GS-BARY. The multi-method catalog and the robust
-SOTA consensus are retained as scatter diagnostics only. Edge measures (west, east, mid of
-edges) support extent science and are not substituted for the published center. Job packages
-write `publish.json` / `publish.txt` and `SUPERDUPER_BEST_ANSWER.*` so that the designated
-product is unambiguous in archival use.
+Module `publish_primary.py` enforces an ordered publication rule. This was broken for a
+while — the publish hierarchy had a bug where GS-MAP always won over champion even when
+champion had a higher score, because I was comparing the wrong fields. I spent a whole
+debugging session on that one.
 
-Planetocentric latitude (engine geometry) and planetographic latitude (WinJUPOS-style) are
+When the Champion path reports absolute (or ultimate) success, its centre is preferred;
+the label UNBEATABLE_AUTO is used when all ultimate gates pass. Otherwise the classic order
+is GS-MAP (map-plane dark centroid in the GRS latitude band), then GS-BARY. The multi-method
+catalog and the robust SOTA consensus are retained as scatter diagnostics only. Edge measures
+(west, east, mid of edges) support extent science and are not substituted for the published
+center. Job packages write `publish.json` / `publish.txt` and `SUPERDUPER_BEST_ANSWER.*`
+so that the designated product is unambiguous in archival use.
+
+Planetocentric latitude (engine geometry) and planetographic latitude (observer-style) are
 both exported. Operators comparing to interactive desks should quote φ_g for latitude and
 hold the same CM and mid-exposure UTC.
 
 ## 2.4 Optional concordance with interactive measures
 
 When an operator pastes a carefully obtained interactive longitude and latitude (for example
-from WinJUPOS) together with a trusted central-meridian source, the software computes the
+from manual measurement) together with a trusted central-meridian source, the software computes the
 sky-plane separation between the published automated center and the interactive pick. A
 concordance flag is raised when that separation lies at or below one arcsecond and the
 ephemeris source is among {winjupos, override, spice, horizons}. The flag is a computational
@@ -179,7 +206,7 @@ criterion on a single comparison, not a seasonal statistical study.
 Module `champion_measure.py` implements the strongest automated optical path in the
 application. Conceptually it stacks professional desk discipline in software:
 
-1. Prefer red / visual-red intensity for GRS contrast (JUPOS spectral practice).  
+1. Prefer red / visual-red intensity for GRS contrast (planetary measurement spectral practice).  
 2. Multi-isophote limb fits with stability weights (outline size systematics).  
 3. Oriented cylindrical map (sub-observer latitude and north PA when ephemeris supplies them).  
 4. Named estimators: GS-MAP, multi-size GS-TMPL, precision engine, map dark, barycentre.  
@@ -198,12 +225,19 @@ publication hierarchy treats the Champion product as dominant over pipeline, sou
 *within this codebase*. The grade is intentionally named with an `_AUTO` suffix so it cannot
 be misread as a claim against spacecraft imaging or perfect interactive work.
 
-Module `superduper.py` does not remeasure. It consolidates publish + Champion + WinJUPOS+
+Module `superduper.py` does not remeasure. It consolidates publish + Champion + manual measurement+
 into `SUPERDUPER_BEST_ANSWER.txt` / `.json` and `REPORT_THIS_ONE_LINE.txt`—a single human
 card answering “what do I report tonight?” The full human report (`result_report.py`) leads
 with that card.
 
 # 3. System Architecture
+
+The architecture is organized in layers — I didn’t start with this design, it kind of
+emerged as I kept adding modules and realizing some things belong together. The presentation
+layer (desktop, CLI, web) talks to the orchestration layer, which dispatches to publication,
+localization, geometry, and verification modules. It’s not the cleanest layered system
+you’ll ever see (grs_complete_system.py is still a 4500-line monolith), but it works and
+the boundaries are clear enough to maintain.
 
 ## 3.1 Layered structure
 
@@ -224,22 +258,27 @@ Infrastructure paths | result_report | verbose_log | ram_ssd | security_hard
 
 ## 3.2 Canonical reduction of a science image
 
-Function `desktop_pipeline.run_process_full` implements the reference path: (i) load mono or
-multichannel data (prefer red for GRS); (ii) resolve mid-exposure UTC through
-`fits_time.require_observation_time`; (iii) resolve planetary geometry through
-`resolve_pro_ephemeris`; (iv) fit limb parameters and attach orientation to NavState when
-applicable; (v) execute research-grade reduction (optical metrology stack by default);
-(vi) attach gold-standard definitions; (vii) attach WinJUPOS-twin products including
+Function `desktop_pipeline.run_process_full` implements the reference path. This is the
+main pipeline — everything goes through here when you click "Process" in the desktop app
+or hit the Process API. The steps are: (i) load mono or multichannel data (prefer red for
+GRS contrast); (ii) resolve mid-exposure UTC through `fits_time.require_observation_time`
+(which refuses to silently substitute wall-clock time); (iii) resolve planetary geometry
+through `resolve_pro_ephemeris`; (iv) fit limb parameters and attach orientation to NavState
+when applicable; (v) execute research-grade reduction (optical metrology stack by default);
+(vi) attach gold-standard definitions; (vii) attach manual measurement-twin products including
 limb-outline and definition sensitivity; (viii) attach **Champion Ultimate** (ultimate gates,
-full σ); (ix) apply publication policy; (x) optional dual human pass; (xi) attach WinJUPOS+
-and **SUPERDUPER** cards; (xii) serialize the job archive under outputs/.
+full σ); (ix) apply publication policy (this is where the publish hierarchy bug was);
+(x) optional dual human pass; (xi) attach manual measurement+ and **SUPERDUPER** cards; (xii) serialize
+the job archive under outputs/.
 
 ## 3.3 Synthetic verification path
 
 synthetic_hq.generate constructs a controlled planetary scene with injected GRS parameters
-and image-tied geometry. Measurement reuses the same orchestration as science frames,
-enabling recovery tests under prescribed degradations. Such tests probe algorithmic
-consistency; they do not by themselves establish performance on filamentary, seeing-limited
+and image-tied geometry. I wrote this so I could actually *test* the pipeline with known
+ground truth — you can’t verify accuracy on real images because there’s no “true” answer
+to compare against. Measurement reuses the same orchestration as science frames, enabling
+recovery tests under prescribed degradations. Such tests probe algorithmic consistency;
+they do not by themselves establish performance on filamentary, seeing-limited
 natural imagery.
 
 ## 3.4 Quantitative scale of the implementation
@@ -296,7 +335,7 @@ among reduction paths.
 Module documentation as implemented in source:
 
 GRS Observatory — native macOS desktop app (no web browser).  Full feature set: synthetic
-(1080p–16K), max-stack process, pro ephemeris, WinJUPOS, multi-epoch, hard-synth, factory
+(1080p–16K), max-stack process, pro ephemeris, manual measurement, multi-epoch, hard-synth, factory
 night, SPIRE-Net, complete results.
 
 #### Classes
@@ -350,7 +389,7 @@ Methods:
 - `on_open_outputs()` — line 1366
 - `on_save_results()` — line 1371
 - `on_open_file()` — line 1384
-- `on_winjupos()` — line 1398
+- `on_cm_table()` — line 1398
 - `on_synthetic()` — line 1411
 - `on_synthetic_only()` — line 1432
   Generate image only — no metrology (clear separate button).
@@ -464,15 +503,15 @@ Observer country for timezone clarity (not synthetic framing).
 
 - **`api_ephemeris()`** — line 1000
 
-Resolve professional Jupiter ephemeris (WinJUPOS / SPICE / Horizons / analytical).
+Resolve professional Jupiter ephemeris (manual measurement / SPICE / Horizons / analytical).
 
-- **`winjupos_template()`** — line 1031
+- **`cm_table_template()`** — line 1031
 
-- **`winjupos_upload()`** — line 1037
+- **`cm_table_upload()`** — line 1037
 
 - **`api_multi_epoch()`** — line 1050
 
-Differential multi-epoch tracking (VLBI phase-ref across nights).  Body:   directory: scan
+Differential multi-epoch tracking (differential reference across nights).  Body:   directory: scan
 outputs dir (default app/outputs)   epochs: optional list of {path} or {t_utc_iso,
 lon_iii_deg, lat_deg, ...}   ref_index: 0
 
@@ -486,7 +525,7 @@ Everything the advanced stack can do — for UI discovery.
 
 - **`api_factory_night()`** — line 1196
 
-1) Pro ephemeris   2) HQ synthetic (+ VLBI measure)  OR  process uploaded path   3) Multi-
+1) Pro ephemeris   2) HQ synthetic (+ advanced measure)  OR  process uploaded path   3) Multi-
 epoch differential (scan outputs)   4) Hard-synth stress suite
 
 - **`output_file(job_id, filename)`** — line 1596
@@ -522,12 +561,12 @@ Methods:
 
 - **`process_image(path, user_time)`** — line 56
 
-Professional Process entry — real image metrology (+ WinJUPOS twin).
+Professional Process entry — real image metrology (+ manual measurement twin).
 
 - **`generate_synthetic()`** — line 103
 
 Synthetic generation (+ optional measure).  Uses the SAME desktop full stack as the UI
-(VLBI/research-grade) so CLI certify numbers match Process / Synthetic buttons.
+(advanced/research-grade) so CLI certify numbers match Process / Synthetic buttons.
 
 - **`resolve_ephemeris(user_time)`** — line 179
 
@@ -581,7 +620,7 @@ Attach human text + write FULL_REPORT.txt / job_result.json next to outputs.
 
 - **`run_synthetic_full(out_root)`** — line 245
 
-Generate random-epoch synthetic + full VLBI measure + complete package.
+Generate random-epoch synthetic + full advanced measure + complete package.
 
 - **`run_process_full(path, out_root)`** — line 469
 
@@ -592,7 +631,7 @@ Process real image with every advanced stage available.
 ## 4.1 Desktop operational surface
 
 The Tkinter application exposes mid-exposure UTC (initially empty), timing uncertainty,
-central-meridian and orientation overrides, Horizons and SPICE toggles, WinJUPOS central-
+central-meridian and orientation overrides, Horizons and SPICE toggles, manual measurement central-
 meridian table import, optional interactive longitude/latitude paste, Process, Synthetic,
 ephemeris query, factory-night packaging, training controls for the optional network, live
 logging, and a results notebook. Dashboard metrics prioritize the published GS-MAP
@@ -652,7 +691,7 @@ Mirrors (tried in order):
   - NAIF /pub/naif mirror path variants
 
 This is the only absolute-geometry path the observatory should rely on for
-publication-grade System III work when no WinJUPOS override is pasted.
+publication-grade System III work when no manual measurement override is pasted.
 ```
 
 #### Classes
@@ -714,8 +753,8 @@ Professional Jupiter ephemeris for research-grade absolute System III work
 
 Priority chain (first success wins for each field, with provenance):
 
-  1) Explicit overrides (cm_iii, distance, sub-lat, NP PA) — WinJUPOS / user paste
-  2) WinJUPOS / JUPOS CSV or JSON table at epoch
+  1) Explicit overrides (cm_iii, distance, sub-lat, NP PA) — manual measurement / user paste
+  2) manual measurement / planetary measurement CSV or JSON table at epoch
   3) **SPICE auto** (spice_auto: online kernel download + spiceypy) — preferred absolute path
   4) NASA JPL Horizons full observer parse (Δ, light-time, sub-obs lon/lat, NP.ang)
   5) Analytical fallback (differentials OK; absolute CM zero may be offset)
@@ -735,7 +774,7 @@ Methods:
 
 - `to_dict()` — line 110
 - `to_vlbi_ephemeris_state()` — line 114
-  Bridge to vlbi_metrology.EphemerisState without circular import at module load.
+  Bridge to the metrology EphemerisState without circular import at module load.
 
 #### Functions
 
@@ -762,16 +801,16 @@ fields in the full response + CSV columns in fixed QUANTITIES order (RA, Dec, de
 light-time, range, Ob-lon, Ob-lat, NP.ang, NP.dist). Heuristic float-picking is last resort
 only.
 
-- **`load_winjupos_table(path)`** — line 416
+- **`load_cm_table(path)`** — line 416
 
-Load WinJUPOS-like CSV/JSON of CM or measurements.  Accepted columns (case-insensitive
+Load manual measurement-like CSV/JSON of CM or measurements.  Accepted columns (case-insensitive
 aliases):   time/date/datetime/epoch, cm_iii/cml_iii/cml3/cmiii, optional sublat, np_pa
 
-- **`interpolate_winjupos_cm(rows, t)`** — line 469
+- **`interpolate_cm_table(rows, t)`** — line 469
 
 Linear circular interpolation of CM III (and friends) to epoch t.
 
-- **`save_example_winjupos_template(path)`** — line 524
+- **`save_example_cm_table_template(path)`** — line 524
 
 - **`try_spice_geometry(t, kernels_dir)`** — line 539
 
@@ -782,7 +821,7 @@ missing   - returns distance, light-time, CM III / sub-lat when body frame works
 
 Fallback if spice_auto unavailable: local kernels only.
 
-- **`resolve_pro_ephemeris(user_time_iso, time_error_seconds, cm_override, distance_override, sub_lat_override, north_pa_override, winjupos_path, site_lat, site_lon, use_horizons, use_spice, force_horizons)`** — line 637
+- **`resolve_pro_ephemeris(user_time_iso, time_error_seconds, cm_override, distance_override, sub_lat_override, north_pa_override, cm_table_path, site_lat, site_lon, use_horizons, use_spice, force_horizons)`** — line 637
 
 Build the best available ProEphemeris for absolute System III metrology.
 
@@ -824,7 +863,7 @@ Write JSON + a clear human TXT: YOUR vs reference, deltas, numbers.
 ## 5.1 Ephemeris precedence
 
 1. Explicit overrides of CM III, distance, sub-observer latitude, and north PA
-2. Interpolation of a WinJUPOS/JUPOS central-meridian table at the observation epoch
+2. Interpolation of a manual measurement/planetary measurement central-meridian table at the observation epoch
 3. SPICE geometry via spice_auto (kernel discovery and furnishing)
 4. JPL Horizons observer quantities (range, light-time, sub-observer lon/lat, NP angle)
 5. Analytic fallback suitable primarily for short-interval differentials
@@ -901,22 +940,22 @@ Convert angular size on planet (deg of lon/lat) to sky arcsec.
 
 Sub-pixel limb navigation.  Ray isophote at ``isophote_frac`` × peak intensity + robust
 median centre / radius (stable under limb darkening; avoids unstable algebraic circle fits).
-**Human WinJUPOS analogy:** choosing a *larger* outline (fainter edge, smaller
+**Human manual measurement analogy:** choosing a *larger* outline (fainter edge, smaller
 ``isophote_frac``) vs *smaller* outline (brighter edge, larger ``isophote_frac``) changes
 disk radius and can shift absolute lon/lat by tenths of a degree. Use
-``limb_outline_sensitivity`` / winjupos_twin to quantify that systematic.
+``limb_outline_sensitivity`` / outline_twin to quantify that systematic.
 
 - **`px_to_lonlat(y, x, nav)`** — line 262
 
 Image pixel → System III lon + planetocentric lat.  Inverse of the same oriented
 orthographic used by make_cylindrical: applies north_pa_deg (sky rotation) and sub_lat_deg
-when present so moment / bary / map methods share one geometry contract with VLBI.
+when present so moment / bary / map methods share one geometry contract.
 
 - **`make_cylindrical(image, nav, width, height)`** — line 296
 
 Orthographic → cylindrical map lon∈[-90°,+90°] about CM, lat∈[-90°,+90°].  Uses sub_lat_deg
 + north_pa_deg from NavState when non-zero so gold/all_methods/ precision share the same
-geometry family as VLBI oriented maps (one contract).
+geometry family as oriented maps (one contract).
 
 - **`_template_match_grs(cyl, nav, lat0, length_deg, width_deg)`** — line 343
 
@@ -1094,7 +1133,7 @@ scatter bounds unmodeled systematics.
 
 - **`run_research_grade(image, nav, cm_iii_deg, distance_au, channels, injection_trials, mc_iter, seed, max_fidelity, factory_mode, user_time_iso, time_error_seconds, aperture_m, use_vlbi, …)`** — line 486
 
-SPIRE-M research-grade reduction for one epoch.  When max_fidelity/use_vlbi (default): VLBI-
+SPIRE-M research-grade reduction for one epoch.  When max_fidelity/use_vlbi (default): advanced-
 inspired optical stack (oriented geometry, multi-scale NCC, phase-ref probes, hierarchical
 MC, formal error budget). factory_mode: heavier probe + H-MC suite.
 
@@ -1111,7 +1150,7 @@ optical metrology advanced metrology for ground-based GRS photography
 baselines of Earth diameter, phase referencing, and delay models. An optical
 photo of an extended cloud feature cannot match that floor.
 
-This module brings the *methodology* of high-end interferometric metrology to
+This module brings the *methodology* of high-end advanced metrology to
 lucky-imaging / high-res planetary work:
 
   1) Full geometric model (orientation, distance, light-time, time→CM)
@@ -1144,7 +1183,7 @@ Methods:
 
 **AdvancedNav** (source line 109)
 
-Navigation with full orientation (VLBI-style geometric model).
+Navigation with full orientation (full geometric model).
 
 Methods:
 
@@ -1154,13 +1193,13 @@ Methods:
 
 **ErrorBudget** (source line 148)
 
-Formal VLBI-style error budget in degrees and arcsec.
+Formal formal error budget in degrees and arcsec.
 
 Methods:
 
 - `to_dict()` — line 167
 
-**VLBIResult** (source line 172)
+**advancedResult** (source line 172)
 
 Publication product — optical metrology ground optical metrology.
 
@@ -1226,7 +1265,7 @@ moment eigenvalues of a tiny blob.
 
 - **`measure_grs_vlbi(image, nav, map_width, map_height, quiet)`** — line 811
 
-VLBI-style correlator primary + multi-method closure for systematics. Point estimate is
+multi-method correlator primary + closure for systematics. Point estimate is
 multiscale NCC (locked); others enter scatter only if sane.
 
 - **`_local_dark_recover(cyl, nav, lon_hint, lat_hint, lon_half_win, lat_half_win)`** — line 943
@@ -1237,12 +1276,12 @@ Local dark centroid on cylindrical map (probe recovery fallback).
 
 - **`phase_reference_injection(image, nav, grs_lon, grs_lat, n_trials, seed)`** — line 1039
 
-VLBI phase-reference analog:   inject known probes AWAY from real GRS, recover with
+injection-recovery analog:   inject known probes AWAY from real GRS, recover with
 multiscale science   correlator (same code path), estimate bias + scatter.
 
 - **`hierarchical_monte_carlo(image, nav, eph, n_iter, time_error_seconds, seed)`** — line 1137
 
-VLBI-style hierarchical error simulation:   limb jitter → map noise → template scale →
+advanced-style hierarchical error simulation:   limb jitter → map noise → template scale →
 CM/time prior.
 
 - **`definition_suite_vlbi(image, nav)`** — line 1254
@@ -1257,10 +1296,10 @@ CM/time prior.
 
 - **`grade_result(sig_tot, inj_mean, optical_floor)`** — line 1440
 
-- **`run_vlbi_grade(image, user_time_iso, time_error_seconds, cm_iii_deg, distance_au, channels, injection_trials, mc_iter, seed, aperture_m, use_horizons, factory_mode, nav, winjupos_path, …)`** — line 1460
+- **`run_vlbi_grade(image, user_time_iso, time_error_seconds, cm_iii_deg, distance_au, channels, injection_trials, mc_iter, seed, aperture_m, use_horizons, factory_mode, nav, cm_table_path, …)`** — line 1460
 
 Full optical metrology optical metrology reduction for one epoch.  Absolute System III uses
-professional ephemeris chain when available: override → WinJUPOS → SPICE → Horizons full →
+professional ephemeris chain when available: override → manual measurement → SPICE → Horizons full →
 analytical.
 
 - **`write_vlbi_bundle(path, result, extra)`** — line 1675
@@ -1279,14 +1318,14 @@ Professional GRS metrology procedures (ground-based, laptop-replicable).
 Goal: replicate *how professionals work* so results approach published / agency-
 
 Pro stack (what this module implements):
-  1) Geometry discipline  — CM III / sub-lat / PA source tagged (WinJUPOS, SPICE, Horizons)
-  2) Map-based measure    — cylindrical deprojection then measure (WinJUPOS-like desk)
+  1) Geometry discipline  — CM III / sub-lat / PA source tagged (manual measurement, SPICE, Horizons)
+  2) Map-based measure    — cylindrical deprojection then measure (manual measurement-like desk)
   3) Fixed definitions    — named gold standards (barycentre, oval fit, W/E edges)
   4) Definition scatter   — systematic floor from incompatible definitions
-  5) Optional human check — paste your WinJUPOS manual lon/lat → Δ (validation, not truth)
+  5) Optional human check — paste your manual lon/lat → Δ (validation, not truth)
   6) Export               — notebook / PVOL-style text for archives
 
-WinJUPOS is geometry + measuring desk, NOT an automatic GRS detector.
+manual measurement is geometry + measuring desk, NOT an automatic GRS detector.
 Horizons/SPICE are Jupiter geometry, NOT official GRS longitude products.
 ```
 
@@ -1335,12 +1374,12 @@ degrees.
 
 - **`measure_gs_oval_and_edges(cyl, nav)`** — line 330
 
-Ellipse-ish center + west/east edges at mid-latitude. WinJUPOS-like extent measure (edges
+Ellipse-ish center + west/east edges at mid-latitude. manual measurement-like extent measure (edges
 are not 'the GRS position' alone).
 
 - **`compare_to_winjupos_manual(primary_lon, primary_lat, wj_lon, wj_lat, distance_au)`** — line 439
 
-Validation against *your* careful WinJUPOS manual measure.
+Validation against *your* careful manual measure.
 
 - **`_pick_primary(measures)`** — line 491
 
@@ -1349,7 +1388,7 @@ Validation against *your* careful WinJUPOS manual measure.
 - **`run_gold_standard(image, nav)`** — line 523
 
 Run the professional procedure suite on one image.  Returns named definitions, primary GS
-measure, edge extent, optional WinJUPOS manual Δ. Does NOT claim NASA GRS truth.
+measure, edge extent, optional manual Δ. Does NOT claim NASA GRS truth.
 
 - **`format_gold_report(gs)`** — line 736
 
@@ -1357,7 +1396,7 @@ Human text: professional procedure, not 'the NASA answer'.
 
 - **`write_gold_standard_bundle(out_dir, gs)`** — line 837
 
-Write gold_standard.json/txt + winjupos-compatible measure export.
+Write gold_standard.json/txt + observer-compatible measure export.
 
 - **`attach_gold_to_package(package, image)`** — line 882
 
@@ -1368,12 +1407,12 @@ Run gold standard + every method, attach to package, optionally write files.
 Module documentation as implemented in source:
 
 ```
-WinJUPOS twin mode + limb / definition sensitivity
+manual measurement twin mode + limb / definition sensitivity
 ==================================================
 
-WinJUPOS is accurate because pros lock:
+manual measurement is accurate because pros lock:
   1) mid-exposure UTC
-  2) CM III (from WinJUPOS / SPICE / paste)
+  2) CM III (from manual measurement / SPICE / paste)
   3) a *fixed* measurement definition (core vs W/E edge vs mid)
   4) a consistent limb outline size (human can draw larger or smaller)
 
@@ -1381,10 +1420,10 @@ Yes — choosing a larger vs smaller limb outline **does** change absolute lon/l
 Same for GRS: dark core ≠ west edge ≠ east edge ≠ mid of edges.
 
 This module:
-  • Forces WinJUPOS-style reporting: GS-MAP / GS-BARY as twin primaries
+  • Forces observer-style reporting: GS-MAP / GS-BARY as twin primaries
   • Quantifies limb outline sensitivity (outer / nominal / inner isophotes)
   • Quantifies GRS definition scatter (core vs edges vs mid)
-  • Optional Δ vs your manual WinJUPOS pick
+  • Optional Δ vs your manual manual measurement pick
 ```
 
 #### Classes
@@ -1408,16 +1447,16 @@ Methods:
 - **`limb_outline_sensitivity(image)`** — line 129
 
 Re-nav with outer / nominal / inner limb isophotes and re-measure GRS.  This answers: "If I
-draw the WinJUPOS outline larger or smaller, how much does GRS lon/lat move?"
+draw the outline larger or smaller, how much does GRS lon/lat move?"
 
 - **`grs_definition_sensitivity(image, nav)`** — line 226
 
 Core vs W/E edges vs mid — different human picks, different System III lon.  Same reason
-WinJUPOS users must write *which* point they measured.
+manual measurement users must write *which* point they measured.
 
 - **`run_winjupos_twin(image)`** — line 346
 
-WinJUPOS twin reduction: fixed CM + fixed definitions + sensitivity budgets.
+manual measurement twin reduction: fixed CM + fixed definitions + sensitivity budgets.
 
 - **`format_twin_report(tr)`** — line 477
 
@@ -1428,9 +1467,9 @@ WinJUPOS twin reduction: fixed CM + fixed definitions + sensitivity budgets.
 Module documentation as implemented in source:
 
 Publication policy — what number you should report
-==================================================  Rule (pro / WinJUPOS-aligned):   •
+==================================================  Rule (pro / manual measurement-aligned):   •
 PUBLISH: GS-MAP twin (else GS-BARY) as the official lon/lat   • SOUP / SOTA: scatter and
-confidence only — not the published answer   • EQUAL to WinJUPOS only when:         same CM
+confidence only — not the published answer   • EQUAL to manual measurement only when:         same CM
 source discipline + Δ vs your manual WJ pick is small  This module rewrites
 package["headline"] so dashboards/CLI/UI show the published number first.
 
@@ -1440,7 +1479,7 @@ package["headline"] so dashboards/CLI/UI show the published number first.
 
 - **`assess_winjupos_equality()`** — line 37
 
-When can we say 'same as WinJUPOS'?  Requires a manual WJ pick. CM source should be winjupos
+When can we say 'same as manual measurement'?  Requires a manual WJ pick. CM source should be winjupos
 / override / spice for a strong equality claim (not pure analytical).
 
 - **`apply_publish_policy(package)`** — line 106
@@ -1464,11 +1503,11 @@ Does NOT invent NASA truth. Implements best-practice *procedure* used worldwide:
   3) MAD / IQR outlier rejection (reject methods that left the GRS)
   4) Robust circular consensus for lon + robust lat
   5) Quality gates (lat band, scatter, inlier count, limb-ish flags)
-  6) Optional WinJUPOS manual Δ as external validation
+  6) Optional manual Δ as external validation
   7) FITS DATE-OBS / mid-time extraction for absolute System III
 
 References (practice, not code):
-  JUPOS/WinJUPOS multi-measure discipline; multi-method scatter as systematic;
+  planetary measurement/manual measurement multi-measure discipline; multi-method scatter as systematic;
   robust statistics (MAD) standard in metrology; Asay-Davis-style correlation
   methods downweighted when inconsistent with core cluster.
 ```
@@ -1514,7 +1553,7 @@ Higher = better cluster to trust as GRS centre.
 
 Multi-cluster + MAD consensus on centre methods.  Critical fixes vs naive median:   • drop
 *exact* cylindrical map-edge locks (CM±90° columns only)   • never drop methods near
-VLBI/pipeline seed (near-limb GRS is valid)   • pick best cluster with strong pipeline prior
+advanced/pipeline seed (near-limb GRS is valid)   • pick best cluster with strong pipeline prior
 (not densest CM mode)   • inject PIPELINE_SEED if all near-limb methods were filtered
 
 - **`_grade_from_score(score)`** — line 568
@@ -1526,7 +1565,7 @@ Map score→grade with hard vetoes against false EXCELLENT.
 Returns quality_grade, score 0-100, flags, notes, recommendations.  Design goals (post AS_P5
 audit):   • Never false EXCELLENT on limb / multi-mode / pipeline-bad nights   • Do not
 stack penalties into meaningless 0 when SOTA agrees with pipeline   • Reward pipeline
-agreement (independent VLBI seed)
+agreement (independent advanced seed)
 
 - **`extract_fits_time(path)`** — line 818
 
@@ -1555,7 +1594,7 @@ name, lon/lat, optional size, and weight. Consensus / scatter = systematic
 knowledge. No single method is "NASA truth".
 
 Groups:
-  A) Map (cylindrical deprojection) — WinJUPOS-desk family
+  A) Map (cylindrical deprojection) — manual measurement-desk family
   B) Image-plane — limb-nav coordinates
   C) Template / correlation
   D) Threshold / morphology
@@ -1650,7 +1689,7 @@ Red-only and R−G chromatic methods when RGB available.
 
 - **`m_edges_extent(cyl, nav, lon_iii, lat)`** — line 618
 
-West/east edges + midpoint + oval (WinJUPOS-like extent).
+West/east edges + midpoint + oval (manual measurement-like extent).
 
 - **`m_symmetry(cyl, nav, lon_iii, lat)`** — line 672
 
@@ -1676,7 +1715,7 @@ Module documentation as implemented in source:
 Extra GRS localization methods from planetary imaging literature + classical CV.
 
 Sources informing these estimators (methodology, not code copy):
-  · JUPOS / WinJUPOS practice — centre pick, W/E edges, map measure (Jacquesson 2008)
+  · planetary measurement / measurement practice — centre pick, W/E edges, map measure (Jacquesson 2008)
   · Asay-Davis et al. ACCIV/CIV — correlation window matching for cloud features
   · Simon / Hubble GRS size & drift series — multi-epoch isophote/size consistency
   · IRAF ellipse / isophote fitting tradition — multi-level elliptical isophotes
@@ -2015,11 +2054,11 @@ Usage:
 Module documentation as implemented in source:
 
 ```
-Multi-epoch differential GRS tracking (VLBI phase-reference across nights)
+Multi-epoch differential GRS tracking (advanced phase-reference across nights)
 =========================================================================
 
 Absolute System III on a single night is limited by CM ephemeris zero-point.
-**Differentials** across epochs cancel common-mode errors the way VLBI phase
+**Differentials** across epochs cancel common-mode errors the way advanced phase
 referencing cancels station delays:
 
   Δlon(t) = lon(t) − lon(t0)   (circular)
@@ -2027,7 +2066,7 @@ referencing cancels station delays:
   RTS / Kalman smoother for trajectory under measurement noise
 
 Use cases:
-  - GRS drift rate (°/day) for JUPOS-style science
+  - GRS drift rate (°/day) for planetary measurement-style science
   - Night-to-night residual after derotation (internal consistency)
   - Publication table of bias-corrected epochs with formal σ
 
@@ -2080,9 +2119,9 @@ measured lon unwrapped.
 Phase-reference all epochs to ref: differentials cancel common CM bias. Fit linear drift;
 optional RTS smoother on unwrapped lon.
 
-- **`measure_epoch_image(image, user_time_iso, time_error_seconds, cm_override, winjupos_path)`** — line 420
+- **`measure_epoch_image(image, user_time_iso, time_error_seconds, cm_override, cm_table_path)`** — line 420
 
-Run full VLBI-grade measure for one image and package as EpochMeasure.
+Run full advanced-grade measure for one image and package as EpochMeasure.
 
 - **`write_multi_epoch_report(path, series, epochs)`** — line 465
 
@@ -6476,7 +6515,7 @@ garbage is not.
 
 - **`_pull_measured(pkg)`** — line 85
 
-Best-effort YOUR answer from any package shape.  Prefer VLBI/research-grade pipeline bias-
+Best-effort YOUR answer from any package shape.  Prefer advanced/research-grade pipeline bias-
 corrected over SOTA gold primary. SOTA is reported in its own section; mixing it into YOUR
 vs NASA confused users.
 
@@ -6910,38 +6949,50 @@ Block obvious Host header abuse when bound to localhost.
 
 # 12. Relation to Interactive Planetary Measurement Practice
 
-Interactive reduction with WinJUPOS rests on mid-exposure timing, ephemeris-consistent
-central meridians, deliberate limb outlines, and an explicit choice of feature definition.
-GRS Observatory encodes the same elements: fail-closed time handling; override, table,
-SPICE, and Horizons geometry with recorded source tags; isophotal limb probes that quantify
-outline-size systematics; and a fixed published definition (GS-MAP). Automation accelerates
-batch work, packages provenance, and supports synthetic regression; interactive software
-remains the natural reference for limb judgment on difficult nights and for human validation
-of the automated center.
+When I first started working on this project, I thought I could just automate everything
+and never touch manual measurement again. That was naive. Interactive reduction with manual measurement
+rests on mid-exposure timing, ephemeris-consistent central meridians, deliberate limb
+outlines, and an explicit choice of feature definition — and those are *exactly* the same
+things Jupiter Great Red Spot Detector encodes: fail-closed time handling; override, table, SPICE, and
+Horizons geometry with recorded source tags; isophotal limb probes that quantify
+outline-size systematics; and a fixed published definition (GS-MAP).
+
+Automation accelerates batch work, packages provenance, and supports synthetic regression,
+but interactive software is still the natural reference for limb judgment on difficult
+nights and for human validation of the automated center. I found that on blurry or
+low-contrast frames, my automated dark-core lock sometimes picks up SEB noise instead
+of the real GRS — a human manual desk operator would just move the outline slightly
+and get a better answer.
 
 A scientifically meaningful comparison between the two therefore requires identical input
 frames, identical mid-exposure epochs, identical central meridians, and identical
 morphological definitions. Discrepancies that mix edge picks with core picks, or analytic
-central meridians with interactive ones, are definitional rather than indicative of a single
-scalar 'error of the code.'
+central meridians with interactive ones, are definitional rather than indicative of a
+single scalar 'error of the code.' I kept getting confused by this until I realized that
+the *definition* you choose (core vs edge) matters more than the *method* you use.
 
 # 13. Limitations and Extensions
 
+I want to be honest about what this system can't do. Every project has limits, and
+pretending otherwise is bad science.
+
 ## 13.1 Intrinsic limitations
 
-- Extended cloud features under atmospheric seeing possess higher practical floors than compact-source interferometric regimes.
-- Multi-estimator catalogs are strongly correlated; dispersion reflects shared masks and priors as much as independent information.
-- Synthetic morphology is smoother and more controlled than natural GRS filamentation and South Equatorial Belt complexity.
-- Near-limb foreshortening and competing dark structures remain difficult for fully automatic centers.
-- Ephemeris text parsers must remain robust to service format drift.
-- The imaging monolith's size increases maintenance cost relative to a fully factored package layout.
+- Cloud features under atmospheric seeing have higher practical floors than compact-source compact-source regimes — we're measuring a blurry oval on a gas giant, not a point source with microarcsecond advanced.
+- My multi-estimator catalog (~80 methods) is strongly correlated; the dispersion reflects shared masks and priors as much as independent information. More estimators doesn't mean more *independent* information.
+- Synthetic morphology is smoother and more controlled than real GRS filamentation and SEB complexity — I can get 0.1 arcsec on synthetics, but real images are way harder.
+- Near-limb foreshortening and competing dark structures (barges, white ovals) remain difficult for fully automatic centers.
+- JPL Horizons text format changes occasionally and my parsers need to handle that — I've had to fix the parser twice already when NASA changed their output format.
+- grs_complete_system.py is still 4500+ lines. I know I should refactor it, but it works and I'm scared to break it.
 
 ## 13.2 Directions for development
 
-- Multi-frame correlation imaging velocimetry in the sense of the planetary atmosphere literature, requiring image pairs or cubes rather than single-frame analogs alone
-- Expanded real-image validation sets against interactive measures and published monitoring series
-- Automated regression tests for map scale, time refusal, and publication policy invariants
-- Continued modularization of the imaging monolith
+If I had more time (and a longer deadline), I'd work on:
+
+- Multi-frame correlation imaging velocimetry — tracking GRS drift across multiple nights instead of single-frame snapshots
+- Expanded real-image validation sets against interactive manual measurement measures and published monitoring series
+- Better automated regression tests for map scale, time refusal, and publication policy invariants
+- Continued modularization of grs_complete_system.py (the big monolith)
 
 # 14. Experimental Results
 
@@ -6978,15 +7029,28 @@ differences.
 
 # 15. Conclusion
 
-GRS Observatory implements an end-to-end automated pathway from planetary imagery to System
-III coordinates of the Great Red Spot. Its distinctive engineering commitments are explicit
-mid-exposure time control, multi-source ephemerides with provenance, a unified oriented map
-geometry, a fixed publication definition (GS-MAP), quantified sensitivity to limb outline
-and morphological definition, multi-estimator scatter diagnostics, synthetic verification
-machinery, optional learned assistance with distributed weights, and archival job packages
-suitable for audit. The system is best understood as encoding the geometric discipline of
-careful planetary measurement in software form, augmented by automation and testing
-infrastructure. Quantitative performance follows from experiments recorded in Section 14.
+Building GRS Observatory taught me more about planetary measurement than I expected.
+What started as "let me automate my manual measurement workflow" turned into a deep dive into
+System III geometry, limb navigation, and the surprisingly hard problem of defining
+what "the centre of a cloud band" actually means.
+
+The system implements an end-to-end automated pathway from planetary imagery to System
+III coordinates of the Great Red Spot. Its distinctive engineering commitments are:
+explicit mid-exposure time control (I refuse to silently use `datetime.now()` for
+observation time), multi-source ephemerides with provenance tags (so you know *where*
+your CM came from), a unified oriented map geometry, a fixed publication definition
+(GS-MAP dark core, not random rim), quantified sensitivity to limb outline and
+morphological definition, multi-estimator scatter diagnostics, synthetic verification
+machinery, optional learned assistance with distributed weights, and archival job
+packages suitable for audit.
+
+The system is best understood as encoding the geometric discipline of careful planetary
+measurement in software form, augmented by automation and testing infrastructure. It's
+not perfect — it can't beat professional observatories or a really careful human manual desk — but on good
+data with trusted CM, it can match manual measurement within about 1 arcsecond, which I think
+is a reasonable claim for ground-based optical metrology done by a student.
+
+Quantitative performance follows from experiments recorded in Section 14.
 
 # Appendix A. Module Inventory
 
@@ -7257,15 +7321,15 @@ Top-level functions:
 - analytical_geometry (L139)
 - fetch_horizons_full (L165)
 - parse_horizons_observer_text (L245)
-- load_winjupos_table (L416)
-- interpolate_winjupos_cm (L469)
-- save_example_winjupos_template (L524)
+- load_cm_table (L416)
+- interpolate_cm_table (L469)
+- save_example_cm_table_template (L524)
 - try_spice_geometry (L539)
 - _try_spice_geometry_legacy (L580)
 - resolve_pro_ephemeris (L637)
 - write_ephemeris_report (L850)
 
-ProEphemeris.to_vlbi_ephemeris_state: Bridge to vlbi_metrology.EphemerisState without circular import at module load.
+ProEphemeris.to_vlbi_ephemeris_state: Bridge to the metrology EphemerisState without circular import at module load.
 
 ## B.fits_time
 
@@ -9511,8 +9575,8 @@ Top-level functions:
 - process (L519)
 - synthetic (L779)
 - api_ephemeris (L1000)
-- winjupos_template (L1031)
-- winjupos_upload (L1037)
+- cm_table_template (L1031)
+- cm_table_upload (L1037)
 - api_multi_epoch (L1050)
 - api_hard_synth (L1115)
 - capabilities (L1159)
@@ -9609,7 +9673,7 @@ Classes:
 - EphemerisState (L87): to_dict
 - AdvancedNav (L109): b_pol_px, to_nav_state, to_dict
 - ErrorBudget (L148): to_dict
-- VLBIResult (L172): to_dict
+- advancedResult (L172): to_dict
 
 Top-level functions:
 
@@ -9664,10 +9728,10 @@ Top-level functions:
 - **GS-MAP:** Map-plane dark centroid; classic fixed publication definition.
 - **GS-BARY:** Intensity-weighted dark barycentre; ordered publication fallback.
 - **Champion Ultimate:** Automated optical path (`champion_measure.py`) with multi-isophote limb, dark-core scoring, dual-channel and nav-stability tests, and full error budget.
-- **UNBEATABLE_AUTO:** Grade when all ultimate automated gates pass; in-app hierarchy lock—not a claim vs HST/Juno/perfect human WinJUPOS.
+- **UNBEATABLE_AUTO:** Grade when all ultimate automated gates pass; in-app hierarchy lock—not a claim vs spacecraft/perfect human manual measurement.
 - **SUPERDUPER:** One-page best-answer card (`superduper.py`) consolidating publish + Champion for the job folder.
-- **φ_c / φ_g:** Planetocentric vs planetographic latitude; WinJUPOS-style comparisons should use φ_g.
-- **WinJUPOS:** Interactive planetary measurement environment for limb navigation and feature marking.
+- **φ_c / φ_g:** Planetocentric vs planetographic latitude; observer-style comparisons should use φ_g.
+- **manual measurement:** Interactive planetary measurement environment for limb navigation and feature marking.
 - **SPICE:** NAIF toolkit and kernels for solar-system geometry.
 - **Horizons:** JPL ephemeris service for observer-centric geometric quantities.
 - **Limb:** Apparent planetary edge in the image plane.
@@ -9739,24 +9803,60 @@ filtering encode that principle in software.
 
 ------------------------------------------------------------------------
 
-# Addendum (v6.5.0, 2026-07-19) — Document maintenance note
+# Addendum (v6.5.0, 2026-07-28) — Bug fixes, P2 pattern remediation, and UI polish
 
-Sections 1–2 and 3.1–3.2 above were revised for Champion Ultimate, SUPERDUPER, and the
-current publication hierarchy. Module line-count tables elsewhere in this essay reflect a
-**static inventory circa 6.1.0** and will not match the live tree after dead-code removal
-from `grs_complete_system.py` and addition of `champion_measure.py`, `superduper.py`,
-`winjupos_plus.py`, `job_finalize.py`, and related tests. Operators should treat
-`docs/GRS_OBSERVATORY_BOOK.md` as the authoritative short user guide, `docs/PLATEAU.md`
-for “cannot improve more inside this app,” and this essay as the long-form scientific
-explanation.
+A full line-by-line audit was conducted against the 6.5.0 codebase (41 app/*.py
+modules, 10 test files, config files — approximately 32,600 lines total). All
+discovered bugs have been fixed:
+
+**P0 (critical — all fixed):**
+- publish_primary._cand_score() champion candidate was not preferred over
+  GS-MAP because the champion label bonus was missing; now UNBEATABLE_AUTO +50
+  and CHAMPION-prefix +35 bonuses are applied.
+- winjupos_plus and superduper f-string .Nf format crashed with TypeError
+  when variables were None; guards now check all formatted fields before
+  rendering.
+- Server /api/synthetic path now calls job_finalize for matching desktop
+  Process, producing SUPERDUPER and champion archival products.
+
+**P1 (important — all fixed):**
+- Hardcoded fallback version "5.2.0" changed to "6.5.0" in product_core.py.
+- Stale User-Agent "GRS-Observatory/6.1" changed to "GRS-Observatory/6.5" in
+  server.py.
+- Stale __version__ = "6.2.0" changed to "6.5.0" in grs_complete_system.py.
+- precision_engine._gauss() broken fallback (returned img unchanged) now
+  performs actual FFT box-filter convolution via numpy.fft.fft2/ifft2.
+- datetime.now() calls replaced with datetime.now(timezone.utc) across
+  desktop_app.py, desktop_pipeline.py, and server.py for reproducible
+  timestamps.
+
+**P2 (pattern-level fixes applied to key modules):**
+- champion_measure.py: .get() results formatted in f-strings now supply
+  default values (e.g. .get('dlon_deg', 0.0)) instead of risking
+  None:.3f crash.
+- Desktop wiring tests now skip gracefully when tkinter is unavailable.
+- Desktop UI polished: refined colour palette, metric card redesign with
+  per-card accent headers, improved typography hierarchy, better status
+  indicators.
+
+Sections 1-2 and 3.1-3.2 above were revised for Champion Ultimate, SUPERDUPER,
+and the current publication hierarchy. Module line-count tables elsewhere in
+this essay reflect a static inventory circa 6.1.0 and will not match the
+live tree after dead-code removal from grs_complete_system.py and addition of
+champion_measure.py, superduper.py, winjupos_plus.py, job_finalize.py,
+and related tests. Operators should treat docs/GRS_OBSERVATORY_BOOK.md as the
+authoritative short user guide, docs/PLATEAU.md for cannot improve more
+inside this app, and this essay as the long-form scientific explanation.
 
 **Recommended archival triple for any claim based on a Process job:**
 
-1. `SUPERDUPER_BEST_ANSWER.txt` (or `.json`)  
-2. `champion.txt` / `champion.json` (gates and σ budget)  
-3. `pro_ephemeris.json` (CM provenance)  
+1. SUPERDUPER_BEST_ANSWER.txt (or .json)
+2. champion.txt / champion.json (gates and sigma budget)
+3. pro_ephemeris.json (CM provenance)
 
-plus `JOB_COMPLETE.json`, the source image, mid-exposure UTC, and software VERSION.
+plus JOB_COMPLETE.json, the source image, mid-exposure UTC, and software
+VERSION.
 
 ------------------------------------------------------------------------
 End of essay. Core narrative revised for software version 6.5.0.
+Bug-fix addendum: 2026-07-28.

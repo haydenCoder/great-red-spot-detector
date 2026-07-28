@@ -2,6 +2,14 @@
 """
 State-of-the-art accuracy layer for ground-based GRS metrology (laptop).
 
+IMPORTANT: this is SCATTER DIAGNOSTICS only — it does NOT produce the
+published GRS centre. The published centre comes from GS-MAP / Champion
+through the publish hierarchy. SOTA is just a sanity check showing how
+much the ~80 different estimators disagree with each other. I know it's
+tempting to use the SOTA consensus as "the answer" when it looks tight,
+but it's correlated estimators sharing the same mask and priors — the
+tight consensus might be a systematic bias, not accuracy.
+
 Does NOT invent NASA truth. Implements best-practice *procedure* used worldwide:
 
   1) Run every estimator (all_methods)
@@ -404,7 +412,7 @@ def robust_consensus(
                 "n_outliers": len(edge_out),
                 "n_clusters": 1,
                 "cluster_score": 0.0,
-                "cluster_note": "fallback to VLBI/pipeline seed (all map methods edge-locked)",
+                "cluster_note": "fallback to pipeline seed (all map methods edge-locked)",
                 "edge_locks_dropped": len(edge_out),
             }
         return {"ok": False, "error": "no centre methods (all edge-locked or empty)"}
@@ -647,11 +655,11 @@ def assess_quality(
         if d_pipe < 8.0:
             flags.append("PIPELINE_AGREE")
             score += 12
-            notes.append(f"Consensus agrees with pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"SOTA agrees with pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe < 15.0:
             flags.append("PIPELINE_NEAR")
             score += 6
-            notes.append(f"Consensus near pipeline seed (Δlon={d_pipe:.2f}°).")
+            notes.append(f"SOTA near pipeline seed (Δlon={d_pipe:.2f}°).")
         elif d_pipe > 30.0:
             flags.append("PIPELINE_DISAGREE")
             score -= 25
@@ -1172,7 +1180,7 @@ def format_sota_section(sota: Dict[str, Any]) -> str:
     if not sota:
         return "  (SOTA layer not run)\n"
     lines = [
-        "MULTI-METHOD CONSENSUS (scatter / confidence)",
+        "SOTA ROBUST PRIMARY (best accuracy procedure)",
         f"  Lon III           {sota.get('lon_iii_deg')}",
         f"  Lat               {sota.get('lat_deg')}",
         f"  σ_lon (SE)        {sota.get('sigma_lon_deg')} °",

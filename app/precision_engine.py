@@ -1068,6 +1068,11 @@ def _choose_size(methods: Dict[str, Dict[str, float]]) -> Tuple[float, float, st
 # SEB oval, not the GRS. Beyond this separation we prefer the peer cluster.
 TEMPLATE_CORROBORATION_DEG = 8.0
 
+# Latitude is taken from the moment mask (unbiased) rather than the template
+# (~-0.09 deg systematic), provided the two agree to within this many degrees.
+LAT_CORROBORATION_DEG = 3.0
+LAT_MOMENT_WEIGHT = 0.75
+
 # Disk-quality gate thresholds. Calibrated on real web imagery: genuine resolved
 # Jupiter disks score fill 0.96-0.99 / contrast 0.39-0.70, while point-source
 # phone photos and spacecraft crops score fill 0.66-0.85 / contrast 0.09-0.15.
@@ -1299,7 +1304,26 @@ def measure_grs_precision(
         corroborated = (not others) or (max_disagree <= TEMPLATE_CORROBORATION_DEG)
         if tq >= 0.04 and corroborated:
             lon = tlon
-            lat = 0.80 * tlat + 0.20 * lat
+            # Longitude and latitude are NOT equally well determined by the same
+            # estimator. The template's NCC peak is the best longitude lock we
+            # have, but its latitude carries a systematic ~-0.09 deg pull
+            # (measured over synthetic frames against the planted geometric
+            # centre), because the correlation window is clipped by the SEB
+            # search band and the oval's brightness is asymmetric in latitude.
+            # The moment mask, which integrates the whole dark region, is
+            # essentially unbiased in latitude (+0.01 deg). So: take longitude
+            # from the template, latitude from the moment when it corroborates.
+            mom_u = usable.get("moment")
+            if mom_u is not None and abs(float(mom_u["lat_deg"]) - tlat) <= LAT_CORROBORATION_DEG:
+                lat = float(
+                    LAT_MOMENT_WEIGHT * float(mom_u["lat_deg"])
+                    + (1.0 - LAT_MOMENT_WEIGHT) * tlat
+                )
+                notes.append(
+                    f"lat from moment (unbiased) w={LAT_MOMENT_WEIGHT:.2f}, lon from template"
+                )
+            else:
+                lat = 0.80 * tlat + 0.20 * lat
             pos_tag = "template_pos"
             notes.append(f"position locked to template (dark_contrast={tq:.3f})")
         elif not corroborated:

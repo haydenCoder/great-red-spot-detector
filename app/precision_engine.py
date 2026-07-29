@@ -167,7 +167,12 @@ def deg_to_arcsec_on_sky(deg: float, km_per_deg: float, distance_au: float) -> f
     longitude/latitude on Jupiter's surface into arcseconds as seen from Earth.
     """
     km = abs(deg) * km_per_deg
-    dist_km = distance_au * AU_KM
+    dist_km = float(distance_au) * AU_KM
+    if not math.isfinite(dist_km) or dist_km <= 0.0:
+        # A non-positive/non-finite distance is meaningless geometry. Return NaN
+        # rather than raising ZeroDivisionError deep inside an error budget, so
+        # the caller sees "unknown" instead of the whole job dying.
+        return float("nan")
     return (km / dist_km) * ARCSEC_PER_RAD
 
 
@@ -272,6 +277,12 @@ def to_mono(image: np.ndarray) -> np.ndarray:
     Handles CHW, HWC, and already-mono formats.
     """
     im = np.asarray(image, dtype=np.float64)
+    # Sanitise non-finite pixels once, here, because every measurement path
+    # funnels through to_mono. A single inf in a FITS frame otherwise
+    # propagates into percentiles, the limb fit and the error budget; NaN
+    # silently poisons comparisons instead of raising.
+    if not np.isfinite(im).all():
+        im = np.nan_to_num(im, nan=0.0, posinf=0.0, neginf=0.0)
     if im.ndim == 2:
         return im
     if im.ndim == 3 and im.shape[0] in (3, 4) and im.shape[0] < min(im.shape[1], im.shape[2]):
@@ -852,6 +863,12 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
         hp = 0.45 * hp + 0.55 * hp_r
     # GRS is darker: take low percentile residual in band
     vals = hp[band]
+    if vals.size == 0:
+        # Both the SEB band and the rr<=0.95 fallback can be empty when the limb
+        # fit is degenerate (off-frame centre, sub-pixel radius). np.percentile
+        # raises on an empty array, so fail with a clear reason the caller
+        # already knows how to handle instead of an IndexError from numpy.
+        raise RuntimeError("moment mask: no on-disk pixels (degenerate limb fit)")
     thr = np.percentile(vals, 10)
     cand = band & (hp <= thr)
     try:

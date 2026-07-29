@@ -1318,6 +1318,12 @@ def api_factory_night():
         return jsonify({"ok": False, "error": str(e)}), 409
 
     def worker():
+        # `user_time` is rebound below on the synthetic path (measure at the
+        # drawn epoch). Without `nonlocal` that assignment makes the name local
+        # to this closure, so EVERY read of it -- including the log line a few
+        # lines down, long before the assignment -- raised UnboundLocalError and
+        # crashed /api/factory_night outright.
+        nonlocal user_time
         try:
             stages: Dict[str, Any] = {}
             CONSOLE.info("=" * 64)

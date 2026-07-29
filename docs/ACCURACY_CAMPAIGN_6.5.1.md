@@ -287,3 +287,101 @@ Cumulative: **16.8 s → 1.65 s per measurement (10.2×)**, ~25 frames/min on
   wander, but a dated JUPOS measurement for that exact epoch would tighten it.
 * Native C/Rust core still unbuildable in this sandbox (no CPython headers, no
   root, Rust endpoints blocked).
+
+---
+
+# Addendum 2 — full error audit and final tuning
+
+## Errors found and fixed
+
+### Real crash: `/api/factory_night` could not run at all
+
+`server.py` `api_factory_night` → nested `worker()` does
+`user_time = truth.get("user_time_iso") or user_time` on the synthetic path.
+Without `nonlocal`, that assignment makes `user_time` **local to the closure**,
+so *every* read raises `UnboundLocalError` — including the log line ~100 lines
+*earlier*, before the assignment. The endpoint was dead on arrival.
+
+Verified with a minimal repro of the exact closure shape:
+
+```
+without nonlocal -> UnboundLocalError: cannot access local variable 'user_time'
+with    nonlocal -> time=2024-01-01
+```
+
+Swept the whole codebase for the same read-before-rebind pattern. One other hit
+(`worker`/`mtag`) was a **false positive** — assigned at 1037 before the read at
+1041 and never bound in the enclosing scope.
+
+### Numeric robustness
+
+| Issue | Before | After |
+|---|---|---|
+| Non-finite pixels (`inf`/`NaN`) | `RuntimeWarning`, poisoned percentiles/limb/budget | sanitised once in `to_mono` |
+| `deg_to_arcsec_on_sky(distance=0)` | `ZeroDivisionError` mid-error-budget | returns `NaN` |
+| `_moment_mask_grs` empty band | `np.percentile` on empty array | clear `RuntimeError` |
+
+**Fuzz results after the fixes** — all zeros, all ones, NaN, inf, −inf,
+negative, 8×8, 1-px-wide, 1e12, single bright pixel: **no crashes**, every one
+correctly `measurable=False`, `quality=0.00`.
+
+**Confirmed clean:** no mutable default args, no bare `except:`, no float
+equality in core math, all `arcsin`/`arccos` clipped, all other `percentile`
+calls guarded.
+
+## Final tuning — longitude
+
+Per-method longitude error vs the planted geometric centre exposed the template
+as a far weaker longitude estimator than the consensus assumed:
+
+| Method | bias | sd | worst |
+|---|---|---|---|
+| template | +0.884° | **3.605°** | **16.56°** |
+| moment | −0.021° | 0.327° | 0.98° |
+
+Even restricted to frames where the two *agree* (the branch that locks to the
+template):
+
+| | median \|e\| | sd | max |
+|---|---|---|---|
+| template | 0.219° | 0.321° | 1.059° |
+| moment | **0.105°** | 0.289° | 0.976° |
+| 50/50 blend | 0.129° | **0.259°** | **0.696°** |
+
+The blend wins on both scatter and worst case, so longitude is now an equal
+blend when the moment corroborates. The template still identifies the GRS; it
+just no longer owns the answer.
+
+Also ruled out: longitude error is **flat across the disk** (+0.05° at
+|lon_rel|≈0 through +0.06° at ≈20°), so the residual is not foreshortening or a
+projection defect.
+
+## Final state
+
+**Full suite: 223 passed, 5 skipped, 0 failures** (including all slow
+end-to-end tests).
+
+**300 unseen seeds, 0 failures:**
+
+| Metric | vs barycentre | vs geometric centre |
+|---|---|---|
+| Longitude median | 0.138° | **0.160°** |
+| Longitude max | **0.588°** | 0.691° |
+| Latitude median | 0.267° | **0.055°** |
+| Latitude max | 0.618° | 0.360° |
+| Within 1° | **100%** | **100%** |
+| Sky error median | **0.107″** | — |
+
+**Real Hubble 2014-04-21** (Ganymede shadow on the GRS centre):
+**shadow offset 0.206°** — down from 0.81° at the start of this pass.
+
+### Cumulative improvement
+
+| | start of session | now |
+|---|---|---|
+| Worst-case longitude | 31.03° | **0.59°** |
+| Longitude median | 0.221° | **0.138°** |
+| Latitude median (geometric) | 0.124° | **0.055°** |
+| Within 1° | 99.2% | **100%** |
+| Real-image shadow offset | 0.81° | **0.206°** |
+| Measurement time | 16.8 s | **1.65 s** |

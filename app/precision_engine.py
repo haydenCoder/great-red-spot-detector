@@ -1105,6 +1105,9 @@ TEMPLATE_CORROBORATION_DEG = 8.0
 # (~-0.09 deg systematic), provided the two agree to within this many degrees.
 LAT_CORROBORATION_DEG = 3.0
 LAT_MOMENT_WEIGHT = 0.75
+# Longitude blend weight for the moment centroid when it corroborates the
+# template (0.5 == equal blend; measured optimum for scatter and worst case).
+LON_MOMENT_WEIGHT = 0.5
 
 # Disk-quality gate thresholds. Calibrated on real web imagery: genuine resolved
 # Jupiter disks score fill 0.96-0.99 / contrast 0.39-0.70, while point-source
@@ -1336,7 +1339,26 @@ def measure_grs_precision(
         )
         corroborated = (not others) or (max_disagree <= TEMPLATE_CORROBORATION_DEG)
         if tq >= 0.04 and corroborated:
-            lon = tlon
+            # Longitude: blend template with the moment centroid when they
+            # corroborate. Measured over synthetic frames against the planted
+            # geometric centre, restricted to the cases where the two agree
+            # (|dlon| <= 8 deg, i.e. the branch we are in):
+            #     template      median |e| 0.219 deg, sd 0.321, max 1.059
+            #     moment        median |e| 0.105 deg, sd 0.289, max 0.976
+            #     50/50 blend   median |e| 0.129 deg, sd 0.259, max 0.696
+            # The blend has the smallest scatter AND the smallest worst case,
+            # which is what matters for a published number -- the template
+            # alone carries 3.6 deg sd once non-corroborating frames are
+            # included. Keep the template in the mix (it is the feature lock
+            # that got us here) but stop letting it own the answer.
+            mom_lon = usable.get("moment", {}).get("lon_iii_deg")
+            if mom_lon is not None:
+                lon = _circular_weighted_mean(
+                    np.array([tlon, float(mom_lon)], dtype=np.float64),
+                    np.array([1.0 - LON_MOMENT_WEIGHT, LON_MOMENT_WEIGHT], dtype=np.float64),
+                )
+            else:
+                lon = tlon
             # Longitude and latitude are NOT equally well determined by the same
             # estimator. The template's NCC peak is the best longitude lock we
             # have, but its latitude carries a systematic ~-0.09 deg pull

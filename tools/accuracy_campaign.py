@@ -100,16 +100,26 @@ def run_one(seed: int, resolution: str = "1080p", mode: str = "metrology",
             dlon_s = wrap_diff(res.lon_iii_deg, float(lon_seed))
             dlat_s = res.lat_deg - float(lat_seed)
 
-        # Limb-fit quality, the dominant systematic on real frames
+        # Limb-fit quality, the dominant systematic on real frames.
+        # The synthetic truth stores the planted disk as top-level keys
+        # disk_xc / disk_yc / disk_a_eq_px; some other truth sources nest it
+        # under truth["nav"]. Read whichever is present so this column is not
+        # silently NaN (it previously read only truth["nav"], which the synth
+        # never sets, so every limb residual was NaN).
         nav_t = truth.get("nav") or {}
         d_xc = d_yc = d_a = float("nan")
-        if nav_t:
-            try:
-                d_xc = nav.xc - float(nav_t.get("xc"))
-                d_yc = nav.yc - float(nav_t.get("yc"))
-                d_a = nav.a_eq_px - float(nav_t.get("a_eq_px"))
-            except Exception:
-                pass
+        tx = nav_t.get("xc", truth.get("disk_xc"))
+        ty = nav_t.get("yc", truth.get("disk_yc"))
+        ta = nav_t.get("a_eq_px", nav_t.get("a_px", truth.get("disk_a_eq_px")))
+        try:
+            if tx is not None:
+                d_xc = nav.xc - float(tx)
+            if ty is not None:
+                d_yc = nav.yc - float(ty)
+            if ta is not None:
+                d_a = nav.a_eq_px - float(ta)
+        except (TypeError, ValueError):
+            pass
 
         return {
             "seed": int(seed),

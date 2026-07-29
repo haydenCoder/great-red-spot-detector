@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-29T02:03:11Z",
+  "updated": "2026-07-29T02:08:45Z",
   "kernel_dir": "/home/user/great-red-spot-detector/app/ephemeris_data/spice",
   "kernels": [
     "naif0012.tls",

@@ -24,6 +24,7 @@ tenths of a degree. That's why the champion path does multi-isophote probing.
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -616,6 +617,21 @@ def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
     return wrap_deg(nav.cm_iii_deg + lon_rel), lat
 
 
+@lru_cache(maxsize=8)
+def _body_grid_cached(width: int, height: int, flattening: float):
+    """Cached body-frame unit grid for make_cylindrical.
+
+    Returns read-only arrays; callers must not mutate them.
+    """
+    lons = np.linspace(-90.0, 90.0, width)
+    lats = np.linspace(90.0, -90.0, height)
+    lon_g, lat_g = np.meshgrid(lons, lats)
+    X, Y, Z = lonlat_to_planet_xyz(lon_g, lat_g, flattening)
+    for a in (X, Y, Z):
+        a.setflags(write=False)
+    return X, Y, Z
+
+
 def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height: int = 720) -> np.ndarray:
     """
     Build a cylindrical map from the disk image — this is where all the
@@ -629,12 +645,12 @@ def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height
     ground-based images. Higher resolutions are used in the champion path.
     """
     im = to_mono(image)
-    lons = np.linspace(-90.0, 90.0, width)
-    lats = np.linspace(90.0, -90.0, height)
-    lon_g, lat_g = np.meshgrid(lons, lats)
     # Shared spheroid forward model — identical contract to px_to_lonlat, so
-    # the map and its inverse cannot drift apart.
-    Xe, Ye, Ze = lonlat_to_planet_xyz(lon_g, lat_g, nav.flattening)
+    # the map and its inverse cannot drift apart. The body-frame grid depends
+    # only on (width, height, flattening), never on the nav pose, so it is
+    # cached: make_cylindrical is called several times per measurement with the
+    # same map size and the trig was being recomputed every time.
+    Xe, Ye, Ze = _body_grid_cached(width, height, float(nav.flattening))
     xs, ys, mu = planet_xyz_to_px(Xe, Ye, Ze, nav)
     h, w = im.shape
     x0 = np.floor(xs).astype(np.int64)

@@ -1187,6 +1187,15 @@ LAT_MOMENT_WEIGHT = 0.75
 # Longitude blend weight for the moment centroid when it corroborates the
 # template (0.5 == equal blend; measured optimum for scatter and worst case).
 LON_MOMENT_WEIGHT = 0.5
+# Longitude blend weight for the redness (R-B colour) lock when it corroborates
+# the template. Redness is the most blur-robust estimator (colour survives
+# seeing that destroys the dark-oval shape), so on frames where the dark methods
+# (template + moment) err together by ~1 deg the redness lock is often the
+# correct one. Folding it into the corroborated longitude blend -- equally with
+# the moment -- cuts the worst-case longitude error on clear data: a frame where
+# template (-1.09 deg) + moment (-0.29 deg) averaged to -0.69 deg while redness
+# was +0.09 deg now averages the three to -0.43 deg.
+LON_REDNESS_WEIGHT = 0.5
 
 # A real feature is re-findable when the image is resampled; noise is not.
 # Measured separation on real frames: faint-but-real GRS drifts 0.19 deg,
@@ -1575,10 +1584,24 @@ def measure_grs_precision(
             # included. Keep the template in the mix (it is the feature lock
             # that got us here) but stop letting it own the answer.
             mom_lon = usable.get("moment", {}).get("lon_iii_deg")
-            if mom_lon is not None:
+            red_lon = usable.get("redness", {}).get("lon_iii_deg")
+            if mom_lon is not None or red_lon is not None:
+                # Template is the feature lock that got us here; fold in the
+                # moment centroid AND the blur-robust redness lock when they
+                # corroborate. Averaging all corroborating estimators stops a
+                # shared template+moment bias (~1 deg) from owning the longitude
+                # when redness is the accurate one.
+                bl_lons = [tlon]
+                bl_w = [1.0 - LON_MOMENT_WEIGHT]
+                if mom_lon is not None:
+                    bl_lons.append(float(mom_lon))
+                    bl_w.append(LON_MOMENT_WEIGHT)
+                if red_lon is not None:
+                    bl_lons.append(float(red_lon))
+                    bl_w.append(LON_REDNESS_WEIGHT)
                 lon = _circular_weighted_mean(
-                    np.array([tlon, float(mom_lon)], dtype=np.float64),
-                    np.array([1.0 - LON_MOMENT_WEIGHT, LON_MOMENT_WEIGHT], dtype=np.float64),
+                    np.array(bl_lons, dtype=np.float64),
+                    np.array(bl_w, dtype=np.float64),
                 )
             else:
                 lon = tlon

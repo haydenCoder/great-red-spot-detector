@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.5.1 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 6.6.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -53,6 +53,27 @@ Your image (FITS/PNG/SER)
 | Careful human WinJUPOS | Built on the same discipline. On good data it can match or approach a careful desk — but **paste your WJ pick** to prove Δsky. It does NOT claim to beat every expert on every messy night |
 
 In short: WinJUPOS-class methodology with automation, not a magic wand.
+
+### v6.6.0 — accuracy verified at scale (2026-07-29)
+
+Two pinned test campaigns, **340 cases total**, score the measurement against
+independent truth. Full write-up: [`docs/AUDIT_MASTER_6.6.0.md`](docs/AUDIT_MASTER_6.6.0.md).
+
+| Campaign | Truth source | Result |
+|---|---|---|
+| **Resolution × seeing** (100 cases) | planted geometric centre | 100 % within 1°, sky median **0.117″** |
+| **Real ephemeris** (240 cases) | published GRS longitude (Hubble/JUPOS) + literature latitude | **100 % within 1°**, every clear/mild frame **<0.5°**, lon bias −0.004° |
+
+The headline guarantee: **sub-1° on every frame across clear→very-blurry and
+1080p→4K, and sub-0.5° on all good (clear/mild) data.** A consensus tuning
+(folding the blur-robust colour/redness lock into the longitude blend) drove the
+worst clear-data case from 0.69° to 0.43° and improved every suite with no
+regressions.
+
+> Note on real photos: absolute longitude needs a mid-exposure UTC, which web
+> imagery lacks, so the real-ephemeris campaign uses synthetic pixels planted at
+> the *real* published GRS longitude for each epoch. See the master audit for the
+> honest framing.
 
 ---
 

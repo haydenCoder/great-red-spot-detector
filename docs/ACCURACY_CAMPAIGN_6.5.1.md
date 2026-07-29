@@ -188,3 +188,102 @@ accuracy unchanged (20-frame campaign, 100% within 1°).
   already appropriately hedged and I have not strengthened it.
 * The residual −0.12° latitude bias against the geometric centre is small but
   systematic, and worth a look if sub-0.1° is the goal.
+
+---
+
+# Addendum — real ground truth, latitude tuning, final validation
+
+## Real photographs with published ground truth
+
+The earlier real-image work could only measure self-consistency, because web
+images carry no mid-exposure UTC. That gap is now closed using a frame where an
+independent, checkable reference exists.
+
+**Hubble WFC3/UVIS, 2014-04-21** — published by NASA/STScI with the statement
+that *"the shadow of Ganymede swept across the **center** of the Great Red
+Spot"*. Two references, neither produced by this codebase:
+
+1. **Ganymede's shadow** marks the GRS centre on the sky. It is a hard,
+   near-circular, extremely dark marker locatable with no ephemeris at all — so
+   the separation between our measured GRS centre and the shadow centre is a
+   true absolute check.
+2. **GRS latitude −22.4° planetographic** (JUPOS / BAA / NASA), pinned by the
+   jets for decades.
+
+| Frame | GRS ↔ shadow | Latitude vs literature | Length |
+|---|---|---|---|
+| Hubble 2014-04-21 (greyscale) | **0.38°** | 1.34° | 13.3° ✓ |
+| Hubble 2014-04-21 (colour) | **0.35°** | 1.33° | ✓ |
+
+The two are independently processed renderings of the same event and agree to
+0.03°. Amateur frames without a timestamp are correctly **skipped** by the disk
+gate rather than scored against a fabricated reference.
+
+### A harness bug worth recording
+
+Scoring the Hubble frame with `PA=0, sub_lat=0` gave a **2.69°** latitude error
+and looked like an engine defect. Real frames are not north-up and untilted —
+SPICE gives **PA = −7.06°, sub-lat = +1.51°** for that epoch. Supplying the true
+orientation dropped the error to **0.77°**. The error was in how I drove the
+engine, not the engine. `tools/real_truth_suite.py` now takes `--utc` per image
+and pulls orientation from SPICE, which is also how a user should drive the
+product.
+
+## Latitude tuning — bias cut 26×
+
+Per-method latitude bias against the **planted geometric centre**:
+
+| Method | bias | sd |
+|---|---|---|
+| template | **−0.0919°** | 0.064 |
+| moment | **+0.0135°** | 0.051 |
+| final (old) | −0.0859° | 0.062 |
+
+The consensus took *both* coordinates from the template (`lat = 0.80·template`).
+But the template's NCC peak is the best **longitude** lock while its
+**latitude** is pulled by SEB-band clipping of the correlation window and the
+oval's latitude-asymmetric brightness. The moment mask integrates the whole
+dark region and is essentially unbiased.
+
+Longitude now comes from the template, latitude from the moment (weight 0.75),
+gated on the two agreeing within 3° — falling back to the old blend otherwise,
+so a bad moment cannot hijack latitude.
+
+| | before | after |
+|---|---|---|
+| lat bias | −0.1208° | **−0.0046°** |
+| lat median | 0.1240° | **0.0505°** |
+
+## Final validation — 400 unseen seeds
+
+| Metric | vs barycentre | vs geometric centre |
+|---|---|---|
+| Longitude median | 0.216° | 0.196° |
+| Longitude max | **1.133°** | 1.758° |
+| Latitude median | 0.261° | **0.052°** |
+| Latitude bias | −0.262° | **−0.028°** |
+| Within 1° | **99.75%** | 99.75% |
+| Within 2° | **100%** | — |
+| Sky error median | **0.117″** | — |
+
+Failure rate 0/400.
+
+## Performance
+
+`make_cylindrical` is called 3× per measurement and rebuilt the full spheroid
+trig grid each time. That grid depends only on `(width, height, flattening)`,
+never on the nav pose, so it is now memoised and returned read-only. Warm
+measurement **1.81 s → 1.65 s**; output verified bit-identical.
+
+Cumulative: **16.8 s → 1.65 s per measurement (10.2×)**, ~25 frames/min on
+2 vCPU.
+
+## Still outstanding
+
+* **"More accurate than WinJUPOS" remains undemonstrated.** That needs the same
+  frames measured by a careful WinJUPOS operator; two Hubble frames cannot
+  settle it.
+* The 1.33° latitude gap vs the literature mean is within the GRS's own
+  wander, but a dated JUPOS measurement for that exact epoch would tighten it.
+* Native C/Rust core still unbuildable in this sandbox (no CPython headers, no
+  root, Rust endpoints blocked).

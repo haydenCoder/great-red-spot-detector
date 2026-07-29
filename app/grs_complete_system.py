@@ -145,11 +145,6 @@ class PipelineMode(str, enum.Enum):
     BOTH = "both"
 
 
-class FilterName(str, enum.Enum):
-    R = "R"; G = "G"; B = "B"; IR685 = "IR685"; IR742 = "IR742"
-    CH4 = "CH4"; L = "L"; CLEAR = "CLEAR"; RGB = "RGB"; UNKNOWN = "UNKNOWN"
-
-
 class QualityMetric(str, enum.Enum):
     LAPLACIAN_VAR = "laplacian_var"
     FFT_POWER = "fft_power"
@@ -158,11 +153,6 @@ class QualityMetric(str, enum.Enum):
     MAX_PIXEL = "max_pixel"
     TENENGRAD = "tenengrad"
     VARIANCE = "variance"
-
-
-class StackMethod(str, enum.Enum):
-    MEAN = "mean"; MEDIAN = "median"; KAPPA_SIGMA = "kappa_sigma"
-    QUALITY_WEIGHTED = "quality_weighted"; WINSORIZED = "winsorized"
 
 
 class RestoreMethod(str, enum.Enum):
@@ -174,42 +164,12 @@ class AlignMode(str, enum.Enum):
     GLOBAL = "global"; LOCAL_AP = "local_ap"; RIGID = "rigid"
 
 
-class SegmentMethod(str, enum.Enum):
-    ADAPTIVE_THRESHOLD = "adaptive_threshold"
-    ELLIPSE_FIT = "ellipse_fit"
-    MANUAL_MASK = "manual_mask"
-    OTSU = "otsu"
-    MOMENTS_BLOB = "moments_blob"
-
-
-class SmootherKind(str, enum.Enum):
-    NONE = "none"; RTS = "rts"; GP = "gp"; POLY = "poly"
-
-
-class LimbMethod(str, enum.Enum):
-    RADIAL_GRADIENT = "radial_gradient"
-    CANNY_LIKE = "canny_like"
-    THRESHOLD_EDGE = "threshold_edge"
-
-
-class DefinitionId(str, enum.Enum):
-    MOMENT_MASK_IR = "MOMENT_MASK_IR"
-    MOMENT_MASK_RED = "MOMENT_MASK_RED"
-    ELLIPSE_EDGE_IR = "ELLIPSE_EDGE_IR"
-    ELLIPSE_EDGE_RED = "ELLIPSE_EDGE_RED"
-    MANUAL_JUPOS_V1 = "MANUAL_JUPOS_V1"
-    BARYCENTRE_CH4 = "BARYCENTRE_CH4"
-
-
 class GRSPipelineError(Exception): pass
 class IngestError(GRSPipelineError): pass
 class QCError(GRSPipelineError): pass
-class CalibrationError(GRSPipelineError): pass
-class AlignmentError(GRSPipelineError): pass
 class NavigationError(GRSPipelineError): pass
 class MeasurementError(GRSPipelineError): pass
 class ConfigError(GRSPipelineError): pass
-class DependencyError(GRSPipelineError): pass
 
 
 def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
@@ -245,8 +205,6 @@ def sha256_file(path: Union[str, Path], chunk: int = 1 << 20) -> str:
             h.update(b)
     return h.hexdigest()
 
-def sha256_array(arr: np.ndarray) -> str:
-    return hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
 
 def sha256_json(obj: Any) -> str:
     return sha256_bytes(json.dumps(obj, sort_keys=True, default=str).encode())
@@ -279,9 +237,6 @@ def jupiter_eq_km_per_deg(lat_deg: float = 0.0) -> float:
 def jupiter_km_per_deg_lat() -> float:
     return (2.0 * math.pi * PC.JUPITER_RPOL_KM) / 360.0
 
-def km_at_jupiter_from_mas(mas: float, distance_au: float = PC.JUPITER_MEAN_DIST_AU) -> float:
-    theta_rad = (mas * 1e-3 / 3600.0) * PC.RAD_PER_DEG
-    return theta_rad * distance_au * PC.AU_M / 1000.0
 
 # ---------------------------------------------------------------------------
 # Image / signal utilities (SciPy fallbacks included)
@@ -446,21 +401,6 @@ def shift_image(image: np.ndarray, dy: float, dx: float, cval: float = 0.0) -> n
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
     coords = np.array([yy - dy, xx - dx])
     return map_coords(np.asarray(image, dtype=np.float64), coords, order=1, mode="constant", cval=cval)
-
-
-def rotate_image(image: np.ndarray, angle_deg: float, center: Optional[Tuple[float,float]] = None) -> np.ndarray:
-    h, w = image.shape[:2]
-    if center is None:
-        cy, cx = (h - 1) / 2.0, (w - 1) / 2.0
-    else:
-        cy, cx = center
-    th = deg2rad(angle_deg)
-    ct, st = math.cos(th), math.sin(th)
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    y = yy - cy; x = xx - cx
-    src_y =  ct * y + st * x + cy
-    src_x = -st * y + ct * x + cx
-    return map_coords(np.asarray(image, dtype=np.float64), np.array([src_y, src_x]), order=1)
 
 
 def resize_bilinear(image: np.ndarray, new_h: int, new_w: int) -> np.ndarray:
@@ -1183,14 +1123,6 @@ def read_rgb_fits_channels(path: Union[str, Path]) -> Dict[str, np.ndarray]:
 # Calibration
 # ---------------------------------------------------------------------------
 
-def estimate_readnoise_gain(bias_frames: np.ndarray) -> Tuple[float, float]:
-    """Estimate read noise (ADU) and rough gain from bias pairs."""
-    if bias_frames.ndim != 3 or bias_frames.shape[0] < 2:
-        return 5.0, 1.0
-    d = bias_frames[1] - bias_frames[0]
-    read_adu = float(np.std(d) / math.sqrt(2.0))
-    return read_adu, 1.0
-
 
 def make_hot_pixel_mask(dark_or_flat: np.ndarray, sigma: float = 5.0) -> np.ndarray:
     med = np.median(dark_or_flat)
@@ -1227,15 +1159,6 @@ def apply_calibration(
     if hotmask is not None:
         img = replace_hot_pixels(img, hotmask)
     return img
-
-
-def calibrate_cube(cube: VideoCube, dark: Optional[np.ndarray] = None,
-                   flat: Optional[np.ndarray] = None) -> VideoCube:
-    hot = make_hot_pixel_mask(dark) if dark is not None else None
-    out = np.empty_like(cube.data, dtype=np.float64)
-    for i in range(cube.n_frames):
-        out[i] = apply_calibration(cube.data[i], dark, flat, hot)
-    return VideoCube(data=out, times=cube.times, meta=cube.meta, quality=cube.quality)
 
 
 # ---------------------------------------------------------------------------
@@ -1668,35 +1591,6 @@ def lucky_stack_cube(cube: VideoCube, cfg: PipelineConfig, fraction: Optional[fl
 # Zernike polynomials & wave-optical PSF helpers
 # ---------------------------------------------------------------------------
 
-def noll_to_zernike(j: int) -> Tuple[int, int]:
-    """Convert Noll index j (1-based) to (n, m)."""
-    n = 0
-    j1 = j
-    while j1 > n + 1:
-        j1 -= n + 1
-        n += 1
-    m = -n + 2 * (j1 - 1)
-    # Noll ordering adjustment
-    # Use standard mapping:
-    n = int(math.ceil((-3 + math.sqrt(1 + 8*j)) / 2))
-    # recompute properly
-    n = 0
-    while (n+1)*(n+2)//2 < j:
-        n += 1
-    r = j - n*(n+1)//2
-    # m sequence
-    m = -n + 2*(r-1) if (n % 2 == 0) else -n + 2*(r-1)
-    # fix with classic algorithm
-    n = 0
-    j0 = j - 1
-    while True:
-        if j0 <= n:
-            break
-        j0 -= n + 1
-        n += 1
-    m = -n + 2 * j0
-    return n, m
-
 
 def zernike_radial(n: int, m: int, rho: np.ndarray) -> np.ndarray:
     m = abs(m)
@@ -1742,51 +1636,6 @@ def zernike_basis_on_pupil(size: int, noll_max: int = 15) -> List[np.ndarray]:
         if n > 30:
             break
     return modes
-
-
-def complex_pupil_psf(size: int = 128, zernike_coeffs: Optional[Sequence[float]] = None,
-                      wavelength_scale: float = 1.0) -> np.ndarray:
-    """Generate PSF from complex pupil with optional Zernike aberrations."""
-    y = np.linspace(-1, 1, size)
-    xx, yy = np.meshgrid(y, y)
-    rho = np.sqrt(xx*xx + yy*yy)
-    theta = np.arctan2(yy, xx)
-    aper = rho <= 1.0
-    phase = np.zeros((size, size), dtype=np.float64)
-    if zernike_coeffs:
-        modes = zernike_basis_on_pupil(size, len(zernike_coeffs))
-        for c, m in zip(zernike_coeffs, modes):
-            phase += float(c) * m
-    field = np.zeros((size, size), dtype=np.complex128)
-    field[aper] = np.exp(1j * wavelength_scale * phase[aper])
-    # pad for finer PSF sampling
-    pad = size
-    field_p = np.pad(field, pad)
-    F = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(field_p)))
-    psf = (F.real**2 + F.imag**2)
-    psf = psf / (psf.sum() + 1e-12)
-    # crop center size x size
-    c = psf.shape[0] // 2
-    half = size // 2
-    return psf[c-half:c-half+size, c-half:c-half+size]
-
-
-def kolmogorov_phase_screen(size: int, r0_frac: float = 0.2, seed: int = 0) -> np.ndarray:
-    """Fourier-method Kolmogorov phase screen (approx)."""
-    rng = np.random.default_rng(seed)
-    fy = np.fft.fftfreq(size)
-    fx = np.fft.fftfreq(size)
-    fxx, fyy = np.meshgrid(fx, fy)
-    f = np.sqrt(fxx*fxx + fyy*fyy)
-    f[0,0] = 1.0
-    # power spectrum ~ f^{-11/3}
-    r0 = max(r0_frac * size, 1.0)
-    psd = 0.023 * (r0 ** (-5.0/3.0)) * (f ** (-11.0/3.0))
-    psd[0,0] = 0.0
-    noise = rng.normal(size=(size, size)) + 1j * rng.normal(size=(size, size))
-    screen = np.fft.ifft2(np.sqrt(psd) * noise).real
-    screen -= screen.mean()
-    return screen
 
 
 def moffat_psf(size: int, alpha: float = 2.5, beta: float = 2.5) -> np.ndarray:
@@ -2026,21 +1875,6 @@ def register_channels(channels: Dict[str, np.ndarray], ref_name: str = "G") -> D
             continue
         dy, dx, _ = phase_correlate(ref, highpass(img, 2.0))
         out[name] = shift_image(img, dy, dx)
-    return out
-
-
-def apply_residual_dcr(channels: Dict[str, np.ndarray], z_deg: float = 40.0,
-                       pressure: float = 1013.25, temp_c: float = 15.0) -> Dict[str, np.ndarray]:
-    """Shift channels vertically by model DCR relative to G (simplified)."""
-    ref_lam = FILTER_WAVELENGTH_NM.get("G", 530.0)
-    out = {}
-    for name, img in channels.items():
-        lam = FILTER_WAVELENGTH_NM.get(name, 550.0)
-        dcr = dcr_shift_arcsec(z_deg, lam, ref_lam, pressure, temp_c)
-        # without plate scale we assume ~0.1"/px planetary typical -> user should set
-        # use 0 shift if unknown plate scale; mild model shift in px if dcr large
-        # skip absolute; keep as no-op unless plate scale known
-        out[name] = img
     return out
 
 
@@ -2299,16 +2133,6 @@ def px_to_lonlat(y: float, x: float, nav: Navigation) -> Tuple[float, float]:
     lat = rad2deg(math.asin(clamp(Y, -1.0, 1.0)))
     lon_iii = wrap_deg(nav.cm_iii_deg + lon_rel)
     return lon_iii, lat
-
-
-def lonlat_to_px(lon_iii: float, lat: float, nav: Navigation) -> Tuple[float, float]:
-    lon_rel = wrap_deg_diff(lon_iii, nav.cm_iii_deg)
-    lon_r = deg2rad(lon_rel); lat_r = deg2rad(lat)
-    X = math.cos(lat_r) * math.sin(lon_r)
-    Y = math.sin(lat_r)
-    x = nav.xc + X * nav.a_eq_px
-    y = nav.yc - Y * nav.b_pol_px
-    return y, x
 
 
 # ---------------------------------------------------------------------------
@@ -2593,23 +2417,6 @@ def smooth_trajectory(states: List[GRSState], cfg: PipelineConfig) -> List[Dict[
         out.append(d)
     return out
 
-
-def fit_drift_model(t: np.ndarray, lon: np.ndarray, weights: Optional[np.ndarray] = None) -> Dict[str, float]:
-    """lon = lon0 + drift * t  (t days from mean)."""
-    t = np.asarray(t, dtype=np.float64)
-    lon = unwrap_longitudes(lon)
-    t0 = t - t.mean()
-    if weights is None:
-        weights = np.ones_like(t)
-    w = weights / (weights.sum() + 1e-12)
-    # weighted least squares
-    A = np.column_stack([np.ones_like(t0), t0])
-    W = np.diag(w)
-    try:
-        theta = np.linalg.lstsq(A.T @ W @ A, A.T @ W @ lon, rcond=None)[0]
-    except Exception:
-        theta = np.array([lon.mean(), 0.0])
-    return {"lon0": float(theta[0] % 360.0), "drift_deg_per_day": float(theta[1])}
 
 # ---------------------------------------------------------------------------
 # Export helpers
@@ -3201,12 +3008,6 @@ FILTER_CATALOG: Dict[str, FilterBandpass] = {
 }
 
 
-def filter_center_nm(name: str) -> float:
-    if name in FILTER_CATALOG:
-        return FILTER_CATALOG[name].center_nm
-    return FILTER_WAVELENGTH_NM.get(name, 550.0)
-
-
 def rad_to_arcsec(r: float) -> float:
     return r * PC.ARCSEC_PER_RAD
 
@@ -3215,22 +3016,6 @@ def diffraction_limit_arcsec(diameter_m: float, wavelength_nm: float) -> float:
     lam_m = wavelength_nm * 1e-9
     theta_rad = 1.22 * lam_m / max(diameter_m, 1e-6)
     return rad_to_arcsec(theta_rad)
-
-
-def critical_sampling_arcsec_per_px(diameter_m: float, wavelength_nm: float, factor: float = 2.5) -> float:
-    return diffraction_limit_arcsec(diameter_m, wavelength_nm) / factor
-
-
-def plate_scale_arcsec_per_px(pixel_um: float, focal_length_mm: float) -> float:
-    return 206.265 * pixel_um / max(focal_length_mm, 1e-6)
-
-
-def effective_focal_length_mm(pixel_um: float, arcsec_per_px: float) -> float:
-    return 206.265 * pixel_um / max(arcsec_per_px, 1e-9)
-
-
-def suggest_roi(planet_diameter_arcsec: float, scale: float, margin: float = 1.4) -> int:
-    return int(math.ceil(planet_diameter_arcsec / max(scale, 1e-6) * margin))
 
 
 _FC_PATTERNS = {
@@ -3244,89 +3029,6 @@ _FC_PATTERNS = {
 }
 
 
-def parse_firecapture_log(path: Union[str, Path]) -> Dict[str, Any]:
-    path = Path(path)
-    text = path.read_text(encoding="utf-8", errors="replace")
-    out: Dict[str, Any] = {"path": str(path)}
-    for key, pat in _FC_PATTERNS.items():
-        m = pat.search(text)
-        if not m:
-            continue
-        val = m.group(1).strip()
-        if key in ("exposure", "gain", "fps", "temp"):
-            try:
-                out[key] = float(val)
-            except ValueError:
-                out[key] = val
-        else:
-            out[key] = val
-    return out
-
-
-def apply_log_to_meta(meta: FrameMeta, log: Mapping[str, Any]) -> FrameMeta:
-    m = copy.copy(meta)
-    if "exposure" in log:
-        m.exposure_s = float(log["exposure"]) / (1000.0 if float(log["exposure"]) > 5 else 1.0)
-    if "gain" in log:
-        m.gain = float(log["gain"])
-    if "filter" in log:
-        m.filter_name = str(log["filter"])
-    if "camera" in log:
-        m.camera = str(log["camera"])
-    if "temp" in log:
-        try:
-            m.temperature_c = float(log["temp"])
-        except Exception:
-            pass
-    if "date" in log:
-        try:
-            m.t_utc_mid = parse_time_string(str(log["date"]))
-        except Exception:
-            pass
-    return m
-
-
-def drizzle_combine(
-    frames: np.ndarray,
-    shifts: Sequence[Tuple[float, float]],
-    scale: float = 1.5,
-    pixfrac: float = 0.7,
-) -> np.ndarray:
-    n, h, w = frames.shape
-    oh, ow = int(round(h * scale)), int(round(w * scale))
-    acc = np.zeros((oh, ow), dtype=np.float64)
-    wgt = np.zeros((oh, ow), dtype=np.float64)
-    half = max(pixfrac * scale / 2.0, 1e-6)
-    for i in range(n):
-        dy, dx = shifts[i] if i < len(shifts) else (0.0, 0.0)
-        img = frames[i]
-        yy, xx = np.mgrid[0:oh, 0:ow].astype(np.float64)
-        y_in = yy / scale - dy
-        x_in = xx / scale - dx
-        yi = np.rint(y_in).astype(np.int64)
-        xi = np.rint(x_in).astype(np.int64)
-        valid = (yi >= 0) & (yi < h) & (xi >= 0) & (xi < w)
-        wy = 1.0 - np.minimum(np.abs(y_in - yi) / half, 1.0)
-        wx = 1.0 - np.minimum(np.abs(x_in - xi) / half, 1.0)
-        ww = np.clip(wy * wx, 0, 1)
-        vals = np.zeros((oh, ow), dtype=np.float64)
-        vals[valid] = img[yi[valid], xi[valid]]
-        acc += vals * ww
-        wgt += ww * valid
-    return safe_div(acc, wgt)
-
-
-def quality_pyramid(image: np.ndarray, levels: int = 4) -> List[float]:
-    scores = []
-    img = np.asarray(image, dtype=np.float64)
-    for _ in range(levels):
-        scores.append(score_laplacian_var(img))
-        img = gaussian_filter2d(img, 1.0)[::2, ::2]
-        if min(img.shape) < 16:
-            break
-    return scores
-
-
 def hybrid_quality_vector(image: np.ndarray) -> np.ndarray:
     return np.array([
         score_laplacian_var(image),
@@ -3335,76 +3037,6 @@ def hybrid_quality_vector(image: np.ndarray) -> np.ndarray:
         score_variance(image),
         score_tenengrad(image),
     ], dtype=np.float64)
-
-
-def rank_frames_multi_metric(cube: VideoCube) -> np.ndarray:
-    n = cube.n_frames
-    M = np.zeros((n, 5), dtype=np.float64)
-    for i in range(n):
-        M[i] = hybrid_quality_vector(cube.data[i])
-    mu = M.mean(axis=0); sd = M.std(axis=0) + 1e-12
-    return ((M - mu) / sd).mean(axis=1)
-
-
-def make_lon_lat_grid(nav: Navigation, shape: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    h, w = shape
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    X = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
-    Y = (nav.yc - yy) / (nav.b_pol_px + 1e-12)
-    rr = X*X + Y*Y
-    mu = np.sqrt(np.clip(1.0 - rr, 0, 1))
-    lon_rel = np.arctan2(X, mu)
-    lat = np.arcsin(np.clip(Y, -1, 1))
-    lon_iii = (nav.cm_iii_deg + lon_rel * PC.DEG_PER_RAD) % 360.0
-    lat_deg = lat * PC.DEG_PER_RAD
-    return lon_iii, lat_deg, rr
-
-
-def reproject_to_simple_cylindrical(
-    image: np.ndarray, nav: Navigation, out_w: int = 3600, out_h: int = 1800, lon0: float = 0.0,
-) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    lons = (np.linspace(0, 360, out_w, endpoint=False) + lon0) % 360
-    lats = np.linspace(90, -90, out_h)
-    lon_g, lat_g = np.meshgrid(lons, lats)
-    lon_rel = np.deg2rad(((lon_g - nav.cm_iii_deg + 180) % 360) - 180)
-    lat_r = np.deg2rad(lat_g)
-    X = np.cos(lat_r) * np.sin(lon_rel)
-    Y = np.sin(lat_r)
-    mu = np.cos(lat_r) * np.cos(lon_rel)
-    xs = nav.xc + X * nav.a_eq_px
-    ys = nav.yc - Y * nav.b_pol_px
-    sampled = map_coords(img, np.array([ys, xs]), order=1, mode="constant", cval=0.0)
-    sampled[mu <= 0] = 0.0
-    return sampled
-
-
-def map_measure_grs(cyl_map: np.ndarray, lat0: float = -22.0, dlat: float = 10.0) -> Dict[str, float]:
-    h, w = cyl_map.shape
-    def lat_to_y(lat: float) -> int:
-        return int(np.clip((90 - lat) / 180.0 * (h - 1), 0, h - 1))
-    y0 = lat_to_y(lat0 + dlat/2); y1 = lat_to_y(lat0 - dlat/2)
-    if y1 < y0: y0, y1 = y1, y0
-    band = cyl_map[y0:y1+1, :]
-    prof = band.mean(axis=0)
-    k = np.ones(15)/15
-    prof_s = np.convolve(prof, k, mode="same")
-    j = int(np.argmin(prof_s))
-    return {"lon_iii_deg": 360.0 * j / w, "map_x": float(j), "map_y0": float(y0), "map_y1": float(y1)}
-
-
-def assemble_error_budget(state: GRSState, nav: Navigation, stack: Optional[StackResult] = None) -> Dict[str, float]:
-    eb = dict(state.error_budget)
-    if stack is not None and stack.noise_map is not None:
-        eb["snr_proxy"] = float(1.0 / (np.median(stack.noise_map) + 1e-6))
-    if nav.cov_center is not None:
-        s_px = float(np.sqrt(np.trace(nav.cov_center) / 2.0))
-        deg_per_px = (180.0 / math.pi) / (nav.a_eq_px + 1e-12)
-        eb["nav_center_deg"] = s_px * deg_per_px
-    eb.setdefault("definition_floor_deg", 0.05)
-    parts = [eb.get("sig_lon_deg", 0.0)**2, eb.get("nav_center_deg", 0.0)**2, eb.get("definition_floor_deg", 0.0)**2]
-    eb["total_lon_rms_deg"] = float(math.sqrt(sum(parts)))
-    return eb
 
 
 def write_text_report(path: Union[str, Path], pipe: "GRSCompletePipeline") -> None:
@@ -3422,24 +3054,6 @@ def write_text_report(path: Union[str, Path], pipe: "GRSCompletePipeline") -> No
     for stg in pipe.stages:
         lines.append(f"  {stg}")
     path.write_text("\n".join(lines), encoding="utf-8")
-
-
-class FixedLagLuckyStacker:
-    def __init__(self, lag: int = 200, fraction: float = 0.15, metric: str = "laplacian_var") -> None:
-        self.lag = lag; self.fraction = fraction; self.metric = metric
-        self.buffer: deque = deque(maxlen=lag); self.scores: deque = deque(maxlen=lag)
-    def push(self, frame: np.ndarray) -> Optional[np.ndarray]:
-        self.buffer.append(np.asarray(frame, dtype=np.float64))
-        self.scores.append(score_frame(frame, self.metric))
-        if len(self.buffer) < self.lag: return None
-        return self.stack_now()
-    def stack_now(self) -> np.ndarray:
-        frames = np.stack(list(self.buffer), 0)
-        scores = np.asarray(self.scores, dtype=np.float64)
-        idx = select_top_indices(scores, self.fraction)
-        sel = frames[idx]
-        aligned, _ = align_frames_global(sel, ref_index=int(np.argmax(scores[idx])))
-        return stack_kappa_sigma(aligned)
 
 
 PRESET_CHAMPIONSHIP_IMAGING = PipelineConfig(
@@ -3482,10 +3096,6 @@ Honesty: ground-based degrees/km, honest optical limits
 """
 
 
-def print_capabilities() -> None:
-    print(CAPABILITY_STATEMENT)
-
-
 def estimate_plate_background_gradient(image: np.ndarray, order: int = 2) -> np.ndarray:
     h, w = image.shape
     yy, xx = np.mgrid[0:h, 0:w]
@@ -3505,54 +3115,6 @@ def estimate_plate_background_gradient(image: np.ndarray, order: int = 2) -> np.
     return bg
 
 
-def restore_digitized_plate(image: np.ndarray) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    flat = img - estimate_plate_background_gradient(img)
-    if np.median(flat) < 0:
-        flat = -flat
-    return np.clip(flat, 0, None)
-
-
-def airmass_approx(alt_deg: float) -> float:
-    z = 90.0 - alt_deg
-    return 1.0 / max(math.cos(deg2rad(z)) + 0.025 * math.exp(-11 * math.cos(deg2rad(z))), 1e-3)
-
-
-def score_session(alt_deg: float, seeing_arcsec: float, transparency: float = 1.0) -> float:
-    s_alt = 0.0 if alt_deg < 20 else 0.3 if alt_deg < 30 else 0.6 if alt_deg < 40 else 0.85 if alt_deg < 50 else 1.0
-    s_see = clamp(1.0 - (seeing_arcsec - 0.5) / 2.5, 0.0, 1.0)
-    return float(0.45 * s_see + 0.35 * s_alt + 0.20 * clamp(transparency, 0, 1))
-
-
-def unsharp_mask(image: np.ndarray, sigma: float = 2.0, strength: float = 0.5) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    return img + strength * (img - gaussian_filter2d(img, sigma))
-
-
-def image_moments(mask: np.ndarray, image: Optional[np.ndarray] = None) -> Dict[str, float]:
-    ys, xs = np.where(mask)
-    if len(xs) == 0:
-        return {k: 0.0 for k in ("m00","m10","m01","mu20","mu02","mu11","cx","cy")}
-    w = np.ones(len(xs)) if image is None else np.clip(image[ys, xs], 0, None) + 1e-12
-    m00 = float(w.sum()); m10 = float((xs*w).sum()); m01 = float((ys*w).sum())
-    cx = m10/m00; cy = m01/m00
-    x = xs-cx; y = ys-cy
-    return {"m00": m00, "m10": m10, "m01": m01,
-            "mu20": float((w*x*x).sum())/m00, "mu02": float((w*y*y).sum())/m00,
-            "mu11": float((w*x*y).sum())/m00, "cx": cx, "cy": cy}
-
-
-def run_selftests() -> None:
-    _assert = lambda c, m: (_ for _ in ()).throw(AssertionError(m)) if not c else None
-    _assert(abs(wrap_deg(370)-10)<1e-9, "wrap")
-    _assert(abs(moffat_psf(15).sum()-1)<1e-6, "psf")
-    img = synthetic_jupiter(64, seed=1)
-    layers, res = starlet_decompose(img, 3)
-    rec = res + sum(layers)
-    _assert(np.mean(np.abs(rec-img)) < 1e-5*(np.max(img)+1), "starlet")
-    LOG.info("selftests OK")
-
-
 class PipelineStateMachine:
     def __init__(self, cfg: PipelineConfig) -> None:
         self.cfg = cfg; self.state = "INIT"; self.history = ["INIT"]; self.context: Dict[str, Any] = {}
@@ -3568,18 +3130,6 @@ class PipelineStateMachine:
         self.transition("SCORED")
         st = lucky_stack_cube(cube, self.cfg); self.transition("STACKED"); self.context["stack"] = st
         return st
-
-
-class MultiFilterNight:
-    def __init__(self, name: str, cfg: PipelineConfig) -> None:
-        self.name = name; self.cfg = cfg; self.cubes: Dict[str, VideoCube] = {}; self.stacks: Dict[str, StackResult] = {}
-    def add(self, filter_name: str, cube: VideoCube) -> None:
-        self.cubes[filter_name] = cube
-    def reduce_all(self) -> Dict[str, StackResult]:
-        sm = PipelineStateMachine(self.cfg)
-        for f, c in self.cubes.items():
-            self.stacks[f] = sm.run_on_cube(c)
-        return self.stacks
 
 
 NOLL_ZERNIKES: Dict[int, Tuple[int, int, str]] = {
@@ -3621,9 +3171,6 @@ NOLL_ZERNIKES: Dict[int, Tuple[int, int, str]] = {
     36: (7, 0, 'Z36'),
 }
 
-def describe_noll(j: int) -> str:
-    n, m, name = NOLL_ZERNIKES.get(j, (-1, 0, 'unknown'))
-    return f'Noll {j}: n={n}, m={m}, {name}'
 
 APERTURE_RECOMMENDATIONS: Dict[int, Dict[str, float]] = {
     100: {'diffraction_green_arcsec': 1.384037, 'suggest_scale': 0.553615, 'f_ratio_planetary': 25.0},
@@ -3669,64 +3216,6 @@ APERTURE_RECOMMENDATIONS: Dict[int, Dict[str, float]] = {
     500: {'diffraction_green_arcsec': 0.276807, 'suggest_scale': 0.110723, 'f_ratio_planetary': 25.0},
 }
 
-def recommendation_for_aperture_mm(ap_mm: float) -> Dict[str, float]:
-    key = int(round(ap_mm / 10.0) * 10)
-    key = min(max(key, 100), 500)
-    return dict(APERTURE_RECOMMENDATIONS.get(key, APERTURE_RECOMMENDATIONS[150]))
-
-def process_ir685_stack(cube: VideoCube, cfg: PipelineConfig) -> StackResult:
-    cube2 = VideoCube(data=cube.data, times=cube.times, meta=replace(cube.meta, filter_name='IR685'), quality=cube.quality)
-    return lucky_stack_cube(cube2, cfg, cfg.primary_fraction)
-
-def process_ir742_stack(cube: VideoCube, cfg: PipelineConfig) -> StackResult:
-    cube2 = VideoCube(data=cube.data, times=cube.times, meta=replace(cube.meta, filter_name='IR742'), quality=cube.quality)
-    return lucky_stack_cube(cube2, cfg, cfg.primary_fraction)
-
-def process_ir807_stack(cube: VideoCube, cfg: PipelineConfig) -> StackResult:
-    cube2 = VideoCube(data=cube.data, times=cube.times, meta=replace(cube.meta, filter_name='IR807'), quality=cube.quality)
-    return lucky_stack_cube(cube2, cfg, cfg.primary_fraction)
-
-def process_ch4_stack(cube: VideoCube, cfg: PipelineConfig) -> StackResult:
-    cube2 = VideoCube(data=cube.data, times=cube.times, meta=replace(cube.meta, filter_name='CH4'), quality=cube.quality)
-    return lucky_stack_cube(cube2, cfg, cfg.primary_fraction)
-
-def process_clear_stack(cube: VideoCube, cfg: PipelineConfig) -> StackResult:
-    cube2 = VideoCube(data=cube.data, times=cube.times, meta=replace(cube.meta, filter_name='CLEAR'), quality=cube.quality)
-    return lucky_stack_cube(cube2, cfg, cfg.primary_fraction)
-
-def apply_wavelet_preset(image: np.ndarray, name: str = 'standard') -> np.ndarray:
-    gains, dens = WAVELET_PRESETS[name]
-    return starlet_sharpen(image, len(gains), gains, dens)
-
-def deg_to_mas(d: float) -> float:
-    return float(d * 3600000.0)
-
-def mas_to_deg(m: float) -> float:
-    return float(m / 3600000.0)
-
-def arcsec_to_mas(a: float) -> float:
-    return float(a * 1000.0)
-
-def mas_to_arcsec(m: float) -> float:
-    return float(m / 1000.0)
-
-def deg_to_arcsec(d: float) -> float:
-    return float(d * 3600.0)
-
-def arcsec_to_deg(a: float) -> float:
-    return float(a / 3600.0)
-
-def day_to_second(d: float) -> float:
-    return float(d * 86400.0)
-
-def second_to_day(s: float) -> float:
-    return float(s / 86400.0)
-
-def au_to_km(a: float) -> float:
-    return float(a * PC.AU_M / 1000.0)
-
-def km_to_au(k: float) -> float:
-    return float(k * 1000.0 / PC.AU_M)
 
 GRS_SIZE_REFERENCE: List[Tuple[int, float, float]] = [
     (1880, 47.000, 10.500),
@@ -3805,131 +3294,6 @@ GRS_SIZE_REFERENCE: List[Tuple[int, float, float]] = [
     (2026, 27.553, 10.354),
 ]
 
-def grs_reference_size(year: float) -> Tuple[float, float]:
-    years = np.array([r[0] for r in GRS_SIZE_REFERENCE], dtype=np.float64)
-    L = np.array([r[1] for r in GRS_SIZE_REFERENCE], dtype=np.float64)
-    W = np.array([r[2] for r in GRS_SIZE_REFERENCE], dtype=np.float64)
-    return float(np.interp(year, years, L)), float(np.interp(year, years, W))
-
-@dataclass
-class IngestStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class CalibStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class QualityStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class AlignStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class StackStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class DerotStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class RestoreStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class ColorStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class NavStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class MeasureStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class TrajStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-@dataclass
-class ExportStageResult:
-    ok: bool = True
-    message: str = ''
-    elapsed_s: float = 0.0
-    metrics: Dict[str, float] = field(default_factory=dict)
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
 
 SITE_PRESETS: Dict[str, Tuple[float,float,float]] = {
     'hong_kong': (22.3, 114.2, 50),
@@ -3942,66 +3306,8 @@ SITE_PRESETS: Dict[str, Tuple[float,float,float]] = {
     'pic_du_midi': (42.94, 0.14, 2877),
 }
 
-def apply_site_preset(cfg: PipelineConfig, name: str) -> PipelineConfig:
-    la, lo, e = SITE_PRESETS[name]
-    return replace(cfg, site_lat=la, site_lon=lo, site_elev_m=e)
-
-def score_all_frames_laplacian_var(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'laplacian_var')
-
-def score_all_frames_fft_power(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'fft_power')
-
-def score_all_frames_hybrid(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'hybrid')
-
-def score_all_frames_sobel_energy(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'sobel_energy')
-
-def score_all_frames_tenengrad(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'tenengrad')
-
-def score_all_frames_variance(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'variance')
-
-def score_all_frames_max_pixel(cube: VideoCube) -> np.ndarray:
-    return score_frames(cube, 'max_pixel')
-
-def algorithm_help(name: str) -> str:
-    return ALGORITHM_DOCS.get(name) or ALGORITHM_DOCS.get(name+'_long') or 'Unknown algorithm'
 
 PIPELINE_STEP_ORDER = ['ingest', 'qc', 'calibrate', 'score', 'select', 'align', 'stack', 'derotate', 'register', 'restore', 'lrgb', 'navigate', 'segment', 'measure', 'bootstrap', 'error_budget', 'smooth', 'export', 'manifest', 'report']
-
-def great_circle_distance_deg(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    rlat1, rlat2 = deg2rad(lat1), deg2rad(lat2)
-    dlon = deg2rad(wrap_deg_diff(lon2, lon1))
-    dlat = rlat2 - rlat1
-    a = math.sin(dlat/2)**2 + math.cos(rlat1)*math.cos(rlat2)*math.sin(dlon/2)**2
-    return rad2deg(2 * math.asin(min(1.0, math.sqrt(a))))
-
-
-def bearing_deg(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    rlat1, rlat2 = deg2rad(lat1), deg2rad(lat2)
-    dlon = deg2rad(wrap_deg_diff(lon2, lon1))
-    y = math.sin(dlon) * math.cos(rlat2)
-    x = math.cos(rlat1)*math.sin(rlat2) - math.sin(rlat1)*math.cos(rlat2)*math.cos(dlon)
-    return wrap_deg(rad2deg(math.atan2(y, x)))
-
-
-def cylindrical_equal_area_weight(lat_deg: float) -> float:
-    return max(math.cos(deg2rad(lat_deg)), 0.0)
-
-
-def integrate_mask_area_km2(mask: np.ndarray, nav: Navigation) -> float:
-    km_per_px = (2.0 * PC.JUPITER_REQ_KM) / (2.0 * nav.a_eq_px + 1e-12)
-    return float(mask.sum() * km_per_px * km_per_px)
-
-
-def brightness_temperature_proxy(image: np.ndarray, mask: np.ndarray) -> float:
-    """Relative photometric proxy (not absolute Kelvin)."""
-    if mask.sum() == 0:
-        return float("nan")
-    return float(np.median(image[mask]))
 
 
 def limb_darkening_law(mu: np.ndarray, u1: float = 0.6, u2: float = 0.2) -> np.ndarray:
@@ -4020,16 +3326,6 @@ def apply_limb_darkening_model(shape: Tuple[int,int], nav: Navigation, u1: float
     I = limb_darkening_law(mu, u1, u2)
     I[rr > 1] = 0
     return I
-
-
-def flatten_limb_darkening(image: np.ndarray, nav: Navigation, u1: float = 0.6, u2: float = 0.2, eps: float = 0.05) -> np.ndarray:
-    model = apply_limb_darkening_model(image.shape, nav, u1, u2)
-    return safe_div(np.asarray(image, dtype=np.float64), np.maximum(model, eps))
-
-
-def series_interpolate(t: np.ndarray, y: np.ndarray, t_new: np.ndarray) -> np.ndarray:
-    t = np.asarray(t, dtype=np.float64); y = np.asarray(y, dtype=np.float64)
-    return np.interp(t_new, t, y)
 
 
 def detrend_linear(t: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, float, float]:
@@ -4057,71 +3353,9 @@ def lomb_like_periodogram(t: np.ndarray, y: np.ndarray, periods: np.ndarray) -> 
     return power
 
 
-def search_90day_oscillation(t_mjd: np.ndarray, lon_deg: np.ndarray) -> Dict[str, float]:
-    lon_u = unwrap_longitudes(lon_deg)
-    resid, lon0, drift = detrend_linear(t_mjd, lon_u)
-    periods = np.linspace(60, 120, 200)
-    power = lomb_like_periodogram(t_mjd, resid, periods)
-    i = int(np.argmax(power))
-    return {"best_period_day": float(periods[i]), "power": float(power[i]), "drift_deg_per_day": drift, "lon0": lon0}
-
-
 def robust_mad(x: np.ndarray) -> float:
     x = np.asarray(x, dtype=np.float64)
     return float(1.4826 * np.median(np.abs(x - np.median(x))))
-
-
-def outlier_mask_mad(x: np.ndarray, kappa: float = 4.0) -> np.ndarray:
-    med = np.median(x)
-    mad = robust_mad(x) + 1e-12
-    return np.abs(x - med) <= kappa * mad
-
-
-def running_median(x: np.ndarray, win: int = 5) -> np.ndarray:
-    x = np.asarray(x, dtype=np.float64)
-    if win <= 1:
-        return x.copy()
-    pad = win // 2
-    xp = np.pad(x, (pad, pad), mode="edge")
-    out = np.empty_like(x)
-    for i in range(len(x)):
-        out[i] = np.median(xp[i:i+win])
-    return out
-
-
-def align_by_centroid(image: np.ndarray, ref_cy: float, ref_cx: float) -> np.ndarray:
-    m = rough_disk_mask(image)
-    ys, xs = np.where(m)
-    if len(xs) == 0:
-        return image
-    cy, cx = float(ys.mean()), float(xs.mean())
-    return shift_image(image, ref_cy - cy, ref_cx - cx)
-
-
-def multi_frame_max_entropy_stack(frames: np.ndarray, n_iter: int = 5) -> np.ndarray:
-    """Very simplified maximum-entropy-like iterative stack refinement."""
-    acc = stack_median(frames)
-    for _ in range(n_iter):
-        # re-align each frame to current acc and reject
-        aligned = []
-        for i in range(frames.shape[0]):
-            dy, dx, _ = phase_correlate(acc, frames[i])
-            aligned.append(shift_image(frames[i], dy, dx))
-        A = np.stack(aligned, 0)
-        acc = stack_kappa_sigma(A, kappa=2.0)
-    return acc
-
-
-def estimate_fwhm_from_edge(image: np.ndarray, nav: Navigation) -> float:
-    pts = extract_limb_points(image, n_rays=72)
-    # radial profiles near limb already used; approximate from gradient width
-    img = gaussian_filter2d(image, 0.5)
-    g = sobel_mag(img)
-    m = annulus_mask(image.shape, nav.yc, nav.xc, nav.a_eq_px*0.85, nav.a_eq_px*1.15)
-    if m.sum() < 10:
-        return float("nan")
-    # second moment of gradient near limb as width proxy
-    return float(np.sqrt(np.mean((g[m] / (np.max(g[m])+1e-12))**2)) * 5.0)
 
 
 def annulus_mask(shape: Tuple[int,int], cy: float, cx: float, r0: float, r1: float) -> np.ndarray:
@@ -4129,101 +3363,6 @@ def annulus_mask(shape: Tuple[int,int], cy: float, cx: float, r0: float, r1: flo
     yy, xx = np.mgrid[0:h, 0:w]
     rr = np.sqrt((yy-cy)**2 + (xx-cx)**2)
     return (rr >= r0) & (rr <= r1)
-
-
-def export_winjupos_like_csv(path: Union[str, Path], state: GRSState) -> None:
-    path = Path(path)
-    ensure_dir(path.parent)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["MJD_TDB", "LON_III", "LAT", "LENGTH_DEG", "WIDTH_DEG", "FILTER", "DEFINITION"])
-        w.writerow([state.t_tdb_mjd, state.lon_iii_deg, state.lat_deg, state.length_deg, state.width_deg, state.filter_name, state.definition_id])
-
-
-def load_trajectory_csv(path: Union[str, Path]) -> List[Dict[str, Any]]:
-    path = Path(path)
-    if not path.exists():
-        return []
-    with open(path, newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
-
-
-def states_from_trajectory_rows(rows: List[Dict[str, Any]]) -> List[GRSState]:
-    out = []
-    for r in rows:
-        try:
-            out.append(GRSState(
-                t_tdb_mjd=float(r.get("t_tdb_mjd", r.get("MJD_TDB", 0))),
-                lon_iii_deg=float(r.get("lon_iii_deg", r.get("LON_III", 0))),
-                lat_deg=float(r.get("lat_deg", r.get("LAT", 0))),
-                length_deg=float(r.get("length_deg", r.get("LENGTH_DEG", 0))),
-                width_deg=float(r.get("width_deg", r.get("WIDTH_DEG", 0))),
-                area_km2=float(r["area_km2"]) if r.get("area_km2") not in (None, "") else None,
-                aspect=float(r.get("aspect", 1.0) or 1.0),
-                pa_deg=float(r.get("pa_deg", 0) or 0),
-                definition_id=str(r.get("definition_id", r.get("DEFINITION", "UNKNOWN"))),
-                filter_name=str(r.get("filter_name", r.get("FILTER", "UNKNOWN"))),
-            ))
-        except Exception:
-            continue
-    return out
-
-
-def sobel_magnitude(image: np.ndarray) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    kx = SOBEL_KERNELS['x']; ky = SOBEL_KERNELS['y']
-    return np.hypot(fft_convolve2d(img, kx, 'same'), fft_convolve2d(img, ky, 'same'))
-
-def prewitt_magnitude(image: np.ndarray) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    kx = PREWITT_KERNELS['x']; ky = PREWITT_KERNELS['y']
-    return np.hypot(fft_convolve2d(img, kx, 'same'), fft_convolve2d(img, ky, 'same'))
-
-def scharr_magnitude(image: np.ndarray) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    kx = SCHARR_KERNELS['x']; ky = SCHARR_KERNELS['y']
-    return np.hypot(fft_convolve2d(img, kx, 'same'), fft_convolve2d(img, ky, 'same'))
-
-def landweber_deconv(image: np.ndarray, psf: np.ndarray, n_iter: int = 20, omega: float = 0.5) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    psf = np.asarray(psf, dtype=np.float64); psf = psf / (psf.sum()+1e-12)
-    x = img.copy()
-    psf_m = psf[::-1, ::-1]
-    for _ in range(n_iter):
-        conv = fft_convolve2d(x, psf, "same")
-        x = x + omega * fft_convolve2d(img - conv, psf_m, "same")
-        x = np.clip(x, 0, None)
-    return x
-
-
-def van_cittert_deconv(image: np.ndarray, psf: np.ndarray, n_iter: int = 15, mu: float = 0.5) -> np.ndarray:
-    img = np.asarray(image, dtype=np.float64)
-    psf = np.asarray(psf, dtype=np.float64); psf = psf / (psf.sum()+1e-12)
-    x = img.copy()
-    for _ in range(n_iter):
-        x = x + mu * (img - fft_convolve2d(x, psf, "same"))
-    return np.clip(x, 0, None)
-
-
-def multi_resolution_support(image: np.ndarray, n_layers: int = 5, k_sigma: float = 3.0) -> List[np.ndarray]:
-    layers, _ = starlet_decompose(image, n_layers)
-    supports = []
-    for w in layers:
-        sig = mad_sigma(w)
-        supports.append(np.abs(w) > k_sigma * sig)
-    return supports
-
-
-def significant_wavelet_reconstruction(image: np.ndarray, n_layers: int = 5, k_sigma: float = 3.0, gains: Optional[Sequence[float]] = None) -> np.ndarray:
-    layers, residual = starlet_decompose(image, n_layers)
-    if gains is None:
-        gains = [1.0]*n_layers
-    acc = residual.copy()
-    for j, w in enumerate(layers):
-        sig = mad_sigma(w)
-        mask = np.abs(w) > k_sigma * sig
-        acc = acc + gains[j] * w * mask
-    return acc
 
 
 def pyramid_downsample(image: np.ndarray) -> np.ndarray:
@@ -4242,232 +3381,6 @@ def build_gaussian_pyramid(image: np.ndarray, levels: int = 5) -> List[np.ndarra
             break
     return pyr
 
-
-def build_laplacian_pyramid(image: np.ndarray, levels: int = 5) -> Tuple[List[np.ndarray], np.ndarray]:
-    gpyr = build_gaussian_pyramid(image, levels)
-    lpyr = []
-    for i in range(len(gpyr)-1):
-        up = pyramid_upsample(gpyr[i+1], gpyr[i].shape)
-        lpyr.append(gpyr[i] - up)
-    return lpyr, gpyr[-1]
-
-
-def collapse_laplacian_pyramid(lpyr: List[np.ndarray], residual: np.ndarray) -> np.ndarray:
-    acc = residual
-    for layer in reversed(lpyr):
-        acc = pyramid_upsample(acc, layer.shape) + layer
-    return acc
-
-
-def focus_stack_from_pyramid(frames: np.ndarray) -> np.ndarray:
-    """Choose max-abs Laplacian coefficients across frames (focus stacking style)."""
-    n = frames.shape[0]
-    # use single-layer laplacian energy
-    laps = [np.abs(laplacian(frames[i])) for i in range(n)]
-    idx = np.argmax(np.stack(laps, 0), axis=0)
-    out = np.zeros(frames.shape[1:], dtype=np.float64)
-    for i in range(n):
-        out[idx == i] = frames[i][idx == i]
-    return out
-
-
-def correlation_coefficient(a: np.ndarray, b: np.ndarray) -> float:
-    a = np.asarray(a, dtype=np.float64).ravel(); b = np.asarray(b, dtype=np.float64).ravel()
-    a = a - a.mean(); b = b - b.mean()
-    return float(np.dot(a,b) / (np.linalg.norm(a)*np.linalg.norm(b) + 1e-12))
-
-
-def ssim_approx(a: np.ndarray, b: np.ndarray) -> float:
-    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
-    mu_a, mu_b = a.mean(), b.mean()
-    sa, sb = a.std(), b.std()
-    sab = ((a-mu_a)*(b-mu_b)).mean()
-    c1, c2 = 0.01**2, 0.03**2
-    return float(((2*mu_a*mu_b + c1)*(2*sab + c2)) / ((mu_a**2 + mu_b**2 + c1)*(sa**2 + sb**2 + c2) + 1e-12))
-
-
-def psnr(a: np.ndarray, b: np.ndarray, data_range: Optional[float] = None) -> float:
-    a = np.asarray(a, dtype=np.float64); b = np.asarray(b, dtype=np.float64)
-    mse = np.mean((a-b)**2)
-    if mse <= 0: return 99.0
-    dr = float(np.max(a) - np.min(a)) if data_range is None else data_range
-    if dr <= 0: dr = 1.0
-    return float(20*math.log10(dr) - 10*math.log10(mse))
-
-
-def hash_pipeline_inputs(paths: Sequence[Union[str, Path]]) -> str:
-    h = hashlib.sha256()
-    for p in paths:
-        p = Path(p)
-        h.update(p.name.encode())
-        if p.exists():
-            h.update(sha256_file(p).encode())
-    return h.hexdigest()
-
-
-def compare_states(a: GRSState, b: GRSState) -> Dict[str, float]:
-    return {
-        "dlon": wrap_deg_diff(a.lon_iii_deg, b.lon_iii_deg),
-        "dlat": a.lat_deg - b.lat_deg,
-        "dL": a.length_deg - b.length_deg,
-        "dW": a.width_deg - b.width_deg,
-    }
-
-
-def format_state_line(state: GRSState) -> str:
-    return (f"GRS {state.filter_name} lon={state.lon_iii_deg:.3f} lat={state.lat_deg:.3f} "
-            f"L={state.length_deg:.2f} W={state.width_deg:.2f} def={state.definition_id}")
-
-
-def ensure_rgb_float(rgb: np.ndarray) -> np.ndarray:
-    rgb = np.asarray(rgb, dtype=np.float64)
-    if rgb.ndim != 3 or rgb.shape[2] < 3:
-        raise ValueError("rgb must be HxWx3")
-    if rgb.max() > 1.5:
-        rgb = rgb / (np.max(rgb) + 1e-12)
-    return np.clip(rgb, 0, 1)
-
-
-def save_channels_fits(out_dir: Union[str, Path], channels: Mapping[str, np.ndarray]) -> None:
-    out_dir = ensure_dir(out_dir)
-    for k, v in channels.items():
-        write_fits(out_dir / f"channel_{k}.fits", v)
-
-
-def load_channels_fits(out_dir: Union[str, Path]) -> Dict[str, np.ndarray]:
-    out_dir = Path(out_dir)
-    ch = {}
-    for p in out_dir.glob("channel_*.fits"):
-        name = p.stem.replace("channel_", "")
-        data, _ = read_fits(p)
-        ch[name] = np.asarray(data, dtype=np.float64)
-        if ch[name].ndim == 3:
-            ch[name] = ch[name][0]
-    return ch
-
-def print_user_manual() -> None:
-    print(USER_MANUAL_TEXT)
-
-
-def rl_deconv_1iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=1)
-
-def rl_deconv_2iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=2)
-
-def rl_deconv_3iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=3)
-
-def rl_deconv_4iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=4)
-
-def rl_deconv_5iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=5)
-
-def rl_deconv_6iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=6)
-
-def rl_deconv_7iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=7)
-
-def rl_deconv_8iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=8)
-
-def rl_deconv_9iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=9)
-
-def rl_deconv_10iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=10)
-
-def rl_deconv_11iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=11)
-
-def rl_deconv_12iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=12)
-
-def rl_deconv_13iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=13)
-
-def rl_deconv_14iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=14)
-
-def rl_deconv_15iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=15)
-
-def rl_deconv_16iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=16)
-
-def rl_deconv_17iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=17)
-
-def rl_deconv_18iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=18)
-
-def rl_deconv_19iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=19)
-
-def rl_deconv_20iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=20)
-
-def rl_deconv_21iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=21)
-
-def rl_deconv_22iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=22)
-
-def rl_deconv_23iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=23)
-
-def rl_deconv_24iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=24)
-
-def rl_deconv_25iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=25)
-
-def rl_deconv_26iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=26)
-
-def rl_deconv_27iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=27)
-
-def rl_deconv_28iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=28)
-
-def rl_deconv_29iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=29)
-
-def rl_deconv_30iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=30)
-
-def rl_deconv_31iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=31)
-
-def rl_deconv_32iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=32)
-
-def rl_deconv_33iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=33)
-
-def rl_deconv_34iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=34)
-
-def rl_deconv_35iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=35)
-
-def rl_deconv_36iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=36)
-
-def rl_deconv_37iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=37)
-
-def rl_deconv_38iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=38)
-
-def rl_deconv_39iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=39)
-
-def rl_deconv_40iter(image: np.ndarray, psf: np.ndarray) -> np.ndarray:
-    return richardson_lucy(image, psf, n_iter=40)
 
 def process_existing_rgb_fits(path: Union[str, Path], cfg: Optional[PipelineConfig] = None) -> GRSCompletePipeline:
     """Convenience: reduce a finished RGB stacked FITS (e.g. AutoStakkert output)."""
@@ -4523,32 +3436,9 @@ __public_api__ = [
 ]
 
 
-def api_list() -> List[str]:
-    return list(__public_api__)
-
 MONTE_CARLO_SEEING_GRID = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0, 2.05, 2.1, 2.15, 2.2, 2.25, 2.3, 2.35, 2.4, 2.45, 2.5, 2.55, 2.6, 2.65, 2.7, 2.75, 2.8, 2.85, 2.9, 2.95, 3.0, 3.05, 3.1, 3.15, 3.2, 3.25, 3.3, 3.35, 3.4, 3.45, 3.5, 3.55, 3.6, 3.65, 3.7, 3.75, 3.8, 3.85, 3.9, 3.95, 4.0, 4.05, 4.1, 4.15, 4.2, 4.25, 4.3, 4.35]
 MONTE_CARLO_FRACTION_GRID = [0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.3, 0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.4, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.48, 0.49, 0.5, 0.51, 0.52, 0.53, 0.54]
 MONTE_CARLO_NOISE_GRID = [0.005, 0.007, 0.009, 0.011, 0.013, 0.015, 0.017, 0.019, 0.021, 0.023, 0.025, 0.027, 0.029, 0.031, 0.033, 0.035, 0.037, 0.039, 0.041, 0.043, 0.045, 0.047, 0.049, 0.051, 0.053, 0.055, 0.057, 0.059, 0.061, 0.063, 0.065, 0.067, 0.069, 0.071, 0.073, 0.075, 0.077, 0.079, 0.081, 0.083, 0.085, 0.087, 0.089, 0.091, 0.093, 0.095, 0.097, 0.099, 0.101, 0.103]
-
-def monte_carlo_centroid_stability(n: int = 30, size: int = 128, seed: int = 0) -> Dict[str, float]:
-    rng = np.random.default_rng(seed)
-    lons = []
-    base = synthetic_jupiter(size=size, seed=seed)
-    nav = rough_navigation(base); nav.cm_iii_deg = 100.0
-    cfg = PipelineConfig(bootstrap_n=5, min_frames=1, segment_method='adaptive_threshold')
-    for i in range(n):
-        img = base + rng.normal(0, 0.02, base.shape)
-        img = gaussian_filter2d(img, abs(rng.normal(0.8, 0.2)))
-        try:
-            mask = segment_grs(img, nav, 'adaptive_threshold')
-            st = measure_grs_from_mask(mask, img, nav, 'MOMENT_MASK_IR', 'IR742')
-            lons.append(st.lon_iii_deg)
-        except Exception:
-            continue
-    if not lons:
-        return {'n': 0.0, 'std_lon': float('nan')}
-    arr = unwrap_longitudes(np.array(lons))
-    return {'n': float(len(arr)), 'std_lon': float(np.std(arr)), 'mean_lon': float(np.mean(arr) % 360)}
 
 
 if __name__ == "__main__":

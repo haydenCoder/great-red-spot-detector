@@ -1,0 +1,190 @@
+# Accuracy campaign, performance work and dead-strip — v6.5.1
+
+**Date:** 2026-07-29 · **Branch:** `arena/019fa871-great-red-spot-detector`
+
+Follow-on to `docs/AUDIT_GEOMETRY_AND_SMOKE_6.5.1.md`. Covers the large-N
+accuracy campaign, the real-image suite, the speedups that made the campaign
+feasible, and the dead-code strip.
+
+---
+
+## Headline result
+
+**500 synthetic frames, 100% completion:**
+
+| Metric | vs barycentre truth | vs geometric centre |
+|---|---|---|
+| Longitude median | **0.221°** | 0.216° |
+| Longitude p90 | 0.536° | 0.536° |
+| Longitude **max** | **1.164°** | 1.358° |
+| Latitude median | 0.361° | **0.124°** |
+| Latitude max | 0.782° | 0.647° |
+| Within 1° | **99.4%** | 99.2% |
+| Within 2° | **100%** | — |
+| Sky error median | **0.150″** | — |
+
+**Every frame is within 2°, and 99.4% within 1° — the target is met.**
+
+The two truth columns matter. `truth["grs_lat_deg"]` is an intensity-weighted
+barycentre computed *only inside* `grs_mask`, so the oval's own brightness
+asymmetry drags it ~0.24° north of the geometric centre the renderer actually
+planted. Scoring solely against it makes the estimator look biased when the gap
+is definitional. Against the planted centre the latitude bias is −0.121°, not
+−0.360°. Both are now reported.
+
+---
+
+## Defects found and fixed by the campaign
+
+### DECOY OVAL LOCK — worst case 31.03° → 0.034°
+
+Seed 1683800: the template locked an SEB decoy 31° from truth while the moment
+method was correct to **0.034°** — and the pipeline published the template.
+Three compounding causes, all fixed:
+
+1. **`reject_lon_outliers` with two methods.** The "median" of a disagreeing
+   pair sits between them, so whichever it happens to favour survives and the
+   other is deleted. Rejecting 1 of 2 is a coin flip, not outlier removal. Now
+   returns both and defers to evidence-based logic.
+2. **Pass-2 cluster seeded on the template**, then pruned everything >12° from
+   it — circular, since the seed defines the cluster. A lone disagreeing peer
+   is now kept alive.
+3. **Template lock fired on `dark_contrast` alone.** High contrast means "crisp
+   dark oval", *not* "this is the GRS" — a decoy scores just as well. Now
+   requires corroboration: if a surviving independent method disagrees by more
+   than `TEMPLATE_CORROBORATION_DEG` (8°), the peer cluster wins and the
+   template is recorded as rejected.
+
+Longitude **max error fell from 31.027° to 1.164°** and the standard deviation
+from 1.423° to 0.330°.
+
+### DISK MEASURABILITY GATE — refusing to invent numbers
+
+The real-image suite exposed the engine reporting confident GRS latitudes for
+frames with **no resolved disk at all**: a phone snapshot of Jupiter as a point
+source, a Juno close-up crop, animated-GIF frames. Those numbers were fiction.
+
+`assess_disk_quality()` now scores two discriminators that separate cleanly on
+real data:
+
+| | genuine disks | non-disks |
+|---|---|---|
+| `disk_fill` | 0.96 – 0.99 | 0.66 – 0.85 |
+| `disk_contrast` | 0.39 – 0.70 | 0.09 – 0.15 |
+
+Unmeasurable frames get `quality = 0.0` and an explicit `NOT MEASURABLE` note.
+Verified: flags all 4 bad frames, passes all 9 genuine disks.
+
+---
+
+## Real images — what is and isn't measurable
+
+13 web/telescope images were run. **Absolute System III accuracy is not
+measurable on them**: no mid-exposure UTC and no published GRS longitude means
+no central meridian to reference. Quoting a "degrees from truth" figure would
+require inventing the reference.
+
+What *is* measurable, and was:
+
+| Check | Result |
+|---|---|
+| GRS-band lock rate | 100% (13/13) |
+| **Rotation equivariance** (has ground truth) | median **0.248°** lon, 0.089° lat |
+| Rotation equivariance, resolved disks only | **0.03 – 0.25°** |
+| Scale invariance | median 1.07° lon |
+| Noise repeatability | median 0.524° lon spread |
+| Method agreement spread | median 2.08° |
+
+Rotation equivariance is a genuine accuracy test, not a consistency proxy: the
+frame is rotated by a **known** angle, the engine is told via `north_pa`, and
+the recovered System III longitude must not move. That directly exercises the
+PA path Defect B corrupted — and 0.03–0.25° on real imagery confirms the fix.
+
+The 4 frames failing equivariance (up to 74°) are exactly the 4 the new disk
+gate rejects. Not measurement failures; unmeasurable input.
+
+---
+
+## Performance — 9.3× faster, results identical
+
+Profiling showed **90% of measurement time in a pure-Python `conv2d`** doing
+~2.2M scalar `np.sum` calls per forward pass.
+
+| Change | Before | After | Check |
+|---|---|---|---|
+| `nn_grs.conv2d` → im2col + one GEMM | 14.85 s | 0.85 ms/call | identical to **2.8e-14** |
+| `fit_limb_nav` ray-trace vectorised | 748 ms | 156 ms | **bit-identical** (0.0 diff) |
+| **Measurement total** | **16.82 s** | **1.81 s** | — |
+
+`conv2d_fast` was dead code in practice: it allocated `acc` as `(h, ww)` then
+did `acc += correlate2d(..., mode="valid")` which is `(oh, ow)`, so the
+broadcast raised **every call** and silently fell back to the slow path.
+
+Campaign throughput: ~24 frames/min on 2 vCPU, making 500 frames a ~20-minute
+run instead of ~23 hours.
+
+### On the C/Rust core
+
+A C implementation of the geometry hot paths is written and committed
+(`app/native/grscore.c` + build script) but **cannot be compiled in this
+environment**, and Rust as requested is not buildable at all:
+
+* no CPython development headers (`Python.h` absent) and no root for `apt`
+* `python.org`, GitHub release downloads and `uv`'s standalone Python are all
+  TLS-blocked
+* every Rust endpoint is blocked — `sh.rustup.rs`, `static.rust-lang.org`,
+  `crates.io`, `index.crates.io` — and there is no distro `rustc`
+
+`maturin` installs from PyPI but is only a build *driver*; it still needs
+`cargo`. The C path is therefore kept **optional with a NumPy fallback** so it
+can be built on a real machine without ever breaking a user's install. Given
+the hot paths are now single BLAS/vectorised ops, the remaining headroom from
+native code is modest.
+
+---
+
+## Dead-strip
+
+Reachability audit over all **979** top-level definitions in `app/`.
+
+`grs_complete_system.py`: **161 of 337** top-level defs were referenced
+nowhere — not by the 8 modules that import it (all via `grs.<attr>`), not by
+tests or tools, and not internally. Removed by AST for exact line ranges:
+**4555 → 3663 lines (−892, −19%)**.
+
+Deliberately conservative: a name was only removed if a word-boundary search
+found no hit in any other file **and** no hit in the module's own body outside
+its definition. Flask `@app.route` handlers, Tk `on_*` callbacks and
+string/`getattr` dispatch targets are all retained — invisible to naive static
+analysis, and a caller-less-looking route is still live.
+
+Names flagged elsewhere (`ram_ssd` helpers, `nn_grs` backward passes,
+license/admin utilities) were **kept**: they are public API or training-path
+code, legitimately unused at inference time, and deleting the backward passes
+would break the training script.
+
+Verified after the strip: all modules import, 203 passed / 5 skipped, and
+accuracy unchanged (20-frame campaign, 100% within 1°).
+
+---
+
+## Tools added
+
+* `tools/accuracy_campaign.py` — parallel large-N harness, streams JSONL,
+  `--resume`-able, scores against both truth channels.
+* `tools/real_image_suite.py` — lock rate, method agreement, noise
+  repeatability, rotation/scale equivariance.
+
+---
+
+## Honest limitations
+
+* **Real-image absolute accuracy remains unverified.** Everything in the
+  headline table is synthetic, where truth is exact. To measure true
+  System III error I need frames with mid-exposure UTC (FITS header or
+  filename) and ideally your WinJUPOS pick.
+* **"More accurate than WinJUPOS" is not demonstrated.** That claim needs the
+  same images measured by a careful WinJUPOS operator; the repo README is
+  already appropriately hedged and I have not strengthened it.
+* The residual −0.12° latitude bias against the geometric centre is small but
+  systematic, and worth a look if sub-0.1° is the goal.

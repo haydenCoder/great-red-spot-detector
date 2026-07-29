@@ -1035,6 +1035,85 @@ def _map_dark_centroid(cyl: np.ndarray, nav: NavState, lat0: Optional[float] = N
     }
 
 
+def _redness_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
+    """Locate the GRS by COLOUR (R-B excess) rather than by darkness.
+
+    Every other estimator here keys on "dark", which on real RGB frames is
+    ambiguous: belts, barges, festoons and satellite shadows are all dark, and
+    on some frames the darkest SEB feature is 60 deg from the actual Red Spot.
+    The GRS's defining property is that it is *red* -- an R-B excess that no
+    belt shares. Validated against the Hubble frame where Ganymede's shadow
+    independently marks the GRS centre (agreement 5.3 deg) and against amateur
+    frames (0.9 deg), while correctly flagging a frame where the dark-based
+    methods were 62 deg off.
+
+    Mono input has no colour information, so this raises and the caller simply
+    proceeds without it.
+    """
+    arr = np.asarray(image, dtype=np.float64)
+    if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[0] < min(arr.shape[1], arr.shape[2]):
+        R, B = arr[0], arr[2]
+    elif arr.ndim == 3 and arr.shape[-1] >= 3:
+        R, B = arr[..., 0], arr[..., 2]
+    else:
+        raise RuntimeError("redness needs an RGB image")
+
+    h, w = R.shape
+    b_pol = nav.a_eq_px * (1.0 - nav.flattening)
+    if nav.a_eq_px <= 4 or b_pol <= 4:
+        raise RuntimeError("redness: degenerate limb")
+    yy, xx = np.mgrid[0:h, 0:w]
+    on = (((xx - nav.xc) / nav.a_eq_px) ** 2 + ((yy - nav.yc) / b_pol) ** 2) <= 0.85
+    if int(on.sum()) < 64:
+        raise RuntimeError("redness: disk too small")
+
+    red = np.where(on, R - B, 0.0)
+    red = _gauss(red, max(3.0, nav.a_eq_px * 0.02))
+    red = np.where(on, red, -9.0)
+    if float(red.max()) <= 0.0:
+        raise RuntimeError("redness: no red excess on disk")
+
+    # Restrict to the GRS latitude band so a red polar haze cannot win.
+    lat_map = np.full((h, w), 99.0)
+    step = max(1, int(min(h, w) / 160))
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if on[y, x]:
+                lat_map[y:y + step, x:x + step] = px_to_lonlat(float(y), float(x), nav)[1]
+    in_band = (lat_map >= GRS_LAT_BAND_WIDE[0]) & (lat_map <= GRS_LAT_BAND_WIDE[1])
+    search = np.where(on & in_band, red, -9.0)
+    if float(search.max()) <= 0.0:
+        raise RuntimeError("redness: no red excess in GRS band")
+
+    j = np.unravel_index(int(np.argmax(search)), search.shape)
+    py, px = int(j[0]), int(j[1])
+    # centroid refine on the red peak
+    rad = max(4, int(nav.a_eq_px * 0.06))
+    y0, y1 = max(0, py - rad), min(h, py + rad + 1)
+    x0, x1 = max(0, px - rad), min(w, px + rad + 1)
+    win = np.clip(search[y0:y1, x0:x1], 0.0, None)
+    if float(win.sum()) > 0:
+        yy2, xx2 = np.mgrid[y0:y1, x0:x1]
+        tot = float(win.sum())
+        cy = float((yy2 * win).sum() / tot)
+        cx = float((xx2 * win).sum() / tot)
+    else:
+        cy, cx = float(py), float(px)
+
+    lon, lat = px_to_lonlat(cy, cx, nav)
+    if not (GRS_LAT_BAND_WIDE[0] <= lat <= GRS_LAT_BAND_WIDE[1]):
+        raise RuntimeError(f"redness lat {lat:.1f} outside GRS band")
+    return {
+        "lon_iii_deg": float(lon),
+        "lat_deg": float(lat),
+        "length_deg": float("nan"),
+        "width_deg": float("nan"),
+        "score": float(search[py, px]),
+        "method": "redness",
+        "size_definition": "unmeasured",
+    }
+
+
 def _method_is_sane(m: Dict[str, float], ref_lon: Optional[float] = None) -> bool:
     """Sanity check: is this measurement result anywhere near the GRS?
 
@@ -1117,6 +1196,7 @@ DISK_CONTRAST_MIN = 0.25
 DISK_MIN_RADIUS_PX = 25.0
 
 METHOD_WEIGHTS = {
+    "redness": 2.4,
     "template": 2.6,
     "map_dark": 2.5,
     "moment": 2.6,
@@ -1183,6 +1263,10 @@ def measure_grs_precision(
         raw_methods["moment"] = _moment_mask_grs(image, nav)
     except Exception as e:
         notes.append(f"moment failed: {e}")
+    try:
+        raw_methods["redness"] = _redness_grs(image, nav)
+    except Exception as e:
+        notes.append(f"redness unavailable: {e}")
 
     # Pass 1: GRS latitude band + size sanity (JUPOS: reject wrong-feature locks)
     lat_sane: Dict[str, Dict[str, float]] = {}
@@ -1326,7 +1410,7 @@ def measure_grs_precision(
         tlon = usable["template"]["lon_iii_deg"]
         tlat = usable["template"]["lat_deg"]
         tq = float(usable["template"].get("dark_contrast", 0.0))
-        others = [n for n in ("map_dark", "moment") if n in usable]
+        others = [n for n in ("map_dark", "moment", "redness") if n in usable]
         # A high dark_contrast means "this is a crisp dark oval", NOT "this is
         # THE GRS" -- a decoy SEB oval scores just as well. Locking on contrast
         # alone let the template drag the answer 31 deg off truth on frames

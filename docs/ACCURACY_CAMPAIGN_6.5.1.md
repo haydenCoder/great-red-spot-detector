@@ -385,3 +385,91 @@ end-to-end tests).
 | Within 1° | 99.2% | **100%** |
 | Real-image shadow offset | 0.81° | **0.206°** |
 | Measurement time | 16.8 s | **1.65 s** |
+
+---
+
+# Addendum 3 — real-image dataset, colour finder, detection gate
+
+## The dataset
+
+Built a real-image set by web search spanning the full range of apparent disk
+size a user will actually feed the tool:
+
+| Source | radius |
+|---|---|
+| Small amateur / thumbnail | 57–68 px |
+| Mid amateur (C8/C9.25, ZWO) | 90–235 px |
+| Large amateur / opposition | 235–307 px |
+| Hubble WFC3, Voyager 1 | 646–715 px |
+
+**16 of 28 measurable, a 12.5× scale range.** The 12 rejections were all
+correct: contact sheets of GRS close-ups, a phone snapshot of Jupiter as a
+point source, Juno crops, animated-GIF frames. `tools/scale_benchmark.py`
+scores this set on the properties that *do* have ground truth without a
+timestamp — scale invariance, rotation equivariance, noise stability.
+
+## What the real data exposed that synthetics never could
+
+**Every existing estimator keyed on "dark."** On real RGB frames dark is
+ambiguous — belts, barges, festoons and satellite shadows are all dark. On one
+Hubble frame the darkest SEB feature sat **62° from the actual Red Spot**, and
+both the template and the moment mask agreed on the wrong feature.
+
+`_redness_grs` keys on the GRS's defining property instead: an R−B excess no
+belt shares. Validated against references it did not produce — 5.3° against the
+Hubble frame where Ganymede's shadow marks the GRS centre, 0.9° on an amateur
+frame — and it correctly flags the frame where the dark methods were 62° out.
+
+Adding it *improved* synthetic accuracy rather than trading it away:
+longitude median 0.157° → 0.134°, worst case 1.017° → 0.770°.
+
+## Detection gate — and why it is not redness
+
+Several frames have **no GRS at all** (rotated to the far side), yet the engine
+still reported a confident longitude. The obvious fix — reject frames with no
+red excess — **cannot work**:
+
+| | redness |
+|---|---|
+| Faintest **real** GRS (Voyager 1979) | 2.29 σ |
+| Frame with GRS on the **far side** | **2.96 σ** |
+
+The empty frame scores *higher* than a real faint spot. Any redness threshold
+strict enough to reject the first would also throw away genuine faint Red
+Spots — the exact failure mode flagged in review.
+
+`verify_grs_detection` uses **scale re-findability** instead: re-measure at 1/2
+and 1/3 resolution and check the answer does not move. A real feature is still
+there when resampled; a lock onto belt mottling has nothing to track and jumps.
+
+| | drift |
+|---|---|
+| Faint but real (Voyager) | **0.19°** |
+| GRS on far side | **81.25°** |
+
+~400× separation, and it does not penalise faintness. Threshold 12° sits far
+from both populations rather than being fitted to them. All 6 measurable frames
+pass with 0.03–1.23° drift, including the faintest (redness 0.081).
+
+### Honest limit
+
+An attempt at a negative control by digitally erasing the GRS gave only 2.50°
+drift — under threshold. Inspecting the doctored image showed the wipe left a
+grey patch and a red hollow, so it was **not a valid "no GRS" case** and proves
+nothing either way. The gate is therefore verified only in the true-positive
+direction: it does not reject real spots, faint ones included. Confirming the
+true-negative direction needs genuine far-side frames with known timestamps.
+The check never raises and reports `detected=True` if it cannot run, so it can
+never silently suppress a valid measurement.
+
+## Final validation — 250 unseen seeds
+
+| Metric | vs barycentre | vs geometric centre |
+|---|---|---|
+| Longitude median | 0.147° | 0.156° |
+| Longitude max | **0.736°** | 0.810° |
+| Latitude median | 0.263° | **0.052°** |
+| Within 1° | **100%** | **100%** |
+| Sky error median | **0.107″** | — |
+
+0 failures. Best worst-case of the session (was 31.03° at the start).

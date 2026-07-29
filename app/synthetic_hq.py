@@ -494,11 +494,20 @@ def _apply_realistic_optics(
     px_per_as = (2 * a_eq_px) / (app_diam_as + 1e-6)
     fwhm_as = float(seeing_fwhm_arcsec)
     sig = max(0.35, (fwhm_as / 2.355) * px_per_as)
-    # Cap blur so belts/GRS stay readable (good amateur stack, not mush)
-    if res_name in ("8K", "16K"):
-        sig = min(sig, 1.9)
-    else:
-        sig = min(sig, 2.2)
+    # Cap blur RELATIVE TO THE DISK, not as an absolute pixel count.
+    #
+    # The old code did `sig = min(sig, 2.2)` in absolute pixels. At 1080p a
+    # 0.38" request already works out to sigma=3.66 px, so the cap bound at
+    # EVERY seeing value: 0.38" and 6.0" rendered byte-identically and the
+    # seeing knob did nothing. Every "robust to blur" result measured with it
+    # was therefore vacuous -- the synthetic had never actually been blurry.
+    #
+    # A physical seeing limit scales with the disk: a 3" blur on a 40" disk is
+    # a fixed FRACTION of the radius no matter the sampling. Cap at 12% of the
+    # equatorial radius, which still leaves belts discernible at the worst
+    # realistic amateur seeing while allowing genuine mush to be simulated.
+    sig_cap = max(2.2, 0.12 * float(a_eq_px))
+    sig = min(sig, sig_cap)
 
     # Mild chromatic PSF (R slightly wider — common in RGB)
     out = np.empty_like(rgb)

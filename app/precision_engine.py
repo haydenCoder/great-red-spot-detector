@@ -1369,7 +1369,24 @@ def measure_grs_precision(
         methods[name] = m
 
     # Pass 1b: lon cluster outlier reject (JUPOS Tips: remove outliers vs peer measures)
-    if len(lat_sane) >= 2:
+    # When the methods are in total disagreement there is no cluster to find:
+    # the "median" is just whichever estimator happens to sit in the middle,
+    # and pruning to it deletes the other two. Under poor seeing that is
+    # exactly backwards -- observed at 2.6" seeing, the template was 97.7 deg
+    # off and became the median, so the correct redness lock (0.21 deg) was
+    # discarded as an "outlier". Skip cluster pruning entirely when the spread
+    # is that wide and let the evidence-based logic below arbitrate.
+    _sane_lons = [float(m["lon_iii_deg"]) for m in lat_sane.values()]
+    _max_spread = (
+        max(abs(wrap_diff(a, b)) for a in _sane_lons for b in _sane_lons)
+        if len(_sane_lons) >= 2 else 0.0
+    )
+    if _max_spread > 30.0:
+        notes.append(
+            f"methods in total disagreement (spread {_max_spread:.1f}deg) - "
+            "skipping cluster prune, no reliable majority to prune toward"
+        )
+    elif len(lat_sane) >= 2:
         try:
             from accuracy_gates import reject_lon_outliers
             kept_c, rej_c, med_lon = reject_lon_outliers(lat_sane, max_delta_deg=18.0)
@@ -1417,8 +1434,28 @@ def measure_grs_precision(
         size_ok = (4.0 <= L <= 22.0) and (2.0 <= W <= 14.0)
         mom_quality = (2.0 if size_ok else 0.15) * float(np.exp(-0.5 * ((float(mom["lat_deg"]) - GRS_LAT0) / 5.0) ** 2))
 
-    # Seed: prefer high-quality template; else size-sane moment; else first
-    if tmpl is not None and tmpl_quality >= 0.05:
+    # Seed: prefer high-quality template; else size-sane moment; else first.
+    #
+    # But first: when the two DARK methods disagree badly, neither can be
+    # trusted to seed the cluster, and seeding on the wrong one drags the
+    # answer with it. Under poor seeing this is the dominant failure -- at
+    # 2.6" the template landed 97.7 deg off and the moment 28.5 deg off on the
+    # same frame while `redness` was correct to 0.21 deg, because colour
+    # survives blur that destroys the dark-oval shape. So when the dark methods
+    # split, seed on the colour lock instead.
+    red = lat_sane.get("redness")
+    dark_split = (
+        tmpl is not None and mom is not None
+        and abs(wrap_diff(float(tmpl["lon_iii_deg"]), float(mom["lon_iii_deg"]))) > 12.0
+    )
+    if red is not None and dark_split:
+        seed_lon = float(red["lon_iii_deg"])
+        notes.append(
+            "cluster seed = redness (dark methods split "
+            f"{abs(wrap_diff(float(tmpl['lon_iii_deg']), float(mom['lon_iii_deg']))):.1f}deg; "
+            "colour survives blur that destroys the dark oval)"
+        )
+    elif tmpl is not None and tmpl_quality >= 0.05:
         seed_lon = float(tmpl["lon_iii_deg"])
         notes.append(f"cluster seed = template (quality={tmpl_quality:.3f})")
     elif mom is not None and mom_quality >= 1.0:
@@ -1489,9 +1526,26 @@ def measure_grs_precision(
     lon = _circular_weighted_mean(lons_k, wts_k)
     lat = float(np.average(lats_k, weights=wts_k))
 
+    # If the dark methods split, they have already shown they cannot be
+    # trusted on this frame, so the colour lock takes the position outright
+    # rather than being averaged with whichever dark method survived. Measured
+    # at 2.6" seeing: template -97.7 deg, moment -28.5 deg, redness -0.21 deg.
+    if red is not None and dark_split and "redness" in usable:
+        lon = float(red["lon_iii_deg"])
+        lat = float(red["lat_deg"])
+        pos_tag_override = "redness_dark_split"
+    else:
+        pos_tag_override = None
+
     # Template lock when quality is high (dark oval contrast)
     pos_tag = "consensus"
-    if "template" in usable:
+    if pos_tag_override:
+        pos_tag = pos_tag_override
+        notes.append(
+            "position taken from redness: the dark methods disagreed, so colour "
+            "is the only estimator that has not demonstrably failed on this frame"
+        )
+    elif "template" in usable:
         tlon = usable["template"]["lon_iii_deg"]
         tlat = usable["template"]["lat_deg"]
         tq = float(usable["template"].get("dark_contrast", 0.0))

@@ -575,3 +575,46 @@ class TestMultiSeedAccuracy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# 6. Degraded-seeing robustness
+# ---------------------------------------------------------------------------
+class TestSeeingIsActuallyApplied(unittest.TestCase):
+    """
+    The synthetic generator capped its PSF at an absolute 2.2 px, but at 1080p
+    even a 0.38" request works out to sigma=3.66 px -- so the cap bound at every
+    value and 0.38" rendered byte-identically to 6.0". The seeing knob did
+    nothing, and every "robust to blur" claim measured with it was vacuous.
+
+    Fast guard: the rendered image must actually get blurrier as seeing rises.
+    """
+
+    def test_seeing_changes_the_image(self):
+        import tempfile as _tf
+
+        import numpy as np
+        from PIL import Image
+
+        from synthetic_hq import SynthSpec, generate
+
+        hf = []
+        for seeing in (0.38, 3.5):
+            with _tf.TemporaryDirectory(prefix="grs_seeing_") as d:
+                png, _f, _t = generate(
+                    SynthSpec(region="global", resolution_preset="1080p",
+                              random_time=True, seed=7001, mode="metrology",
+                              write_grs_crop=False, seeing_fwhm_arcsec=seeing,
+                              noise_rms=0.005),
+                    Path(d),
+                )
+                a = np.asarray(Image.open(png), dtype=np.float64) / 255.0
+            mono = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+            # high-frequency energy: must DROP as seeing worsens
+            gy, gx = np.gradient(mono)
+            hf.append(float(np.sqrt(gx ** 2 + gy ** 2).mean()))
+
+        self.assertLess(
+            hf[1], hf[0] * 0.95,
+            f"seeing knob has no effect: hf {hf[0]:.5f} -> {hf[1]:.5f}",
+        )

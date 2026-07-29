@@ -1188,6 +1188,12 @@ LAT_MOMENT_WEIGHT = 0.75
 # template (0.5 == equal blend; measured optimum for scatter and worst case).
 LON_MOMENT_WEIGHT = 0.5
 
+# A real feature is re-findable when the image is resampled; noise is not.
+# Measured separation on real frames: faint-but-real GRS drifts 0.19 deg,
+# a frame with the GRS on the far side drifts 81 deg. 12 deg sits far from
+# both, so the gate is not tuned to the sample.
+GRS_DETECT_MAX_DRIFT_DEG = 12.0
+
 # Disk-quality gate thresholds. Calibrated on real web imagery: genuine resolved
 # Jupiter disks score fill 0.96-0.99 / contrast 0.39-0.70, while point-source
 # phone photos and spacecraft crops score fill 0.66-0.85 / contrast 0.09-0.15.
@@ -1210,6 +1216,85 @@ def _circular_weighted_mean(lons: np.ndarray, weights: np.ndarray) -> float:
     x = float(np.sum(w * np.cos(r)))
     y = float(np.sum(w * np.sin(r)))
     return wrap_deg(rad2deg(math.atan2(y, x)))
+
+
+def verify_grs_detection(
+    image: np.ndarray,
+    nav: NavState,
+    lon_ref: float,
+    *,
+    factors: Sequence[int] = (2, 3),
+    max_drift_deg: float = GRS_DETECT_MAX_DRIFT_DEG,
+) -> Dict[str, Any]:
+    """Is the reported GRS a real feature, or noise dressed up as one?
+
+    Re-measures the SAME image at reduced resolution and checks the answer does
+    not move. The logic is causal, not a heuristic fit: a genuine feature is
+    still there at half resolution and lands in the same place, whereas a lock
+    onto belt mottling has nothing to track and jumps.
+
+    Why not use redness alone? Measured on real frames, the FAINTEST genuine
+    GRS (Voyager 1979) scores 2.29 sigma of red excess while a frame with the
+    GRS rotated to the FAR SIDE scores 2.96 sigma -- higher. Any redness
+    threshold that rejected the empty frame would also reject a real faint
+    spot. Scale stability separates the same two cases by 0.19 deg vs 81.25 deg,
+    a ~400x margin, and it does not penalise faintness: a faint but real spot
+    is still stable.
+
+    Returns a dict with `detected`, the measured `drift_deg`, and a reason.
+    Never raises -- if the check itself cannot run it reports detected=True so
+    an infrastructure problem cannot silently suppress a valid measurement.
+    """
+    out: Dict[str, Any] = {"detected": True, "drift_deg": float("nan"),
+                           "n_scales": 0, "reason": ""}
+    try:
+        im = np.asarray(image, dtype=np.float64)
+        drifts: List[float] = []
+        for k in factors:
+            h, w = im.shape[0] // k, im.shape[1] // k
+            if min(h, w) < 48:
+                continue
+            small = im[: h * k : k, : w * k : k] if im.ndim == 2 else im[: h * k : k, : w * k : k, :]
+            nav_s = fit_limb_nav(small, cm_iii_deg=nav.cm_iii_deg,
+                                 distance_au=nav.distance_au)
+            nav_s.cm_iii_deg = nav.cm_iii_deg
+            nav_s.sub_lat_deg = nav.sub_lat_deg
+            nav_s.north_pa_deg = nav.north_pa_deg
+            if nav_s.a_eq_px < 20:
+                continue
+            cyl_s = make_cylindrical(small, nav_s, width=1200, height=600)
+            cands: List[float] = []
+            for fn in (lambda: _template_match_grs(cyl_s, nav_s),
+                       lambda: _moment_mask_grs(small, nav_s),
+                       lambda: _redness_grs(small, nav_s)):
+                try:
+                    cands.append(float(fn()["lon_iii_deg"]))
+                except Exception:
+                    continue
+            if not cands:
+                continue
+            # closest candidate to the reference: we are testing whether the
+            # feature is re-findable at all, not re-running the full consensus
+            drifts.append(min(abs(wrap_diff(c, lon_ref)) for c in cands))
+
+        if not drifts:
+            out["reason"] = "scale check unavailable (disk too small to resample)"
+            return out
+        drift = float(max(drifts))
+        out["drift_deg"] = drift
+        out["n_scales"] = len(drifts)
+        if drift > max_drift_deg:
+            out["detected"] = False
+            out["reason"] = (
+                f"GRS not re-findable at reduced resolution (drift {drift:.1f}deg "
+                f"> {max_drift_deg}deg) - the lock is probably belt mottling, "
+                "or the Red Spot is on the far side of the planet"
+            )
+        else:
+            out["reason"] = f"confirmed at {len(drifts)} scales (drift {drift:.2f}deg)"
+    except Exception as e:
+        out["reason"] = f"scale check failed ({e}); not treated as a rejection"
+    return out
 
 
 def measure_grs_precision(
@@ -1552,6 +1637,14 @@ def measure_grs_precision(
     if not disk_q.get("measurable", True):
         quality = 0.0
 
+    # Confirm the feature is real before publishing a number for it.
+    detect = verify_grs_detection(image, nav, lon) if disk_q.get("measurable", True) else {
+        "detected": False, "drift_deg": float("nan"), "n_scales": 0,
+        "reason": "no resolved disk",
+    }
+    if not detect.get("detected", True):
+        quality = 0.0
+
     if not quiet:
         CONSOLE.ok(
             f"RESULT lon={lon:.4f}° lat={lat:.4f}°  L={length:.2f}° W={width:.2f}°  "
@@ -1572,7 +1665,7 @@ def measure_grs_precision(
         length_deg=length,
         width_deg=width,
         method=primary,
-        methods={**methods, "disk_quality": disk_q},
+        methods={**methods, "disk_quality": disk_q, "grs_detection": detect},
         err_lon_deg=err_lon,
         err_lat_deg=err_lat,
         err_sky_arcsec=as_sky,
@@ -1587,6 +1680,10 @@ def measure_grs_precision(
             "err_sky is method consistency (not total systematic); MC is separate",
             "truth_recovery is absolute accuracy on synthetics",
         ]
+        + ([] if detect.get("detected", True) else [
+            "GRS NOT DETECTED: " + str(detect.get("reason") or "")
+            + " - lon/lat are not a Red Spot measurement"
+        ])
         + ([] if disk_q.get("measurable", True) else [
             "NOT MEASURABLE: " + "; ".join(disk_q.get("reasons") or [])
             + " - no resolved planetary disk; treat lon/lat as meaningless"

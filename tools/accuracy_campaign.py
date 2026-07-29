@@ -36,7 +36,8 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXP
     os.environ.setdefault(_v, "1")
 
 
-def run_one(seed: int, resolution: str = "1080p", mode: str = "metrology") -> dict:
+def run_one(seed: int, resolution: str = "1080p", mode: str = "metrology",
+            seeing: float | None = None, noise: float | None = None) -> dict:
     """Render one synthetic frame and measure it. Returns a result record."""
     import numpy as np
     from PIL import Image
@@ -52,17 +53,19 @@ def run_one(seed: int, resolution: str = "1080p", mode: str = "metrology") -> di
     t0 = time.time()
     try:
         with tempfile.TemporaryDirectory(prefix="grs_camp_") as d:
-            png, _fit, truth = generate(
-                SynthSpec(
-                    region="global",
-                    resolution_preset=resolution,
-                    random_time=True,
-                    seed=int(seed),
-                    mode=mode,
-                    write_grs_crop=False,
-                ),
-                Path(d),
+            spec_kw = dict(
+                region="global",
+                resolution_preset=resolution,
+                random_time=True,
+                seed=int(seed),
+                mode=mode,
+                write_grs_crop=False,
             )
+            if seeing is not None:
+                spec_kw["seeing_fwhm_arcsec"] = float(seeing)
+            if noise is not None:
+                spec_kw["noise_rms"] = float(noise)
+            png, _fit, truth = generate(SynthSpec(**spec_kw), Path(d))
             img = np.asarray(Image.open(png), dtype=np.float64) / 255.0
 
         nav = fit_limb_nav(
@@ -133,6 +136,8 @@ def run_one(seed: int, resolution: str = "1080p", mode: str = "metrology") -> di
             "d_yc": d_yc,
             "d_a_px": d_a,
             "secs": time.time() - t0,
+            "seeing": seeing,
+            "noise": noise,
         }
     except Exception as e:
         return {"seed": int(seed), "ok": False, "error": f"{type(e).__name__}: {e}",
@@ -190,6 +195,11 @@ def main() -> int:
     ap.add_argument("--seed0", type=int, default=100_000)
     ap.add_argument("--stride", type=int, default=7919)
     ap.add_argument("--res", default="1080p")
+    ap.add_argument("--seeing", type=float, default=None,
+                    help="seeing FWHM arcsec; omit for the mode default")
+    ap.add_argument("--seeing-range", default=None,
+                    help="lo,hi -- draw seeing per frame, deterministic in the seed")
+    ap.add_argument("--noise", type=float, default=None)
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2)))
     ap.add_argument("--out", default="runs/campaign.jsonl")
     ap.add_argument("--resume", action="store_true")
@@ -214,7 +224,29 @@ def main() -> int:
     t0 = time.time()
     with out.open("a", encoding="utf-8") as fh, \
             ProcessPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(run_one, s, args.res): s for s in seeds}
+        rng_lo = rng_hi = None
+        if args.seeing_range:
+            rng_lo, rng_hi = (float(x) for x in args.seeing_range.split(","))
+
+        def _seeing_for(sd: int):
+            if rng_lo is None:
+                return args.seeing
+            # deterministic per-seed draw so the run stays reproducible
+            frac = ((sd * 2654435761) % 10_000) / 10_000.0
+            return rng_lo + frac * (rng_hi - rng_lo)
+
+        def _noise_for(sv):
+            if args.noise is not None:
+                return args.noise
+            if sv is None:
+                return None
+            # noise grows with seeing, as it does on real stacks
+            return float(min(0.035, 0.004 + 0.006 * sv))
+
+        futs = {}
+        for s in seeds:
+            sv = _seeing_for(s)
+            futs[ex.submit(run_one, s, args.res, "metrology", sv, _noise_for(sv))] = s
         for i, fut in enumerate(as_completed(futs), 1):
             r = fut.result()
             rows.append(r)

@@ -473,3 +473,78 @@ never silently suppress a valid measurement.
 | Sky error median | **0.107″** | — |
 
 0 failures. Best worst-case of the session (was 31.03° at the start).
+
+---
+
+# Addendum 4 — blurry / poor-seeing tuning
+
+## The seeing knob was a no-op
+
+Testing degraded seeing first required discovering that **it had never worked**.
+`_apply_realistic_optics` capped the PSF at an *absolute* 2.2 px:
+
+```python
+sig = min(sig, 2.2)
+```
+
+At 1080p a 0.38″ request already computes to sigma = 3.66 px, so the cap bound
+at **every** value — 0.38″ and 6.0″ rendered byte-identically:
+
+| requested seeing | sigma wanted | actually used |
+|---|---|---|
+| 0.38″ | 3.66 px | 2.2 px |
+| 1.80″ | 17.34 px | 2.2 px |
+| 6.00″ | 57.78 px | 2.2 px |
+
+Every prior claim of robustness to blur was therefore vacuous: the synthetic
+had never once been blurry. The cap is now **relative to the disk** (12 % of
+equatorial radius), which is the physically meaningful scale — a 3″ blur on a
+40″ disk is a fixed fraction of the radius regardless of sampling.
+
+Calibration against the real dataset: real frames measure limb width/R of
+**0.24–0.30**; the synthetic previously sat fixed at 0.16 and now spans
+0.16–0.20 across the seeing range.
+
+## What real blur then exposed
+
+At **2.6″ seeing — ordinary amateur conditions — 7 of 16 frames failed with
+~97° errors.** Two compounding causes:
+
+1. **`reject_lon_outliers` pruned toward the median of three scattered
+   estimates.** Under blur the template was 97.7° off and happened to *be* the
+   median, so the correct colour lock (0.21°) was deleted as an "outlier".
+   Pruning is now skipped entirely when the spread exceeds 30° — with that much
+   disagreement there is no majority to prune toward.
+2. **The cluster seed never considered `redness`.** Colour survives blur that
+   destroys the dark-oval *shape*. When the two dark methods split by >12°, the
+   seed and the final position now come from the colour lock.
+
+On the failing frame: template −97.7°, moment −28.5°, **redness −0.21°**.
+
+| seeing | fails >1° before | after | lon median after |
+|---|---|---|---|
+| 0.38″ | 0 | 0 | 0.131° |
+| 1.80″ | 0 | 0 | 0.108° |
+| 2.60″ | **7/16** | **0/16** | 0.149° |
+| 3.50″ | 7/16 | 2/16 | 0.365° |
+| 5.00″ | 12/16 | 6/16 | 0.965° |
+
+## 500-frame blur campaign
+
+Seeing drawn per frame across **0.4–3.2″**, noise scaled with it, deterministic
+in the seed.
+
+| seeing | n | lon median | lon p90 | lat median | fails >1° |
+|---|---|---|---|---|---|
+| 0.5″ | 62 | 0.127° | 0.310° | 0.293° | 0 |
+| 1.0″ | 91 | 0.164° | 0.345° | 0.320° | 0 |
+| 1.5″ | 88 | 0.260° | 0.514° | 0.376° | 1 |
+| 2.0″ | 90 | 0.248° | 0.490° | 0.273° | 0 |
+| 2.5″ | 90 | 0.227° | 0.665° | 0.156° | 0 |
+| 3.0″ | 79 | 0.398° | 0.769° | 0.180° | 6 |
+
+**All 500: 98.4 % within 1°, 100 % within 2°, worst 1.209°, 0 crashes.**
+Degradation with seeing is graceful — no cliff.
+
+A fast regression test now asserts the rendered image actually loses
+high-frequency energy as seeing worsens, so a dead seeing knob cannot return.

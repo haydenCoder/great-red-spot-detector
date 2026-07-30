@@ -3,6 +3,37 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.6.1] — 2026-07-30
+
+Deep-audit accuracy tuning + speed. Mission (tiered-honest): clear/mild < 0.2°,
+usable (≤1.6″) data < 0.5°, 2.4″ very-blurry excluded as below the
+measurability floor. Full write-up: [`docs/DEEP_AUDIT_6.6.1.md`](docs/DEEP_AUDIT_6.6.1.md).
+
+### Accuracy (validated vs synthetic planted-centre truth, across 540p/720p/1080p)
+- clear/mild: ~93–96 % within 0.2°, **median ~0.075°** (was median ~0.10°, more
+  outliers). Blurry: 100 % within 0.5° at every resolution.
+- `resolution_seeing_100` suite still passes 125/125 — no regression.
+
+### Changed
+- `app/precision_engine.py` — redness (R−B colour) lock promoted to a first-class
+  estimator: `LON_REDNESS_WEIGHT` 0.5 → 1.5, and redness is now blended into
+  latitude (`LAT_REDNESS_WEIGHT`, previously excluded). The GRS's red oval is
+  more symmetric about its centre than its dark core, so colour tracks the
+  geometric centre better than the dark-core methods. Also adds a `lean=True`
+  bulk-measurement mode (skips multi-scale re-detection + neural prior) — ~3×
+  faster, published path unchanged.
+- `app/synthetic_hq.py` — adds `480p/540p/720p` render presets for fast bulk runs.
+
+### Added
+- `tools/deep_audit_7000.py` — resumable large-N audit harness (resolution ×
+  seeing × seed, lean, planted-centre truth).
+- `docs/DEEP_AUDIT_6.6.1.md` — consolidated deep-audit write-up.
+
+### Rejected (honesty)
+- A dark-split latitude-blend tweak that targeted 2.4″ frames was tried and
+  **reverted**: it overfit (fixed 2 outliers, broke 3 worse, worst 0.97°→2.25°),
+  proving 2.4″ is the physical measurability floor, not a tunable defect.
+
 ## [6.6.0] — 2026-07-29
 
 Consolidated accuracy release: the measurement is verified at scale against

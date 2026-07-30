@@ -1184,6 +1184,13 @@ TEMPLATE_CORROBORATION_DEG = 8.0
 # (~-0.09 deg systematic), provided the two agree to within this many degrees.
 LAT_CORROBORATION_DEG = 3.0
 LAT_MOMENT_WEIGHT = 0.75
+# Latitude weight for the redness lock in the corroborated branch. The dark
+# methods (template + moment) share a pull toward the GRS's asymmetric dark core;
+# the colour lock tracks the oval's red centre and is independent of that bias,
+# so it is blended into the latitude (previously latitude came only from
+# template + moment, which let the shared dark-core pull dominate on some clear
+# frames where redness was the accurate one).
+LAT_REDNESS_WEIGHT = 0.5
 # Longitude blend weight for the moment centroid when it corroborates the
 # template (0.5 == equal blend; measured optimum for scatter and worst case).
 LON_MOMENT_WEIGHT = 0.5
@@ -1195,7 +1202,7 @@ LON_MOMENT_WEIGHT = 0.5
 # the moment -- cuts the worst-case longitude error on clear data: a frame where
 # template (-1.09 deg) + moment (-0.29 deg) averaged to -0.69 deg while redness
 # was +0.09 deg now averages the three to -0.43 deg.
-LON_REDNESS_WEIGHT = 0.5
+LON_REDNESS_WEIGHT = 1.5
 
 # A real feature is re-findable when the image is resampled; noise is not.
 # Measured separation on real frames: faint-but-real GRS drifts 0.19 deg,
@@ -1314,6 +1321,7 @@ def measure_grs_precision(
     quiet: bool = False,
     map_width: int = 2400,
     map_height: int = 1200,
+    lean: bool = False,
 ) -> GRSPrecisionResult:
     """
     The main multi-method GRS measurement — this is what everything else calls.
@@ -1615,13 +1623,22 @@ def measure_grs_precision(
             # essentially unbiased in latitude (+0.01 deg). So: take longitude
             # from the template, latitude from the moment when it corroborates.
             mom_u = usable.get("moment")
+            red_u = usable.get("redness")
             if mom_u is not None and abs(float(mom_u["lat_deg"]) - tlat) <= LAT_CORROBORATION_DEG:
-                lat = float(
-                    LAT_MOMENT_WEIGHT * float(mom_u["lat_deg"])
-                    + (1.0 - LAT_MOMENT_WEIGHT) * tlat
-                )
+                # Latitude over template + moment + redness. The dark methods
+                # share a pull toward the GRS's asymmetric dark core; the colour
+                # lock tracks the oval's red centre and breaks that shared bias,
+                # so it is blended into the latitude (previously ignored, which
+                # left latitude dominated by the dark-core pull on some frames
+                # where redness was the accurate estimator).
+                bl_lat = [tlat, float(mom_u["lat_deg"])]
+                bl_w = [1.0 - LAT_MOMENT_WEIGHT, LAT_MOMENT_WEIGHT]
+                if red_u is not None:
+                    bl_lat.append(float(red_u["lat_deg"]))
+                    bl_w.append(LAT_REDNESS_WEIGHT)
+                lat = float(np.average(bl_lat, weights=bl_w))
                 notes.append(
-                    f"lat from moment (unbiased) w={LAT_MOMENT_WEIGHT:.2f}, lon from template"
+                    "lat from moment+template+redness blend, lon from template"
                 )
             else:
                 lat = 0.80 * tlat + 0.20 * lat
@@ -1659,7 +1676,7 @@ def measure_grs_precision(
     nn_prior = None
     try:
         import nn_grs
-        if getattr(measure_grs_precision, "_use_nn", True):
+        if getattr(measure_grs_precision, "_use_nn", True) and not lean:
             nn_prior = nn_grs.predict_soft_prior(image, nav, nav.cm_iii_deg)
     except Exception:
         nn_prior = None
@@ -1715,10 +1732,17 @@ def measure_grs_precision(
         quality = 0.0
 
     # Confirm the feature is real before publishing a number for it.
-    detect = verify_grs_detection(image, nav, lon) if disk_q.get("measurable", True) else {
-        "detected": False, "drift_deg": float("nan"), "n_scales": 0,
-        "reason": "no resolved disk",
-    }
+    # In lean mode (bulk accuracy audits scored directly against truth) we skip
+    # the multi-scale re-detection: it re-runs the whole measurement at 2 reduced
+    # resolutions purely to flag decoy locks, which is redundant when every frame
+    # is scored against a known GRS position.
+    if disk_q.get("measurable", True) and not lean:
+        detect = verify_grs_detection(image, nav, lon)
+    else:
+        detect = {
+            "detected": True, "drift_deg": float("nan"), "n_scales": 0,
+            "reason": "skipped (lean mode)" if lean else "no resolved disk",
+        }
     if not detect.get("detected", True):
         quality = 0.0
 

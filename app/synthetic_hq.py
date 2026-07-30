@@ -71,6 +71,11 @@ class SynthSpec:
     seeing_fwhm_arcsec: float = 0.35  # overridden by mode presets (~0.55–0.65")
     noise_rms: float = 0.004
     write_grs_crop: bool = True
+    # Extreme geometry injection for "every atom" training (sub_lat ±18, north_pa ±75, limb placements)
+    sub_lat_deg: float = 0.0
+    north_pa_deg: float = 0.0
+    grs_limb_rel_deg: Optional[float] = None  # relative to CM for GRS placement e.g. 35..95
+    distance_au: Optional[float] = None
 
 
 REGION = {
@@ -641,6 +646,18 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
     if dist is None:
         dist = dist_fallback
 
+    # EXTREME GEOMETRY OVERRIDES ("every atom" training: sub_lat ±18°, north_pa ±75°, limb 35-95°)
+    if getattr(spec, "distance_au", None) is not None:
+        dist = float(spec.distance_au)
+        CONSOLE.info(f"[extreme-geo] distance_au -> {dist:.4f}")
+    injected_sub_lat = float(getattr(spec, "sub_lat_deg", 0.0) or 0.0)
+    injected_north_pa = float(getattr(spec, "north_pa_deg", 0.0) or 0.0)
+    if injected_sub_lat or injected_north_pa:
+        spice_meta["injected_sub_lat_deg"] = injected_sub_lat
+        spice_meta["injected_north_pa_deg"] = injected_north_pa
+        CONSOLE.info(f"[extreme-geo] sub_lat={injected_sub_lat:.2f}° north_pa={injected_north_pa:.2f}°")
+    grs_limb_override = getattr(spec, "grs_limb_rel_deg", None)
+
     app_diam = math.degrees(2 * JUP_REQ_KM / (dist * 149597870.7)) * 3600.0
     period_s = 9 * 3600 + 55 * 60 + 29.711
     mjd = (t - dt.datetime(1858, 11, 17)).total_seconds() / 86400.0
@@ -649,8 +666,15 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
 
     # Metrology: keep GRS well on disk (not near limb) for fair recovery demos
     # GRS_LIMB_LON_REL forces placement (e.g. 75 = near limb) for validation harnesses.
+    # EXTREME: grs_limb_rel_deg from spec for "every atom" training (35-95°)
     limb_rel = os.environ.get("GRS_LIMB_LON_REL", "").strip()
-    if limb_rel:
+    if grs_limb_override is not None:
+        try:
+            grs_lon = (cm + float(grs_limb_override)) % 360.0
+            CONSOLE.info(f"[extreme-geo] GRS forced limb_rel={float(grs_limb_override):.1f}°")
+        except Exception:
+            pass
+    elif limb_rel:
         try:
             grs_lon = (cm + float(limb_rel)) % 360.0
             CONSOLE.info(f"Synthetic GRS forced near limb: lon_rel={float(limb_rel):.1f}°")

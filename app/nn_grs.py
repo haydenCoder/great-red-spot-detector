@@ -962,6 +962,10 @@ def auto_train(
             for s in range(samples_per_epoch):
                 if _train_state.get("stop_requested"):
                     break
+                # Mixed + EXTREME geometry for "every atom" push on hard tail
+                extreme_sub = float(rng.choice([-18.0, -16.5, -12.0, 0.0, 8.0, 15.0, 18.0]))
+                extreme_pa = float(rng.choice([-75.0, -58.0, -30.0, 0.0, 42.0, 58.0, 75.0]))
+                extreme_limb = float(rng.choice([35.0, 48.0, 62.0, 75.0, 88.0, 95.0])) if rng.random() < 0.45 else None
                 spec = SynthSpec(
                     user_time_iso=f"2026-01-{(s % 28) + 1:02d} 12:00:00",
                     region=str(rng.choice(["global", "equatorial", "grs_closeup", "se_belt"])),
@@ -972,6 +976,10 @@ def auto_train(
                     mode="metrology",
                     wave_contrast=0.7,
                     write_grs_crop=False,
+                    sub_lat_deg=extreme_sub,
+                    north_pa_deg=extreme_pa,
+                    grs_limb_rel_deg=extreme_limb,
+                    distance_au=float(rng.uniform(4.2, 6.1)) if rng.random() < 0.3 else None,
                 )
                 try:
                     png, fit, truth = generate(spec, out_tmp)
@@ -1211,6 +1219,10 @@ def _make_train_sample(
     except Exception:
         return None
     day = int(rng.integers(1, 29))
+    # EXTREME geometry injection also here for mixed overnight path
+    extreme_sub = float(rng.choice([-18.0, -16.5, -8.0, 0.0, 11.0, 18.0]))
+    extreme_pa = float(rng.choice([-75.0, -42.0, 0.0, 35.0, 58.0, 75.0]))
+    extreme_limb = float(rng.choice([38.0, 55.0, 72.0, 85.0, 95.0])) if rng.random() < 0.4 else None
     spec = SynthSpec(
         user_time_iso=f"2024-{(int(rng.integers(1, 13))):02d}-{day:02d} {int(rng.integers(0, 24)):02d}:00:00",
         region=str(strategy.get("region", "global")),
@@ -1223,6 +1235,10 @@ def _make_train_sample(
         write_grs_crop=False,
         seeing_fwhm_arcsec=float(rng.uniform(0.25, 0.45)),
         noise_rms=float(rng.uniform(0.002, 0.008)),
+        sub_lat_deg=extreme_sub,
+        north_pa_deg=extreme_pa,
+        grs_limb_rel_deg=extreme_limb,
+        distance_au=float(rng.uniform(4.1, 6.2)) if rng.random() < 0.25 else None,
     )
     try:
         _png, fit, truth = generate(spec, out_tmp)

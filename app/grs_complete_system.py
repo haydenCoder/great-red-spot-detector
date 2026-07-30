@@ -624,6 +624,11 @@ class PipelineConfig:
     min_frames: int = 50
     max_clip_frac: float = 0.05
     flux_drop_frac: float = 0.40
+    # DCR
+    dcr_enable: bool = True
+    dcr_z_deg: float = 30.0
+    pressure_mbar: float = 1013.25
+    temp_c: float = 15.0
 
     @staticmethod
     def from_dict(d: Mapping[str, Any]) -> "PipelineConfig":
@@ -1864,14 +1869,57 @@ def build_lrgb(L: np.ndarray, R: Optional[np.ndarray], G: Optional[np.ndarray],
     return ycbcr_to_rgb(y, cb, cr)
 
 
-def register_channels(channels: Dict[str, np.ndarray], ref_name: str = "G") -> Dict[str, np.ndarray]:
+def apply_residual_dcr(
+    channels: Dict[str, np.ndarray],
+    ref_name: str = "G",
+    z_deg: float = 30.0,
+    pressure_mbar: float = 1013.25,
+    temp_c: float = 15.0,
+    apparent_diameter_arcsec: float = 40.0,
+    planet_radius_px: float = 100.0,
+) -> Dict[str, np.ndarray]:
+    """Apply physical Differential Atmospheric Dispersion Correction (DCR) to channels."""
     if ref_name not in channels:
         ref_name = next(iter(channels.keys()))
-    ref = highpass(channels[ref_name], 2.0)
+    arcsec_per_px = apparent_diameter_arcsec / (2.0 * planet_radius_px) if planet_radius_px > 0 else 0.15
+    ref_lam = FILTER_WAVELENGTH_NM.get(ref_name, 550.0)
     out = {}
     for name, img in channels.items():
         if name == ref_name:
             out[name] = np.asarray(img, dtype=np.float64)
+            continue
+        target_lam = FILTER_WAVELENGTH_NM.get(name, 550.0)
+        dcr_diff_arcsec = dcr_shift_arcsec(z_deg, target_lam, ref_lam, pressure_mbar, temp_c)
+        dcr_dy_px = dcr_diff_arcsec / (arcsec_per_px + 1e-12)
+        out[name] = shift_image(img, dcr_dy_px, 0.0)
+    return out
+
+
+def register_channels(
+    channels: Dict[str, np.ndarray],
+    ref_name: str = "G",
+    dcr_enable: bool = True,
+    z_deg: float = 30.0,
+    pressure_mbar: float = 1013.25,
+    temp_c: float = 15.0,
+    apparent_diameter_arcsec: float = 40.0,
+    planet_radius_px: float = 100.0,
+) -> Dict[str, np.ndarray]:
+    if dcr_enable:
+        channels_dcr = apply_residual_dcr(
+            channels, ref_name, z_deg, pressure_mbar, temp_c,
+            apparent_diameter_arcsec, planet_radius_px
+        )
+    else:
+        channels_dcr = {k: np.asarray(v, dtype=np.float64) for k, v in channels.items()}
+
+    if ref_name not in channels_dcr:
+        ref_name = next(iter(channels_dcr.keys()))
+    ref = highpass(channels_dcr[ref_name], 2.0)
+    out = {}
+    for name, img in channels_dcr.items():
+        if name == ref_name:
+            out[name] = img
             continue
         dy, dx, _ = phase_correlate(ref, highpass(img, 2.0))
         out[name] = shift_image(img, dy, dx)
@@ -2738,9 +2786,23 @@ class GRSCompletePipeline:
         ch = {k: v.image for k, v in self.stacks.items()}
         # prefer register
         ref = self.cfg.l_source if self.cfg.l_source in ch else ( "G" if "G" in ch else next(iter(ch)))
-        ch = register_channels(ch, ref_name=ref)
+        planet_radius = 100.0
+        app_diam = 40.0
+        if ref in self.stacks:
+            nav_rough = rough_navigation(self.stacks[ref].image)
+            planet_radius = float(nav_rough.a_eq_px)
+            app_diam = float(nav_rough.apparent_diameter_arcsec)
+        ch = register_channels(
+            ch, ref_name=ref,
+            dcr_enable=self.cfg.dcr_enable,
+            z_deg=self.cfg.dcr_z_deg,
+            pressure_mbar=self.cfg.pressure_mbar,
+            temp_c=self.cfg.temp_c,
+            apparent_diameter_arcsec=app_diam,
+            planet_radius_px=planet_radius,
+        )
         self.channels = ch
-        self._record("register_channels", keys=list(ch.keys()), ref=ref)
+        self._record("register_channels_with_dcr", keys=list(ch.keys()), ref=ref, dcr=self.cfg.dcr_enable)
         return ch
 
     def run_imaging(self) -> Optional[np.ndarray]:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "great-red-spot-detector"
-version = "6.7.0"
+version = "6.7.1"
 description = "Jupiter Great Red Spot Detector — measure GRS System III longitude & latitude from stacked Jupiter images with SPICE geometry and calibrated error bars"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -65,6 +65,8 @@ py-modules = [
   "planet_models",
   "planetary_stacker",
   "planetary_derotator",
+  "flow_warp",
+  "frame_quality",
 ]
 
 [tool.pytest.ini_options]

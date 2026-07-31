@@ -239,8 +239,10 @@ def main(argv=None) -> int:
                      help="load frames from a folder (PNG/JPG/FITS) instead of rendering synthetic")
     pps.add_argument("--n-grid", type=int, default=8)
     pps.add_argument("--ap-half", type=int, default=16)
-    pps.add_argument("--warp-mode", choices=["per_latitude", "global"], default="per_latitude")
+    pps.add_argument("--warp-mode", choices=["per_latitude", "flow", "global"], default="per_latitude")
     pps.add_argument("--reference", choices=["auto", "first"], default="auto")
+    pps.add_argument("--quality-gate", type=float, default=1.0,
+                     help="keep the sharpest fraction of frames (0..1, lucky-imaging rejection)")
     pps.add_argument("--seed", type=int, default=0)
     pps.add_argument("--out", default="")
 
@@ -630,7 +632,7 @@ def main(argv=None) -> int:
             frames, out_root, planet=planet,
             n_grid=args.n_grid, ap_half=args.ap_half,
             cm_iii_per_frame=cm_list, warp_mode=args.warp_mode,
-            reference=args.reference,
+            reference=args.reference, quality_gate=args.quality_gate,
         )
         print(json.dumps(res.to_dict(), indent=2, default=str))
         return 0

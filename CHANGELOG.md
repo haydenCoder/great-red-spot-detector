@@ -3,6 +3,44 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.1] — 2026-07-31
+
+Three more stacking improvements, each measured.
+
+### 1. Dense 2D flow warp (`app/flow_warp.py`, `warp_mode="flow"`)
+The v6.6.3 changelog explicitly called "a 2D per-pixel zonal-warp the right next
+step; not done." This adds it: fit a dense (dy,dx) displacement field from the
+per-AP drifts (RBF) and apply a sub-pixel backward warp. Captures local/meridional
+motion the per-row warp cannot.
+
+### 2. Lucky-imaging frame rejection (`app/frame_quality.py`, `--quality-gate`)
+AutoStakkert-style: score each frame for sharpness, stack only the best fraction.
+`quality_gate=0.75` drops the 25% worst-seeing frames; the reference is always kept.
+
+### 3. Reproducible campaign (`tools/flow_warp_benchmark.py`)
+A/B across global / per_latitude / flow / naive-mean on controllable zonal + 2D
++ seeing + noise perturbations. Run it to see which warp wins on your data.
+
+### Measured (on-disk RMS to reference, lower = better)
+- clean 2D-distorted frames: **flow 0.134 < per_latitude 0.161 < global 0.185** -> flow wins.
+- pure zonal frames: flow ~= per_latitude (both ~0.13-0.21).
+- **honest limit**: under heavy seeing + read noise a dense warp can do WORSE than
+  per-latitude (and even naive mean) -- it has more DOF, so noisy per-AP drifts get
+  interpolated into a spurious flow. The fit uses a smoothing ridge + residual
+  outlier rejection, and the **default warp stays per_latitude**; flow is for clean
+  / large-motion data. The campaign tool reports which to use.
+
+### Added
+- `app/flow_warp.py`, `app/frame_quality.py`, `tools/flow_warp_benchmark.py`.
+- `tests/test_flow_warp.py` (3), `tests/test_frame_quality.py` (5).
+- CLI `--warp-mode {per_latitude,flow,global}` and `--quality-gate` on `planet-stack`.
+
+### Fixed (found along the way)
+- `jpa_10k._fit_velocity_field` was broken (`np.mgrid[0:h:gh]` treats the 3rd index
+  as a step, not a count -> reshape crash). It was never called by `run_jpa_10k`,
+  which is why it went unnoticed. `flow_warp` uses a correct RBF fit instead of
+  depending on it.
+
 ## [6.7.0] — 2026-07-31
 
 The stacker and derotator are no longer Jupiter-only, and the stacker no longer

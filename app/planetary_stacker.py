@@ -45,6 +45,8 @@ from verbose_log import CONSOLE
 from planet_models import Planet, JUPITER
 from jpa_10k import _build_ap_grid, _phase_corr_shift, _laplacian_octave
 from precision_engine import fit_limb_nav, deg2rad, to_mono, wrap_diff
+from flow_warp import fit_dense_apply_field, apply_flow_warp
+from frame_quality import select_best_frames
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +370,8 @@ class PlanetaryStackerResult:
     planet: str
     reference_index: int
     warp_mode: str
+    quality_gate: float
+    dropped_frames: List[int]
     mean_rms_drift_px: float
     mean_ap_quality: float
     used_prior_fallback_bins: int
@@ -395,8 +399,9 @@ def run_planetary_stacker(
     dt_s_per_frame: Optional[Sequence[float]] = None,
     sub_lat_deg: float = 0.0,
     north_pa_deg: float = 0.0,
-    warp_mode: str = "per_latitude",   # "per_latitude" | "global"
+    warp_mode: str = "per_latitude",   # "per_latitude" | "flow" | "global"
     reference: str = "auto",           # "auto" | "first"
+    quality_gate: float = 1.0,         # keep the sharpest fraction (1.0 = keep all)
     save: bool = True,
 ) -> PlanetaryStackerResult:
     """Stack a list of mono frames of any `Planet` with a per-latitude warp.
@@ -408,9 +413,15 @@ def run_planetary_stacker(
                               the expected-drift prior fallback in sparse bins.
     dt_s_per_frame            per-frame time-since-reference (s). Drives the
                               planet-model expected drift.
-    warp_mode                 "per_latitude" (default, fixes the shear) or
+    warp_mode                 "per_latitude" (default; fixes zonal shear),
+                              "flow" (dense 2D warp; captures local/meridional
+                              motion the per-row warp cannot), or
                               "global" (legacy single translation, for A/B).
     reference                 "auto" picks the sharpest frame; "first" uses 0.
+    quality_gate              keep only the sharpest fraction of frames
+                              (lucky-imaging rejection, AutoStakkert-style).
+                              1.0 keeps all; e.g. 0.75 drops the 25% worst-seeing
+                              frames. The reference is always retained.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -427,6 +438,20 @@ def run_planetary_stacker(
 
     ref_idx = select_reference_index(mono) if reference == "auto" else 0
     ref = mono[ref_idx]
+    # Lucky-imaging rejection: drop the worst-seeing frames (keep the reference).
+    dropped: List[int] = []
+    dropped_set = set()
+    if quality_gate < 1.0 and n_frames > 3:
+        kept_idx, dropped, _quals = select_best_frames(mono, keep_frac=quality_gate)
+        if ref_idx not in kept_idx:
+            kept_idx.append(ref_idx)
+            kept_idx.sort()
+        dropped_set = set(dropped)
+        if dropped:
+            CONSOLE.info(
+                f"PLANETARY-STACK: quality_gate={quality_gate:.2f} -> dropping "
+                f"{len(dropped)} worst-seeing frame(s): {dropped}"
+            )
     CONSOLE.info(
         f"PLANETARY-STACK: {n_frames} frames {w}x{h}, planet={planet.name}, "
         f"grid {n_grid}x{n_grid}, ap_half={ap_half}, warp={warp_mode}, ref={ref_idx}"
@@ -465,6 +490,9 @@ def run_planetary_stacker(
         if k == ref_idx:
             per_frame_rms.append(0.0)
             continue
+        if k in dropped_set:
+            per_frame_rms.append(float("nan"))
+            continue
         # Per-AP expected drift (planet prior: bulk rotation + zonal wind).
         dt_k = _frame_dt(planet, k, ref_idx, cm_iii_per_frame, dt_s_per_frame)
         drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
@@ -493,6 +521,12 @@ def run_planetary_stacker(
             else:
                 dy, dx = 0.0, 0.0
             shifted = _global_shift(frame, dy, dx)
+            prior_bins = 0
+        elif warp_mode == "flow":
+            # dense 2D displacement field from the per-AP drifts (captures local
+            # / meridional motion the per-row warp cannot represent).
+            field = fit_dense_apply_field(aps, drifts, snrs, (h, w))
+            shifted = apply_flow_warp(frame, field)
             prior_bins = 0
         else:
             dx_bins, dy_g = fit_dx_vs_latitude(
@@ -536,6 +570,8 @@ def run_planetary_stacker(
         planet=planet.name,
         reference_index=int(ref_idx),
         warp_mode=warp_mode,
+        quality_gate=float(quality_gate),
+        dropped_frames=[int(i) for i in dropped],
         mean_rms_drift_px=mean_rms,
         mean_ap_quality=mean_q,
         used_prior_fallback_bins=int(prior_bins_total),
@@ -545,8 +581,11 @@ def run_planetary_stacker(
             f"Planet-generalised: {planet.name} "
             f"(flat={planet.flattening:.4f}, P={planet.rotation_period_s:.0f}s)",
             f"warp_mode={warp_mode}: "
-            + ("per-latitude row warp (fixes zonal shear)" if warp_mode == "per_latitude"
-               else "legacy single global translation"),
+            + {
+                "per_latitude": "per-latitude row warp (fixes zonal shear)",
+                "flow": "dense 2D flow warp (captures local/meridional motion)",
+                "global": "legacy single global translation",
+            }.get(warp_mode, warp_mode),
             "measurement+prior hybrid: empty latitude bins filled from planet model",
             "reference frame = sharpest (lucky-imaging anchor)" if reference == "auto"
             else "reference frame = first",

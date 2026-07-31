@@ -3,6 +3,26 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.6] — 2026-07-31
+
+Desktop Stacking tab: planet-generalised engine option.
+
+### Added
+- The Stacking tab now has a "Stack engine" selector: **Jupiter-zonal** (default,
+  unchanged) or **Planetary (multi-planet)**. The Planetary engine exposes a
+  Planet selector (Jupiter/Saturn/Neptune/Uranus/Mars), a Warp-mode selector
+  (per_latitude/flow/global), and a Quality-gate field, and routes through
+  `run_planetary_stacker` — writing the stacked PNG + `stacker_report.txt` and
+  surfacing warp mode, reference frame, dropped frames, consistency, timing.
+
+### Honest verification limit
+- This is **additive and defaults to the original Jupiter-zonal path** (zero
+  behaviour change unless you pick the Planetary engine). It is syntax-checked
+  (`py_compile`) but NOT runtime-verified: this build sandbox has no tkinter /
+  display, so `test_desktop_wiring` skips here. Please launch the desktop app to
+  confirm the new controls render. The Derotate tab still uses the Jupiter-zonal
+  derotator (the planetary derotator remains CLI-only for now).
+
 ## [6.7.5] — 2026-07-31
 
 Real-photo campaign harness.

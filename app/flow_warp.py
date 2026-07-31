@@ -160,12 +160,20 @@ def apply_flow_warp(frame: np.ndarray, apply_field: np.ndarray) -> np.ndarray:
 
     Uses bilinear (order=1) sampling. Off-edge samples clamp to the nearest edge
     value (mode='nearest'); sky pixels are ~0 so the disk edge stays clean.
+
+    Channel-aware: pass an (h,w,3) frame and a single (h,w,2) field and every
+    channel is sampled at the same displaced coordinates (RGB stacking).
     """
     from scipy.ndimage import map_coordinates
     frame = np.asarray(frame, dtype=np.float64)
-    h, w = frame.shape
+    h, w = frame.shape[0], frame.shape[1]
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
     coords = np.stack([yy + apply_field[..., 0], xx + apply_field[..., 1]])
+    if frame.ndim == 3:
+        return np.stack(
+            [map_coordinates(frame[..., c], coords, order=1, mode="nearest")
+             for c in range(frame.shape[2])], axis=-1,
+        )
     return map_coordinates(frame, coords, order=1, mode="nearest")
 
 

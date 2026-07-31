@@ -49,6 +49,21 @@ from flow_warp import fit_dense_apply_field, apply_flow_warp
 from frame_quality import select_best_frames
 
 
+def _to_hwc(frame: np.ndarray) -> np.ndarray:
+    """Normalise an RGB frame to (h, w, 3) float64 (handles CHW / RGBA / HWC).
+
+    Returns None-ish (the mono path) is NOT used here — callers check ndim first.
+    """
+    a = np.asarray(frame, dtype=np.float64)
+    if a.ndim != 3:
+        return a
+    h, w, c = (a.shape[1], a.shape[2], a.shape[0]) if a.shape[0] in (3, 4) and a.shape[0] < min(a.shape[1], a.shape[2]) else (a.shape[0], a.shape[1], a.shape[-1])
+    # take first 3 channels
+    if a.shape[0] in (3, 4) and a.shape[0] < min(a.shape[1], a.shape[2]):
+        return a[:3].transpose(1, 2, 0)
+    return a[..., :3]
+
+
 # ---------------------------------------------------------------------------
 # Hybrid prior + measurement tracker (planet-generalised)
 # ---------------------------------------------------------------------------
@@ -326,8 +341,16 @@ def per_row_warp(
     Each row is shifted by the dx at that row's |latitude| (interpolated from
     the binned fit). Implemented as a per-row FFT phase ramp, matching the
     proven convention used by win_jupos_derotator / the synthetic simulator.
+
+    Channel-aware: pass an (h,w,3) frame to warp every channel identically.
     """
-    out = np.asarray(frame, dtype=np.float64).copy()
+    arr = np.asarray(frame, dtype=np.float64)
+    if arr.ndim == 3:
+        return np.stack(
+            [per_row_warp(arr[..., c], dx_apply_per_bin, dy_global, on_disk, row_lats)
+             for c in range(arr.shape[2])], axis=-1,
+        )
+    out = arr.copy()
     h, w = out.shape
     n_bins = dx_apply_per_bin.size
     centres = (np.arange(n_bins) + 0.5) * (90.0 / n_bins)
@@ -432,6 +455,9 @@ def run_planetary_stacker(
     n_frames = len(frames)
     mono = [to_mono(f) for f in frames]
     h, w = mono[0].shape
+    is_rgb = np.asarray(frames[0]).ndim == 3
+    src = [_to_hwc(f) for f in frames] if is_rgb else mono   # what we warp + stack
+    nc = src[0].shape[2] if is_rgb else 1
     if cm_iii_per_frame is None:
         cm_iii_per_frame = [0.0] * n_frames
     if dt_s_per_frame is None:
@@ -439,6 +465,7 @@ def run_planetary_stacker(
 
     ref_idx = select_reference_index(mono) if reference == "auto" else 0
     ref = mono[ref_idx]
+    ref_src = src[ref_idx]
     # Lucky-imaging rejection: drop the worst-seeing frames (keep the reference).
     dropped: List[int] = []
     dropped_set = set()
@@ -477,21 +504,23 @@ def run_planetary_stacker(
     deg_to_px = nav.a_eq_px / 90.0
 
     def _pass(ref_array: np.ndarray):
-        """One track + warp + weighted-stack pass against `ref_array`."""
-        accumulated = np.zeros((h, w), dtype=np.float64)
+        """One track + warp + weighted-stack pass against `ref_array` (mono).
+
+        Tracking and the consistency metric always use luminance (most robust).
+        The warp is applied to the source frames — mono, or RGB per-channel —
+        so an RGB input yields an RGB stack with colour preserved.
+        """
+        ashape = (h, w, nc) if is_rgb else (h, w)
+        accumulated = np.zeros(ashape, dtype=np.float64)
         weights = np.zeros((h, w), dtype=np.float64)
         rms_pass: List[float] = []
         snr_pass: List[float] = []
         prior_pass = 0
-        # cross-frame consistency: mean on-disk std of the warped frames.
-        # Lower = frames agree better after warping. Diagnostic only: it is a
-        # raw per-run agreement number, NOT a cross-mode quality rank (it
-        # rewards warp flexibility, so it can't be used to pick a mode).
         s_sum = ref_array.astype(np.float64).copy()
         ss_sum = s_sum * s_sum
         cnt = 1
         rq = max(_laplacian_var(ref_array, on_disk), 1e-3)
-        accumulated += ref_array * rq
+        accumulated += ref_src * rq
         weights += np.full((h, w), rq)
         for k, frame in enumerate(mono):
             if k == ref_idx:
@@ -526,11 +555,11 @@ def run_planetary_stacker(
                     dx = -float(np.average(drifts[vmask, 1], weights=wv))
                 else:
                     dy, dx = 0.0, 0.0
-                shifted = _global_shift(frame, dy, dx)
+                shifted = _global_shift(src[k], dy, dx)
                 prior_bins = 0
             elif warp_mode == "flow":
                 field = fit_dense_apply_field(aps, drifts, snrs, (h, w))
-                shifted = apply_flow_warp(frame, field)
+                shifted = apply_flow_warp(src[k], field)
                 prior_bins = 0
             else:
                 dx_bins, dy_g = fit_dx_vs_latitude(
@@ -538,20 +567,25 @@ def run_planetary_stacker(
                     dt_s=float(dt_s_per_frame[k]), deg_to_px=deg_to_px,
                 )
                 prior_bins = int(np.sum(dx_bins == 0.0) + np.sum(~np.isfinite(dx_bins)))
-                shifted = per_row_warp(frame, dx_bins, dy_g, on_disk, row_lats)
+                shifted = per_row_warp(src[k], dx_bins, dy_g, on_disk, row_lats)
 
+            shifted_mono = shifted if not is_rgb else to_mono(shifted)
             qk = max(_laplacian_var(frame, on_disk), 1e-3)
             accumulated += shifted * qk
             weights += np.full((h, w), qk)
-            s_sum += shifted
-            ss_sum += shifted * shifted
+            s_sum += shifted_mono
+            ss_sum += shifted_mono * shifted_mono
             cnt += 1
             snr_pass.append(float(np.nanmean(snrs[valid])) if valid.any() else 0.0)
             prior_pass += prior_bins
         mean_img = s_sum / cnt
         var_img = np.clip(ss_sum / cnt - mean_img * mean_img, 0.0, None)
         consistency = float(np.sqrt(np.mean(var_img[on_disk]))) if on_disk.any() else 0.0
-        return accumulated / np.maximum(weights, 1e-9), rms_pass, snr_pass, prior_pass, consistency
+        if is_rgb:
+            stacked = accumulated / np.maximum(weights, 1e-9)[..., None]
+        else:
+            stacked = accumulated / np.maximum(weights, 1e-9)
+        return stacked, rms_pass, snr_pass, prior_pass, consistency
 
     stacked, per_frame_rms, quality_snrs, prior_bins_total, warp_consistency_std = _pass(ref)
     out_path = out_dir / f"stacked_planetary_{planet.name.lower()}.png"
@@ -559,7 +593,8 @@ def run_planetary_stacker(
         try:
             from PIL import Image
             u8 = (np.clip(stacked / max(stacked.max(), 1e-9), 0, 1) * 255).astype(np.uint8)
-            Image.fromarray(u8, "L").save(out_path, optimize=False)
+            mode = "RGB" if is_rgb else "L"
+            Image.fromarray(u8, mode).save(out_path, optimize=False)
         except Exception as e:
             CONSOLE.warn(f"PLANETARY-STACK: PNG save failed: {e}")
             out_path = out_dir / f"stacked_planetary_{planet.name.lower()}.npy"
@@ -612,8 +647,16 @@ def run_planetary_stacker(
 
 
 def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
-    """Single FFT sub-pixel translation (legacy/global warp mode)."""
+    """Single FFT sub-pixel translation (legacy/global warp mode).
+
+    Channel-aware: pass an (h,w,3) frame to shift every channel identically
+    (used for RGB stacking — the warp is computed from luminance, applied to RGB).
+    """
     out = np.asarray(frame, dtype=np.float64)
+    if out.ndim == 3:
+        return np.stack(
+            [_global_shift(out[..., c], dy, dx) for c in range(out.shape[2])], axis=-1
+        )
     h, w = out.shape
     f = np.fft.fft2(out)
     yy, xx = np.mgrid[0:h, 0:w]

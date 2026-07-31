@@ -3,6 +3,29 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.4] — 2026-07-31
+
+RGB per-channel stacking — colour is preserved instead of collapsed to grey.
+
+### Changed
+- `run_planetary_stacker` now detects RGB input (HxWx3 / CHW / RGBA). It still
+  tracks and measures consistency on **luminance** (most robust), but applies the
+  SAME geometric warp to R/G/B independently and stacks each channel, emitting an
+  RGB PNG. Mono input is unchanged (mono path verified, no regression).
+- The three warp primitives (`_global_shift`, `per_row_warp`, `apply_flow_warp`)
+  are now channel-aware: an (h,w,3) frame + one displacement descriptor warps
+  every channel identically.
+
+### Honest note
+This preserves colour; it does NOT change alignment accuracy (tracking is still
+luminance-based by design — colour edges are noisier than luminance for phase
+correlation). Real chromatic-aberration handling (per-channel separate derotate)
+is a future option, not done here.
+
+### Tests
+- `test_rgb_input_yields_rgb_stack_with_colour` (RGB in -> 3-channel out, channels
+  differ). Full planetary/flow/zonal suite 35/35. Version 6.7.3 -> 6.7.4.
+
 ## [6.7.3] — 2026-07-31
 
 Auditability + doc sync.

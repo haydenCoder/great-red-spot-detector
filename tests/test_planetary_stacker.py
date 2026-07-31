@@ -147,6 +147,34 @@ class TestPlanetaryStackerRuns(unittest.TestCase):
                 self.assertIn(key, txt)
             self.assertEqual(stacker_report_text(res).strip(), txt.strip())
 
+    def test_rgb_input_yields_rgb_stack_with_colour(self):
+        """RGB frames in -> RGB stack out, with channels differing (colour
+        preserved, not collapsed to grey). Tracking runs on luminance."""
+        from synthetic_hq import SynthSpec, generate
+        from planetary_stacker import run_planetary_stacker
+        with tempfile.TemporaryDirectory(prefix="grs_ps_rgb_") as d0:
+            rgb_frames, cm_list = [], []
+            for k in range(5):
+                png, _fit, truth = generate(
+                    SynthSpec(region="global", resolution_preset="720p", random_time=True,
+                              seed=2024 + k, mode="metrology", write_grs_crop=False),
+                    Path(d0),
+                )
+                rgb_frames.append(np.asarray(Image.open(png), dtype=np.float64) / 255.0)
+                cm_list.append(float(truth["cm_iii_deg"]))
+        with tempfile.TemporaryDirectory(prefix="grs_ps_rgb_out_") as d:
+            res = run_planetary_stacker(
+                rgb_frames, Path(d), n_grid=6, ap_half=16,
+                cm_iii_per_frame=cm_list, reference="first",
+            )
+            stack = np.asarray(Image.open(res.output_path), dtype=np.float64) / 255.0
+        self.assertEqual(stack.ndim, 3)
+        self.assertEqual(stack.shape[2], 3)
+        r, g, b = stack[..., 0], stack[..., 1], stack[..., 2]
+        self.assertGreater(float(np.mean(np.abs(r - g))), 1e-3)
+        self.assertGreater(float(np.mean(np.abs(r - b))), 1e-3)
+        self.assertTrue(np.isfinite(stack).all())
+
 
 class TestPerLatitudeWarpBeatsGlobal(unittest.TestCase):
     """The headline accuracy test: per-latitude warp > global translation

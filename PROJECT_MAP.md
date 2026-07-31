@@ -3,7 +3,7 @@
 **User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
 **Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
 **Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
-**Version:** see `VERSION` (**6.7.3**)
+**Version:** see `VERSION` (**6.7.4**)
 
 ```
 great-red-spot-detector/   (or GRS_Observatory/)

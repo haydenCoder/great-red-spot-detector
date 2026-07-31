@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.6.5 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 6.7.6 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -74,6 +74,23 @@ regressions.
 > imagery lacks, so the real-ephemeris campaign uses synthetic pixels planted at
 > the *real* published GRS longitude for each epoch. See the master audit for the
 > honest framing.
+
+### v6.7.0 — stacking & derotation are no longer Jupiter-only (2026-07-31)
+
+The stacker and derotator generalised to **Jupiter, Saturn, Neptune, Uranus,
+Mars** via a `Planet` model (`app/planet_models.py`), and the stacker got a
+real **per-latitude warp** (it used to measure per-latitude shear then throw it
+away by collapsing to one global translation per frame). CLI:
+
+```bash
+python cli.py planet-stack    --planet Saturn --frames-dir ./saturn_frames
+python cli.py planet-derotate --planet Jupiter --frames-dir ./jup_frames --mode measurement
+```
+
+On per-latitude-sheared synthetic frames the per-latitude warp beats the legacy
+global translation (+0.037 mean per-belt correlation) and the new measurement
+derotator beats naive stacking (+0.106). Full write-up:
+[`docs/PLANETARY_STACKING_6.7.0.md`](docs/PLANETARY_STACKING_6.7.0.md).
 
 ---
 

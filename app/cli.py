@@ -39,6 +39,57 @@ def main(argv=None) -> int:
     )
     import license_manager as lic
 
+    def _load_or_render_frames(args):
+        """Return (frames_gray, cm_list) for the planet-* subcommands.
+
+        Loads PNG/JPG/FITS from --frames-dir if given, else renders N synthetic
+        Jupiter-like frames (the synthetic renderer is Jupiter-only, so for
+        other planets you must supply --frames-dir with real frames).
+        """
+        from pathlib import Path as _P
+        frames = []
+        if getattr(args, "frames_dir", ""):
+            d = _P(args.frames_dir)
+            exts = (".png", ".jpg", ".jpeg", ".fits", ".fit")
+            files = sorted([f for f in d.iterdir() if f.suffix.lower() in exts])
+            if not files:
+                raise SystemExit(f"no image frames found in {d}")
+            from precision_engine import to_mono
+            import grs_complete_system as grs
+            for f in files:
+                if f.suffix.lower() in (".fits", ".fit"):
+                    arr, _ = grs.read_fits(f)
+                    frames.append(np.asarray(arr, dtype=np.float64))
+                else:
+                    from PIL import Image as _PIL
+                    a = np.asarray(_PIL.open(f).convert("L"), dtype=np.float64) / 255.0
+                    frames.append(a)
+                if len(frames) >= args.n:
+                    break
+            cm_list = [0.0] * len(frames)
+            return frames, cm_list
+        # synthetic render (Jupiter renderer)
+        from synthetic_hq import SynthSpec, generate
+        import grs_complete_system as grs
+        import tempfile, os
+        tmp = _P(tempfile.mkdtemp(prefix="grs_planetcli_"))
+        cm_list = []
+        for k in range(args.n):
+            spec = SynthSpec(
+                user_time_iso="", region="global",
+                resolution_preset=args.res, random_time=True,
+                seed=args.seed * 1000 + k * 31, mode="metrology",
+                write_grs_crop=False,
+            )
+            _png, fit, truth = generate(spec, tmp)
+            arr, _ = grs.read_fits(fit)
+            img = np.asarray(arr, dtype=np.float64)
+            if img.ndim == 3 and img.shape[0] == 3:
+                img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+            frames.append(img)
+            cm_list.append(float(truth["cm_iii_deg"]))
+        return frames, cm_list
+
     # Data dir for license (same as app outputs parent)
     data_dir = app_dir
 
@@ -170,6 +221,46 @@ def main(argv=None) -> int:
     pzd.add_argument("--cm-drift", type=float, default=0.0)
     pzd.add_argument("--seed", type=int, default=0)
     pzd.add_argument("--out", default="")
+
+    # ------------------------------------------------------------------
+    # Planet-generalised stacker / derotator (v6.7.0): not Jupiter-only.
+    # ------------------------------------------------------------------
+    pps = sub.add_parser(
+        "planet-stack",
+        help="Stack frames of ANY planet (Jupiter/Saturn/Neptune/Uranus/Mars) "
+             "with a per-latitude warp (fixes zonal shear that a single global "
+             "translation smears).",
+    )
+    pps.add_argument("--planet", default="Jupiter",
+                     help="planet name (Jupiter, Saturn, Neptune, Uranus, Mars)")
+    pps.add_argument("--n", type=int, default=12)
+    pps.add_argument("--res", default="720p")
+    pps.add_argument("--frames-dir", default="",
+                     help="load frames from a folder (PNG/JPG/FITS) instead of rendering synthetic")
+    pps.add_argument("--n-grid", type=int, default=8)
+    pps.add_argument("--ap-half", type=int, default=16)
+    pps.add_argument("--warp-mode", choices=["per_latitude", "flow", "global"], default="per_latitude")
+    pps.add_argument("--reference", choices=["auto", "first"], default="auto")
+    pps.add_argument("--quality-gate", type=float, default=1.0,
+                     help="keep the sharpest fraction of frames (0..1, lucky-imaging rejection)")
+    pps.add_argument("--seed", type=int, default=0)
+    pps.add_argument("--out", default="")
+
+    ppd = sub.add_parser(
+        "planet-derotate",
+        help="Derotate frames of ANY planet with a per-latitude warp "
+             "(measurement / prior / hybrid modes).",
+    )
+    ppd.add_argument("--planet", default="Jupiter")
+    ppd.add_argument("--n", type=int, default=12)
+    ppd.add_argument("--res", default="720p")
+    ppd.add_argument("--frames-dir", default="")
+    ppd.add_argument("--n-grid", type=int, default=6)
+    ppd.add_argument("--ap-half", type=int, default=16)
+    ppd.add_argument("--mode", choices=["measurement", "prior", "hybrid"], default="measurement")
+    ppd.add_argument("--reference", choices=["auto", "first"], default="auto")
+    ppd.add_argument("--seed", type=int, default=0)
+    ppd.add_argument("--out", default="")
 
     args = p.parse_args(argv)
 
@@ -526,6 +617,38 @@ def main(argv=None) -> int:
             cm_iii_per_frame=cm_list,
             dt_s_per_frame=dt_list,
             mode=args.mode,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "planet-stack":
+        from planet_models import get_planet
+        from planetary_stacker import run_planetary_stacker
+        planet = get_planet(args.planet)
+        frames, cm_list = _load_or_render_frames(args)
+        out_root = Path(args.out) if args.out else default_out_root() / f"planet_stack_{planet.name.lower()}"
+        out_root.mkdir(parents=True, exist_ok=True)
+        res = run_planetary_stacker(
+            frames, out_root, planet=planet,
+            n_grid=args.n_grid, ap_half=args.ap_half,
+            cm_iii_per_frame=cm_list, warp_mode=args.warp_mode,
+            reference=args.reference, quality_gate=args.quality_gate,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "planet-derotate":
+        from planet_models import get_planet
+        from planetary_derotator import run_planetary_derotate
+        planet = get_planet(args.planet)
+        frames, cm_list = _load_or_render_frames(args)
+        out_root = Path(args.out) if args.out else default_out_root() / f"planet_derotate_{planet.name.lower()}"
+        out_root.mkdir(parents=True, exist_ok=True)
+        res = run_planetary_derotate(
+            frames, out_root, planet=planet,
+            n_grid=args.n_grid, ap_half=args.ap_half,
+            cm_iii_per_frame=cm_list, mode=args.mode,
+            reference=args.reference,
         )
         print(json.dumps(res.to_dict(), indent=2, default=str))
         return 0

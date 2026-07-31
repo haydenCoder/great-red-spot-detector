@@ -1083,6 +1083,32 @@ class GRSDesktopApp(tk.Tk):
             tab_stack, "n_grid (manual — used when auto is off)", self.stack_ngrid_var,
             "AP-grid resolution, e.g. 6–12.",
         )
+        # v6.7.6: planet-generalised stacker option (per-lat/flow warp, quality gate)
+        self.stack_engine_var = tk.StringVar(value="Jupiter-zonal")
+        self._labeled_combo(
+            tab_stack, "Stack engine", self.stack_engine_var,
+            ["Jupiter-zonal", "Planetary (multi-planet)"],
+            "Jupiter-zonal = original v6.6.3 stacker. Planetary = v6.7 planet-generalised "
+            "stacker (per-lat/flow warp, lucky-imaging gate, report card, RGB).",
+        )
+        self.stack_planet_var = tk.StringVar(value="Jupiter")
+        self._labeled_combo(
+            tab_stack, "Planet (Planetary engine)", self.stack_planet_var,
+            ["Jupiter", "Saturn", "Neptune", "Uranus", "Mars"],
+            "Geometry / rotation / wind profile for the Planetary engine.",
+        )
+        self.stack_warp_var = tk.StringVar(value="per_latitude")
+        self._labeled_combo(
+            tab_stack, "Warp mode (Planetary engine)", self.stack_warp_var,
+            ["per_latitude", "flow", "global"],
+            "per_latitude = robust default. flow = dense 2D (clean/large-motion). "
+            "global = legacy single translation.",
+        )
+        self.stack_qgate_var = tk.StringVar(value="1.0")
+        self._labeled_entry(
+            tab_stack, "Quality gate 0..1 (Planetary engine)", self.stack_qgate_var,
+            "Keep the sharpest fraction of frames (lucky imaging). 1.0 = keep all.",
+        )
         self.stack_prog = ttk.Progressbar(
             tab_stack, orient=tk.HORIZONTAL, mode="determinate",
             length=420, maximum=100,
@@ -1197,14 +1223,47 @@ class GRSDesktopApp(tk.Tk):
             self.stack_prog["value"] = 0
         except Exception:
             pass
+        engine = self.stack_engine_var.get()
+        is_planetary = engine.startswith("Planetary")
 
         def job():
             frames = self._stack_frames()
             n_grid = self._resolve_n_grid(frames)
-            from jupiter_zonal_stacker import run_jupiter_zonal_stacker
             run_dir = BASE / "outputs" / "stack_runs" / (
-                "zonal_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                ("planetary_" if is_planetary else "zonal_")
+                + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             )
+            if is_planetary:
+                from planet_models import get_planet
+                from planetary_stacker import run_planetary_stacker
+                planet = get_planet(self.stack_planet_var.get())
+                try:
+                    qg = max(0.0, min(1.0, float(self.stack_qgate_var.get())))
+                except Exception:
+                    qg = 1.0
+                res = run_planetary_stacker(
+                    frames, run_dir, planet=planet, n_grid=n_grid,
+                    warp_mode=self.stack_warp_var.get(), quality_gate=qg, save=True,
+                )
+                self.msg_q.put(("progress", 100))
+                txt = (
+                    f"Planetary stack done ({planet.name}).\n"
+                    f"  warp mode:       {res.warp_mode}\n"
+                    f"  grid:            {res.n_grid}x{res.n_grid} ({res.n_aps} APs)\n"
+                    f"  reference frame: #{res.reference_index}\n"
+                    f"  quality gate:    {res.quality_gate:.2f} "
+                    f"(dropped {len(res.dropped_frames)}: {res.dropped_frames or 'none'})\n"
+                    f"  mean drift RMS:  {res.mean_rms_drift_px:.3f} px\n"
+                    f"  consistency:     {res.warp_consistency_std:.4f}\n"
+                    f"  elapsed:         {res.elapsed_s:.1f} s\n"
+                    f"  stacked PNG:     {res.output_path}\n"
+                    f"  report card:     {run_dir / 'stacker_report.txt'}\n"
+                )
+                for n in res.notes:
+                    txt += f"  - {n}\n"
+                return {"text": txt, "preview": res.output_path}
+
+            from jupiter_zonal_stacker import run_jupiter_zonal_stacker
             res = run_jupiter_zonal_stacker(frames, run_dir, n_grid=n_grid, save=True)
             self.msg_q.put(("progress", 100))
             txt = (
@@ -1220,7 +1279,7 @@ class GRSDesktopApp(tk.Tk):
                 txt += f"  - {n}\n"
             return {"text": txt, "preview": res.output_path}
 
-        self._run_bg("Stack (Jupiter-zonal)", job)
+        self._run_bg("Stack (Planetary)" if is_planetary else "Stack (Jupiter-zonal)", job)
 
     def on_derotate_run(self):
         try:

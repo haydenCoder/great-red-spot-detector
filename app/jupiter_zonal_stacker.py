@@ -490,6 +490,23 @@ def _ap_latitude(
 
 
 # -----------------------------------------------------------------------------
+# Auto n_grid (v6.6.5 Stacking tab)
+# -----------------------------------------------------------------------------
+
+def auto_n_grid(h: int, w: int) -> int:
+    """Pick an AP-grid resolution from the frame size.
+
+    Honest limit: this assumes a SINGLE Jupiter-like disk fills the frame
+    (one planet, roughly centred). With multiple disks in the frame, a tiny
+    disk, or a disk pushed off to one side, the value it picks is not
+    meaningful — in those cases turn "auto n_grid" off on the Stacking tab
+    and set n_grid by hand.
+    """
+    cell = 50  # px per AP cell — coarse enough to stay robust to seeing
+    return max(4, min(16, int(round(min(h, w) / cell))))
+
+
+# -----------------------------------------------------------------------------
 # Main entry point
 # -----------------------------------------------------------------------------
 

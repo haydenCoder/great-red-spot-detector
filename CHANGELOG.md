@@ -3,6 +3,36 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.6.5] — 2026-07-31
+
+### Added
+- Siril-style 3-tab top panel in the desktop app: **Stacking / Derotate / Process**.
+  - **Stacking** — choose a folder of PNG/JPG/FITS frames and run the
+    Jupiter-zonal stacker on it. A determinate progress bar tracks frame
+    ingest (it reflects how many frames have loaded, not output quality).
+  - **auto n_grid** — sizes the AP grid from the frame. Honest limit: this
+    assumes a SINGLE Jupiter-like disk fills the frame. With multiple disks,
+    a small disk, or a disk off-centre, turn auto off and set n_grid by hand.
+  - **Derotate** — per-latitude zonal derotation of the same folder. Optional
+    GRS anchor: paste a GRS x,y from any frame and APs that disagree with the
+    GRS rotation are demoted. ("winjupos but better" is a goal/aspiration, not
+    a measured accuracy claim against WinJUPOS.)
+  - **Process** — the existing single-image measurement path (open file →
+    Process full / Resolve Ephemeris) surfaced as a tab.
+
+### Changed
+- `app/jupiter_zonal_stacker.py` — new public `auto_n_grid(h, w)` helper.
+- `app/desktop_app.py` — `_build_top_panel()` + Stacking/Derotate handlers;
+  `_tick` now forwards `("progress", n)` to the Stacking tab's determinate bar.
+
+### Notes / honest limits
+- No measurement math, truth sets, or accuracy figures were changed.
+- `app/desktop_app.py` IS touched (it is import-tested by
+  `tests/test_desktop_wiring.py`), so this is NOT a "no test-covered module
+  touched" change — run `pytest tests/` before merging.
+- This branch was at 6.6.3; 6.6.4 is not present here, so the version jumps
+  6.6.3 → 6.6.5.
+
 ## [6.6.3] — 2026-07-31
 
 Jupiter-specialized stacking. Replaces the generic AP-grid stacker

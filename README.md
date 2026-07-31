@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.7.4 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 6.7.5 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---

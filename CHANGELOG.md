@@ -3,6 +3,23 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.5] — 2026-07-31
+
+Real-photo campaign harness.
+
+### Added
+- `tools/real_photo_stack.py` — run EVERY planetary-stacker warp mode
+  (per_latitude / flow / global) plus a naive-mean on a folder of real frames
+  (PNG/JPG/FITS, mono or RGB), and write each stack + its report card + a
+  `COMPARISON.md`. HONEST by design: it does NOT auto-pick a winner (no-reference
+  mode selection is ill-posed — see v6.7.2); it gives you the artifacts to judge
+  by eye, with `per_latitude` as the stated default. Optional `--cm-csv` supplies
+  per-frame CM III so the planet-model prior is correct.
+
+### Note
+- No new measurement math; this is a reproducibility/auditability tool for real
+  captures. The synthetic `flow_warp_benchmark.py` remains the ground-truth A/B.
+
 ## [6.7.4] — 2026-07-31
 
 RGB per-channel stacking — colour is preserved instead of collapsed to grey.

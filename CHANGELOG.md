@@ -18,13 +18,16 @@ for the GRS measurement.
 | `app/jpa_10d.py` | 10-D bookkeeping extension of JPA-10K: includes Noll-Zernike amplitudes and a 5/3-slope C_n² diagnostic per AP. |
 | `app/jupiter_infinite_tensor_engine.py` | Path-integral-style stacker with Kolmogorov-prior + Poisson-likelihood weights, importance-sampled via Dirichlet. The "Hilbert space" label is a coordinate system; no quantum state is manipulated. |
 | `app/spire_finetune.py` | Short fine-tuning pass (32 samples × 6 epochs, lr=0.003). Writes `spire_net_finetuned.npz` — the shipped weights are NEVER overwritten. |
+| `app/holy_hybrid_stacker.py` | Hybrid AP-grid + HolyCNN (small ~30k-param CNN) + physics-prior stacker. Self-distilled on synthetic Jupiters at startup. The "Holy" prefix is a label; the CNN is a learned quality + drift scorer. MAP estimate combines the CNN likelihood with the Kolmogorov / Zernike / RBF physics prior. CLI: `python cli.py holy-stack`. |
+| `app/win_jupos_derotator.py` | WinJUPOS-style rigid-rotation derotator. Computes a single global rotation per frame from the equatorial-band AP drift (the WinJUPOS way), then applies a Unser 1995 shear-decomposition rotation to compensate. CLI: `python cli.py wj-derotate`. |
 | `docs/STUDENT_COURSEWORK_REPORT.md` | Background, geometry, ephemeris, validation summary. |
 
-The "Hilbert space" / "10D quantum-optical" labels are *names*. The
-actual numerics are standard amateur-planetary-imaging maths (phase
-correlation, weighted stacking, RBF interpolation, Zernike projection,
-Kolmogorov 5/3 structure function). The student report explains this
-framing honestly.
+The "Hilbert space" / "10D quantum-optical" / "Holy CNN" labels are
+*names*. The actual numerics are standard amateur-planetary-imaging
+maths (phase correlation, weighted stacking, RBF interpolation,
+Zernike projection, Kolmogorov 5/3 structure function, small CNN
+trained by self-distillation on synthetic data). The student report
+explains this framing honestly.
 
 ## [6.6.1] — 2026-07-30
 

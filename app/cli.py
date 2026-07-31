@@ -15,7 +15,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+
+import numpy as np
 
 
 def main(argv=None) -> int:
@@ -105,6 +108,34 @@ def main(argv=None) -> int:
     pc.add_argument("--p95-max", type=float, default=2.5)
     pc.add_argument("--max-max", type=float, default=8.0)
     pc.add_argument("--oracle-median-max", type=float, default=0.35)
+
+    # Holy-hybrid stacker + WinJUPOS derotator subcommands
+    ph = sub.add_parser(
+        "holy-stack",
+        help="Run the hybrid CNN+physics stacker on a synthetic or real video (auto-trains the CNN if needed)",
+    )
+    ph.add_argument("--n", type=int, default=24, help="number of frames to render and stack")
+    ph.add_argument("--res", default="720p")
+    ph.add_argument("--region", default="global")
+    ph.add_argument("--importance", type=int, default=32)
+    ph.add_argument("--n-grid", type=int, default=6)
+    ph.add_argument("--ap-half", type=int, default=16)
+    ph.add_argument("--seed", type=int, default=0)
+    ph.add_argument("--out", default="")
+    ph.add_argument("--no-train", action="store_true",
+                    help="do not (re)train the HolyCNN even if weights are missing")
+
+    pwj = sub.add_parser(
+        "wj-derotate",
+        help="Run the WinJUPOS-style rigid-rotation derotator on a synthetic or real video",
+    )
+    pwj.add_argument("--n", type=int, default=24)
+    pwj.add_argument("--res", default="720p")
+    pwj.add_argument("--n-grid", type=int, default=6)
+    pwj.add_argument("--ap-half", type=int, default=16)
+    pwj.add_argument("--eq-band-frac", type=float, default=0.2)
+    pwj.add_argument("--seed", type=int, default=0)
+    pwj.add_argument("--out", default="")
 
     args = p.parse_args(argv)
 
@@ -289,6 +320,82 @@ def main(argv=None) -> int:
         )
         print(rep.get("text") or json.dumps(rep, indent=2, default=str))
         return 0 if rep.get("passed") else 3
+
+    if args.cmd == "holy-stack":
+        from holy_hybrid_stacker import run_holy_hybrid
+        from synthetic_hq import SynthSpec, generate
+        import os
+        out_root = Path(args.out) if args.out else default_out_root() / "holy_stack"
+        out_root.mkdir(parents=True, exist_ok=True)
+        run_dir = out_root / f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        tmp = run_dir / "frames"
+        tmp.mkdir(exist_ok=True)
+        # Render N synthetic frames
+        frames = []
+        for k in range(args.n):
+            spec = SynthSpec(
+                user_time_iso="",
+                region=args.region,
+                resolution_preset=args.res,
+                random_time=True,
+                seed=args.seed * 1000 + k * 31,
+                mode="metrology",
+                write_grs_crop=False,
+            )
+            _png, fit, _truth = generate(spec, tmp)
+            import grs_complete_system as grs
+            arr, _ = grs.read_fits(fit)
+            img = np.asarray(arr, dtype=np.float64)
+            if img.ndim == 3 and img.shape[0] == 3:
+                img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+            frames.append(img)
+        res = run_holy_hybrid(
+            frames, run_dir,
+            n_grid=args.n_grid,
+            ap_half=args.ap_half,
+            n_importance=args.importance,
+            auto_train=not args.no_train,
+            seed=args.seed,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "wj-derotate":
+        from win_jupos_derotator import run_win_jupos_derotate
+        from synthetic_hq import SynthSpec, generate
+        out_root = Path(args.out) if args.out else default_out_root() / "wj_derotate"
+        out_root.mkdir(parents=True, exist_ok=True)
+        run_dir = out_root / f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        tmp = run_dir / "frames"
+        tmp.mkdir(exist_ok=True)
+        frames = []
+        for k in range(args.n):
+            spec = SynthSpec(
+                user_time_iso="",
+                region="global",
+                resolution_preset=args.res,
+                random_time=True,
+                seed=args.seed * 1000 + k * 31,
+                mode="metrology",
+                write_grs_crop=False,
+            )
+            _png, fit, _truth = generate(spec, tmp)
+            import grs_complete_system as grs
+            arr, _ = grs.read_fits(fit)
+            img = np.asarray(arr, dtype=np.float64)
+            if img.ndim == 3 and img.shape[0] == 3:
+                img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+            frames.append(img)
+        res = run_win_jupos_derotate(
+            frames, run_dir,
+            n_grid=args.n_grid,
+            ap_half=args.ap_half,
+            eq_band_frac=args.eq_band_frac,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
 
     return 1
 

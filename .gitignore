@@ -51,8 +51,12 @@ app/models/*.tmp.*
 # shipped weights as the canonical state)
 app/models/spire_net_finetuned.npz
 app/models/spire_net_finetuned.json
+app/models/holy_cnn_weights.npz
 app/nn_finetune_cache/
+app/holy_train_cache/
 app/outputs/stack_runs/
+app/outputs/holy_stack/
+app/outputs/wj_derotate/
 
 # Pre-refactor backups
 *.bak_before_deadstrip

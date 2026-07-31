@@ -82,9 +82,16 @@ def fried_from_drifts(drifts: np.ndarray) -> float:
     r0 is recovered as: drift_rms^2 ∝ 0.43 (d/r0)^(5/3) so
         r0 = d * (0.43 / drift_rms^2)^(3/5)
     """
-    if drifts.size < 2 or len(drifts) < 2:
+    drifts = np.asarray(drifts, dtype=np.float64)
+    if drifts.ndim == 1:
+        drifts = drifts.reshape(-1, drifts.size // 2) if drifts.size % 2 == 0 else drifts.reshape(1, -1)
+    if drifts.size < 2 or drifts.shape[0] < 2:
         return 0.0
-    d = float(np.median(np.linalg.norm(drifts[1:] - drifts[:-1], axis=1)))
+    # Pairwise separations (along the row axis, in drift-vector space)
+    try:
+        d = float(np.median(np.linalg.norm(drifts[1:] - drifts[:-1], axis=1)))
+    except Exception:
+        return 0.0
     rms = float(np.std(np.linalg.norm(drifts, axis=1)))
     if rms < 1e-6 or d < 1e-6:
         return 0.0

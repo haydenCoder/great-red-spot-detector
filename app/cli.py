@@ -137,6 +137,40 @@ def main(argv=None) -> int:
     pwj.add_argument("--seed", type=int, default=0)
     pwj.add_argument("--out", default="")
 
+    # Jupiter-specialized zonal-shear stacker + derotator
+    pzs = sub.add_parser(
+        "zonal-stack",
+        help="Run the Jupiter-specialized zonal-shear AP stacker on a synthetic or real video. "
+             "Uses System III + zonal-wind-residual as a per-AP prior; GRS-anchor mode "
+             "demotes APs that disagree with a localised GRS.",
+    )
+    pzs.add_argument("--n", type=int, default=24)
+    pzs.add_argument("--res", default="720p")
+    pzs.add_argument("--n-grid", type=int, default=6)
+    pzs.add_argument("--ap-half", type=int, default=16)
+    pzs.add_argument("--cm-drift", type=float, default=0.0,
+                     help="synthetic CM III drift per frame in deg (for synthetic test runs)")
+    pzs.add_argument("--grs-xy", default="",
+                     help="optional 'x,y' pixel coords of GRS in reference frame")
+    pzs.add_argument("--seed", type=int, default=0)
+    pzs.add_argument("--out", default="")
+
+    pzd = sub.add_parser(
+        "zonal-derotate",
+        help="Run the Jupiter-specialized zonal-derotator on a synthetic or real video. "
+             "Per-row shifts from the zonal-wind-residual profile (prior mode) or "
+             "from AP-grid measurements (measurement mode). EXPERIMENTAL: not a "
+             "strict improvement over winjupos on synthetic data with rigid rotation.",
+    )
+    pzd.add_argument("--n", type=int, default=24)
+    pzd.add_argument("--res", default="720p")
+    pzd.add_argument("--n-grid", type=int, default=6)
+    pzd.add_argument("--ap-half", type=int, default=16)
+    pzd.add_argument("--mode", choices=["measurement", "prior"], default="measurement")
+    pzd.add_argument("--cm-drift", type=float, default=0.0)
+    pzd.add_argument("--seed", type=int, default=0)
+    pzd.add_argument("--out", default="")
+
     args = p.parse_args(argv)
 
     if args.cmd == "version":
@@ -393,6 +427,105 @@ def main(argv=None) -> int:
             n_grid=args.n_grid,
             ap_half=args.ap_half,
             eq_band_frac=args.eq_band_frac,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "zonal-stack":
+        from jupiter_zonal_stacker import run_jupiter_zonal_stacker
+        from synthetic_hq import SynthSpec, generate
+        out_root = Path(args.out) if args.out else default_out_root() / "zonal_stack"
+        out_root.mkdir(parents=True, exist_ok=True)
+        run_dir = out_root / f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        tmp = run_dir / "frames"
+        tmp.mkdir(exist_ok=True)
+        frames = []
+        cm_list = []
+        for k in range(args.n):
+            spec = SynthSpec(
+                user_time_iso="",
+                region="global",
+                resolution_preset=args.res,
+                random_time=True,
+                seed=args.seed * 1000 + k * 31,
+                mode="metrology",
+                write_grs_crop=False,
+            )
+            _png, fit, truth = generate(spec, tmp)
+            import grs_complete_system as grs
+            arr, _ = grs.read_fits(fit)
+            img = np.asarray(arr, dtype=np.float64)
+            if img.ndim == 3 and img.shape[0] == 3:
+                img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+            frames.append(img)
+            cm_list.append(float(truth["cm_iii_deg"]))
+        # If cm-drift is set, use it for synthetic zonal-shear
+        # (otherwise the dt-since-reference defaults to 0, which
+        # means the per-row zonal-wind shift is zero, and the
+        # stacker behaves like a generic AP-grid stacker).
+        if args.cm_drift > 0:
+            dt_list = [k * (args.cm_drift / (360.0 / 35729.7)) for k in range(args.n)]
+        else:
+            dt_list = [0.0] * args.n
+        grs_xy = None
+        if args.grs_xy:
+            try:
+                x_str, y_str = args.grs_xy.split(",")
+                grs_xy = (float(x_str), float(y_str))
+            except Exception:
+                pass
+        res = run_jupiter_zonal_stacker(
+            frames, run_dir,
+            n_grid=args.n_grid, ap_half=args.ap_half,
+            cm_iii_deg=cm_list[0],
+            distance_au=5.2,
+            sub_lat_deg=0.0, north_pa_deg=0.0,
+            cm_iii_per_frame=cm_list,
+            dt_s_per_frame=dt_list,
+            grs_xy=grs_xy,
+        )
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "zonal-derotate":
+        from jupiter_zonal_derotator import run_jupiter_zonal_derotate
+        from synthetic_hq import SynthSpec, generate
+        out_root = Path(args.out) if args.out else default_out_root() / "zonal_derotate"
+        out_root.mkdir(parents=True, exist_ok=True)
+        run_dir = out_root / f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        tmp = run_dir / "frames"
+        tmp.mkdir(exist_ok=True)
+        frames = []
+        cm_list = []
+        for k in range(args.n):
+            spec = SynthSpec(
+                user_time_iso="",
+                region="global",
+                resolution_preset=args.res,
+                random_time=True,
+                seed=args.seed * 1000 + k * 31,
+                mode="metrology",
+                write_grs_crop=False,
+            )
+            _png, fit, truth = generate(spec, tmp)
+            import grs_complete_system as grs
+            arr, _ = grs.read_fits(fit)
+            img = np.asarray(arr, dtype=np.float64)
+            if img.ndim == 3 and img.shape[0] == 3:
+                img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+            frames.append(img)
+            cm_list.append(float(truth["cm_iii_deg"]))
+        if args.cm_drift > 0:
+            dt_list = [k * (args.cm_drift / (360.0 / 35729.7)) for k in range(args.n)]
+        else:
+            dt_list = [0.0] * args.n
+        res = run_jupiter_zonal_derotate(
+            frames, run_dir,
+            cm_iii_per_frame=cm_list,
+            dt_s_per_frame=dt_list,
+            mode=args.mode,
         )
         print(json.dumps(res.to_dict(), indent=2, default=str))
         return 0

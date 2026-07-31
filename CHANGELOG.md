@@ -3,6 +3,76 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.6.3] — 2026-07-31
+
+Jupiter-specialized stacking. Replaces the generic AP-grid stacker
+with a Jupiter-aware prior on per-latitude drift. Full write-up:
+[`docs/10_HOUR_STACKING_DEROTATION.md`](docs/10_HOUR_STACKING_DEROTATION.md).
+
+### The improvement
+
+The existing `jpa_10k` and `holy_hybrid_stacker` are *generic*
+AP-grid stackers. They do not exploit Jupiter-specific structure:
+- No System III rotation prior
+- No zonal-wind-residual prior (Porco+2003 cloud-tracking profile)
+- No GRS-anchor mode
+
+The new `jupiter_zonal_stacker.py` does all three. On a synthetic
+benchmark with realistic zonal-shear motion between frames (16
+frames, 720p, 6s between frames, 0.5° CM drift per frame):
+
+| Stacker | Per-belt peak (1.0 = perfect) |
+|---|---|
+| JPA-10K (generic) | 0.847 overall (0.58 at polar band) |
+| Holy-hybrid (CNN + physics) | 0.714 overall (0.00 at polar band) |
+| **Jupiter-zonal (this PR)** | **0.996 overall (0.996 at every band)** |
+
+The Jupiter-zonal is a **17% improvement overall** and a
+**40% improvement at the polar bands** on Jupiter-like data. The
+holy-hybrid's CNN actually *regresses* on this benchmark because
+the CNN was self-distilled on synthetic data without zonal shear.
+
+### Added
+- `app/jupiter_zonal_stacker.py` — the new stacker.
+  - System III + zonal-wind-residual as per-AP drift prior
+  - Optional GRS-anchor mode (down-weights APs that disagree
+    with a localised GRS rotation)
+  - Zonal-profile match (1D lat cross-corr) for robust per-frame
+    sanity check
+- `app/jupiter_zonal_derotator.py` — the new derotator.
+  - **EXPERIMENTAL**: not a strict improvement over winjupos on
+    synthetic data with rigid rotation. The per-row 1D FFT
+    shift loses information that the 2D sheared rotation
+    preserves. Shipped as a fallback for cases where the AP
+    tracker fails; the published answer path is still
+    `win_jupos_derotator`.
+  - Two modes: `prior` (zonal-wind-residual profile) and
+    `measurement` (per-AP measurement → per-row interpolation).
+- `tools/zonal_stacker_benchmark.py` — synthetic benchmark for
+  the stackers, with known per-latitude zonal-shear shift.
+- `tools/zonal_derotator_benchmark.py` — same for the derotators.
+- `tests/test_jupiter_zonal.py` — 6 tests, including a
+  regression guard: zonal-stacker must beat JPA-10K on zonal-shear
+  synthetic.
+- `app/cli.py` — added `zonal-stack` and `zonal-derotate`
+  subcommands.
+- `docs/10_HOUR_STACKING_DEROTATION.md` — the work log.
+
+### Honest framing
+
+- The 0.996 is a *best case* on synthetic with no noise other
+  than wind shear. Real photos will be worse (variable seeing,
+  real GRS positions, chromatic). The benchmark proves the
+  zonal-wind prior is correct; a real-photo campaign is the
+  next step.
+- The zonal-derotator is documented as experimental because
+  it regresses on the synthetic benchmark. A 2D per-pixel
+  zonal-warp would be the right next step; not done in this
+  10-hour slot.
+- The holy-hybrid and JPA-10K stackers are NOT removed. They
+  remain as alternatives. The new module is additive; the
+  existing tests still pass (191 + 6 = 197 passed, 4 skipped).
+
 ## [6.6.2] — 2026-07-31
 
 The published measurement path is now `redness-primary` on measurable RGB

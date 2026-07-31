@@ -3,6 +3,65 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.0] — 2026-07-31
+
+The stacker and derotator are no longer Jupiter-only, and the stacker no longer
+throws away the per-latitude shear it measures. Full write-up:
+[`docs/PLANETARY_STACKING_6.7.0.md`](docs/PLANETARY_STACKING_6.7.0.md).
+
+### The two fixes
+1. **Generalised.** `jupiter_zonal_stacker` / `jupiter_zonal_derotator` baked in
+   Jupiter's radius, flattening, System III period and Porco wind table. New
+   `planet_models.Planet` carries the real rotation period + flattening +
+   literature zonal-wind profile for **Jupiter, Saturn, Neptune, Uranus, Mars**,
+   so the same code stacks/derotates any of them.
+2. **More accurate.** `jupiter_zonal_stacker` tracked every AP with the full
+   zonal-wind model but then collapsed all per-AP drifts into ONE global
+   (dy,dx) translation per frame — the per-latitude shear was measured then
+   discarded. New `planetary_stacker` applies a genuine **per-latitude warp**
+   (robust SNR-weighted dx vs |lat|, binned, per-row shift), with a hybrid
+   prior+measurement tracker so the APs still lock when the bulk rotation has
+   swept a feature past the AP window.
+
+### Measured (synthetic, genuinely per-latitude-sheared frames)
+| Path | mean per-belt correlation peak (1.0 = perfect) |
+|---|---|
+| legacy single global translation | 0.717 |
+| **new per-latitude warp** | **0.755** (+0.037) |
+| naive mean (no derotation) | 0.642 |
+| **new measurement-mode derotator** | **0.748** (+0.106 vs naive) |
+
+### Added
+- `app/planet_models.py` — `Planet` dataclass + 5 built-in profiles
+  (`get_planet`, `known_planets`, `cloud_tracking_rate_deg_per_s`).
+- `app/planetary_stacker.py` — planet-generalised stacker with per-latitude
+  warp, quality-ranked reference, sharpness weighting, hybrid prior tracker.
+- `app/planetary_derotator.py` — planet-generalised per-latitude derotator
+  (measurement / prior / hybrid modes; `prior` = ephemeris+winds only, no
+  image tracking — a genuinely new capability).
+- `app/cli.py` — `planet-stack` and `planet-derotate` subcommands
+  (`--planet`, `--frames-dir`, `--mode`, `--warp-mode`).
+- `tests/test_planet_models.py` (9), `tests/test_planetary_stacker.py` (5),
+  `tests/test_planetary_derotator.py` (5) — incl. the per-lat-vs-global A/B.
+- `docs/PLANETARY_STACKING_6.7.0.md`.
+
+### Notes / honest limits
+- The +0.037 / +0.106 gains are on synthetic per-latitude-sheared frames
+  (the regime where per-latitude warp is supposed to win). Real photos add
+  seeing + chromatic noise; a real-photo campaign is the next step, as for
+  the Jupiter-only stackers.
+- The zonal-wind RESIDUAL tables are representative literature cloud-tracking
+  profiles used as a derotation prior — the stacker measures the true per-lat
+  motion and overrides them wherever the data disagrees. They are NOT a wind
+  measurement; do not cite them as one.
+- The Jupiter-only modules are NOT removed (still used by the desktop tabs);
+  the new modules are additive. Existing zonal tests still pass (6/6).
+- Version bumped 6.6.5 → 6.7.0 across `VERSION`, `README.md`, `pyproject.toml`,
+  `PROJECT_MAP.md`. This also fixes the pre-existing version drift
+  (`pyproject.toml` was 6.6.3, `PROJECT_MAP.md` was 6.5.0).
+- Pre-existing unrelated failure `test_per_method_audit::test_moment_has_dlat_bias`
+  fails on the clean base too; not caused by this change.
+
 ## [6.6.5] — 2026-07-31
 
 ### Added

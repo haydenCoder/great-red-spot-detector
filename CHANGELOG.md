@@ -3,6 +3,37 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## Unreleased — Native C acceleration
+
+The hot paths of the published measurement pipeline are now backed
+by an optional C extension (`app/native/grscore.c`). When the
+extension is built (`python3 app/native/build_native.py [--openmp]`),
+the C path is used automatically; when not, the NumPy fallback
+runs unchanged. The C path covers:
+
+  - `make_cylindrical(image, nav, w, h)` — fused
+    project_grid + bilinear_map. Routed in `precision_engine`.
+  - `limb_rays(image, xc, yc, a, n_rays, n_rad, thr_frac, r_lo, r_hi)` —
+    OpenMP-parallel over rays when built with `--openmp`.
+  - `phase_corr_batch(aps, frame, ref, ap_half, n_octaves)` — the
+    per-AP batch driver for the JPA stacker (C path is a stub:
+    the per-AP loop is small enough that numpy.fft dominates
+    anyway; the real C win is in `make_cylindrical` and `limb_rays`).
+
+Honest framing: I cannot ship a Rust extension in this build
+environment (no apt `rustc`, no internet to sh.rustup.rs). C99 +
+OpenMP is the actually-buildable path that AS!3, Siril, and
+every other real C/C++ stacker use. A Rust crate can be added as a
+*second* backend later when Rust is available; the Python API in
+`app/native/__init__.py` is backend-agnostic.
+
+What this is NOT: a microarcsecond interferometric system. This
+makes the *registration and deprojection* step faster, not the
+physics. The published GRS measurement's accuracy is unchanged.
+
+Benchmark: `python3 tools/benchmark_native.py [--build] [--openmp]`
+prints the per-kernel speedup on whatever machine it runs on.
+
 ## Unreleased — Experimental engines
 
 Three optional experimental stack / registration engines, plus a short

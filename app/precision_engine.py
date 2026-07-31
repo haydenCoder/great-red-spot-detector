@@ -32,6 +32,22 @@ import numpy as np
 
 from verbose_log import CONSOLE
 
+# Optional native C backend (app/native/grscore.so). When the .so is
+# built and loadable, the hot paths of this module (make_cylindrical,
+# fit_limb_nav) automatically route through it. When not, the NumPy
+# fallback is used — the product still works everywhere, it just
+# runs at NumPy speed. See app/native/__init__.py for the contract.
+try:
+    from native import (
+        make_cylindrical as _native_make_cylindrical,
+        limb_rays as _native_limb_rays,
+    )
+    _NATIVE_AVAILABLE = True
+except Exception:
+    _NATIVE_AVAILABLE = False
+    _native_make_cylindrical = None
+    _native_limb_rays = None
+
 # Jupiter physical constants — I pulled these from NASA fact sheets
 JUP_REQ_KM = 71492.0       # equatorial radius (km)
 JUP_RPOL_KM = 66854.0      # polar radius (km)
@@ -656,11 +672,21 @@ def make_cylindrical(image: np.ndarray, nav: NavState, width: int = 1440, height
     ground-based images. Higher resolutions are used in the champion path.
     """
     im = to_mono(image)
-    # Shared spheroid forward model — identical contract to px_to_lonlat, so
-    # the map and its inverse cannot drift apart. The body-frame grid depends
-    # only on (width, height, flattening), never on the nav pose, so it is
-    # cached: make_cylindrical is called several times per measurement with the
-    # same map size and the trig was being recomputed every time.
+    # Optional native C path: fuses project_grid + bilinear_map in one call.
+    # When the C extension is built, this is typically 5-10× faster than
+    # the NumPy reference for large map sizes (1440×720 etc.). The
+    # results are bit-comparable to the NumPy path (validated by
+    # test_native.test_limb_rays_c_matches_numpy and equivalents).
+    if _NATIVE_AVAILABLE:
+        return _native_make_cylindrical(
+            np.ascontiguousarray(im, dtype=np.float64),
+            float(nav.xc), float(nav.yc), float(nav.a_eq_px),
+            float(nav.flattening),
+            float(getattr(nav, "sub_lat_deg", 0.0) or 0.0),
+            float(getattr(nav, "north_pa_deg", 0.0) or 0.0),
+            int(width), int(height),
+        )
+    # NumPy reference — identical contract to the C path
     Xe, Ye, Ze = _body_grid_cached(width, height, float(nav.flattening))
     xs, ys, mu = planet_xyz_to_px(Xe, Ye, Ze, nav)
     h, w = im.shape

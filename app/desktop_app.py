@@ -693,7 +693,10 @@ class GRSDesktopApp(tk.Tk):
         self.prog = ttk.Progressbar(right_h, mode="indeterminate", length=120)
         self.prog.pack(side=tk.RIGHT, padx=10)
         self._refresh_license_badge()
-        
+
+        # Siril-style 3-tab top panel: Stacking / Derotate / Process  (v6.6.5)
+        self._build_top_panel()
+
         body = tk.Frame(self, bg=BG)
         body.pack(fill=tk.BOTH, expand=True, padx=14, pady=6)
 
@@ -1040,6 +1043,234 @@ class GRSDesktopApp(tk.Tk):
             bg=BG, fg=MUTED, font=("Helvetica", 10),
         ).pack(anchor=tk.W)
 
+    # ── v6.6.5: Siril-style 3-tab top panel (Stacking / Derotate / Process) ─
+    def _build_top_panel(self):
+        """Siril-style 3-tab top panel: Stacking / Derotate / Process.
+
+        A compact workflow strip above the main body. Stacking and Derotate
+        operate on a folder of frames chosen on the Stacking tab; Process is
+        the existing single-image measurement path (open file → measure).
+        """
+        panel = tk.Frame(self, bg=BG)
+        panel.pack(fill=tk.X, padx=14, pady=(0, 4))
+        self.siril_nb = ttk.Notebook(panel)
+        self.siril_nb.pack(fill=tk.X)
+
+        # ── Stacking ─────────────────────────────────────────────────────
+        tab_stack = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_stack, text="  Stacking  ")
+        self.stack_folder_path = None
+        self._action_btn(
+            tab_stack, "Choose SER / PNG folder…", self.on_stack_pick_folder,
+            "Pick a folder of Jupiter frames (PNG / JPG / FITS). One file = one frame.",
+            secondary=True,
+        )
+        self.stack_folder_lbl = tk.Label(
+            tab_stack, text="No folder chosen", bg=PANEL, fg=MUTED,
+            font=("Helvetica", 11), wraplength=900, justify=tk.LEFT,
+        )
+        self.stack_folder_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
+        self.auto_ngrid_var = tk.BooleanVar(value=True)
+        self._check(
+            tab_stack,
+            "auto n_grid (assumes a single Jupiter-like disk in the frame)",
+            self.auto_ngrid_var,
+            "Sizes the AP grid from the frame. Honest limit: assumes ONE "
+            "Jupiter-like disk fills the frame. Turn off and set n_grid by hand otherwise.",
+        )
+        self.stack_ngrid_var = tk.StringVar(value="8")
+        self._labeled_entry(
+            tab_stack, "n_grid (manual — used when auto is off)", self.stack_ngrid_var,
+            "AP-grid resolution, e.g. 6–12.",
+        )
+        self.stack_prog = ttk.Progressbar(
+            tab_stack, orient=tk.HORIZONTAL, mode="determinate",
+            length=420, maximum=100,
+        )
+        self.stack_prog.pack(anchor=tk.W, padx=14, pady=(2, 2))
+        self.stack_prog["value"] = 0
+        self._action_btn(
+            tab_stack, "▶  Run Stack", self.on_stacking_run,
+            "Stack the folder with the Jupiter-zonal stacker. The bar tracks "
+            "frame ingest, not output quality.",
+            color=ACCENT,
+        )
+
+        # ── Derotate ─────────────────────────────────────────────────────
+        tab_der = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_der, text="  Derotate  ")
+        tk.Label(
+            tab_der, text="GRS anchor — paste a GRS x,y from any frame:",
+            bg=PANEL, fg=FG, font=("Helvetica", 12, "bold"),
+        ).pack(anchor=tk.W, padx=14, pady=(8, 2))
+        dxy = tk.Frame(tab_der, bg=PANEL)
+        dxy.pack(fill=tk.X, padx=14)
+        self.grs_x_var = tk.StringVar(value="")
+        self.grs_y_var = tk.StringVar(value="")
+        tk.Label(dxy, text="GRS x (px):", bg=PANEL, fg=FG, font=("Helvetica", 11)).pack(side=tk.LEFT)
+        tk.Entry(dxy, textvariable=self.grs_x_var, width=8, font=("Helvetica", 11)).pack(side=tk.LEFT, padx=(4, 14))
+        tk.Label(dxy, text="GRS y (px):", bg=PANEL, fg=FG, font=("Helvetica", 11)).pack(side=tk.LEFT)
+        tk.Entry(dxy, textvariable=self.grs_y_var, width=8, font=("Helvetica", 11)).pack(side=tk.LEFT, padx=(4, 0))
+        self.grs_anchor_var = tk.BooleanVar(value=True)
+        self._check(
+            tab_der, "use GRS anchor", self.grs_anchor_var,
+            "Demotes APs that disagree with the GRS rotation. Needs numeric GRS "
+            "x,y and a folder chosen on the Stacking tab.",
+        )
+        self._action_btn(
+            tab_der, "▶  Run Derotate (GRS-anchor)", self.on_derotate_run,
+            "Per-latitude zonal derotation of the Stacking folder. "
+            "'winjupos but better' is a goal, not a measured claim.",
+            color=ACCENT,
+        )
+
+        # ── Process ──────────────────────────────────────────────────────
+        tab_proc = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_proc, text="  Process  ")
+        self._action_btn(
+            tab_proc, "Open FITS / SER / PNG…", self.on_open_file,
+            "Pick your telescope stack for the main measurement.",
+            secondary=True,
+        )
+        self._action_btn(
+            tab_proc, "▶  Process full (auto + by-eye limb)", self.on_process,
+            "Main action: auto measure + by-eye cyan limb + GS-ORANGE/GS-MAP publish.",
+            color=ACCENT,
+        )
+        self._action_btn(
+            tab_proc, "Resolve Ephemeris only", self.on_ephemeris,
+            "CM III / distance from SPICE (+ Horizons if enabled). No GRS measure.",
+            secondary=True,
+        )
+
+    # ── Stacking / Derotate handlers ──────────────────────────────────────
+    def on_stack_pick_folder(self):
+        d = filedialog.askdirectory(title="Choose a folder of Jupiter frames (PNG / JPG / FITS)")
+        if d:
+            self.stack_folder_path = Path(d)
+            self.stack_folder_lbl.configure(text=f"Folder: {d}", fg=FG)
+            CONSOLE.info(f"Stacking folder: {d}")
+
+    def _stack_frames(self):
+        """Load grayscale frames from the Stacking folder; post ingest progress."""
+        if not getattr(self, "stack_folder_path", None):
+            raise RuntimeError("Choose a SER / PNG folder on the Stacking tab first.")
+        import glob
+        folder = self.stack_folder_path
+        exts = ("*.png", "*.jpg", "*.jpeg", "*.fit", "*.fits", "*.fts")
+        files = []
+        for e in exts:
+            files += glob.glob(str(folder / e))
+        files = sorted(set(files), key=str.lower)
+        if not files:
+            raise RuntimeError(f"No PNG / JPG / FITS frames found in: {folder}")
+        frames = []
+        for i, f in enumerate(files):
+            p = Path(f)
+            suf = p.suffix.lower()
+            if suf in (".png", ".jpg", ".jpeg"):
+                if not _HAS_PIL:
+                    raise RuntimeError("Pillow is required to read PNG / JPG frames.")
+                arr = np.asarray(Image.open(p).convert("L"), dtype=np.float64)
+            else:
+                import grs_complete_system as grs
+                arr, _ = grs.read_fits(p)
+                arr = np.asarray(arr, dtype=np.float64)
+                if arr.ndim == 3 and arr.shape[0] == 3:
+                    arr = 0.3 * arr[0] + 0.5 * arr[1] + 0.2 * arr[2]
+            frames.append(arr)
+            self.msg_q.put(("progress", int(round(100 * (i + 1) / len(files)))))
+        return frames
+
+    def _resolve_n_grid(self, frames) -> int:
+        if self.auto_ngrid_var.get():
+            from jupiter_zonal_stacker import auto_n_grid
+            h, w = frames[0].shape[:2]
+            return auto_n_grid(h, w)
+        try:
+            return max(3, min(20, int(self.stack_ngrid_var.get())))
+        except Exception:
+            return 8
+
+    def on_stacking_run(self):
+        try:
+            self.stack_prog["value"] = 0
+        except Exception:
+            pass
+
+        def job():
+            frames = self._stack_frames()
+            n_grid = self._resolve_n_grid(frames)
+            from jupiter_zonal_stacker import run_jupiter_zonal_stacker
+            run_dir = BASE / "outputs" / "stack_runs" / (
+                "zonal_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            )
+            res = run_jupiter_zonal_stacker(frames, run_dir, n_grid=n_grid, save=True)
+            self.msg_q.put(("progress", 100))
+            txt = (
+                "Jupiter-zonal stack done.\n"
+                f"  frames:         {res.n_frames}\n"
+                f"  grid (n_grid):  {res.n_grid}x{res.n_grid}\n"
+                f"  GRS anchor:     {'yes' if res.grs_anchor_used else 'no'}\n"
+                f"  mean drift RMS: {res.mean_rms_drift_px:.3f} px\n"
+                f"  elapsed:        {res.elapsed_s:.1f} s\n"
+                f"  stacked PNG:    {res.output_path}\n"
+            )
+            for n in res.notes:
+                txt += f"  - {n}\n"
+            return {"text": txt, "preview": res.output_path}
+
+        self._run_bg("Stack (Jupiter-zonal)", job)
+
+    def on_derotate_run(self):
+        try:
+            self.stack_prog["value"] = 0
+        except Exception:
+            pass
+
+        def job():
+            frames = self._stack_frames()
+            from jupiter_zonal_derotator import run_jupiter_zonal_derotate
+            out = BASE / "outputs" / "derotate_runs" / (
+                "zonal_" + datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            )
+            out.mkdir(parents=True, exist_ok=True)
+            dres = run_jupiter_zonal_derotate(frames, out, mode="measurement", save=True)
+            txt = (
+                "Zonal derotate done.\n"
+                f"  frames:             {dres.n_frames}\n"
+                f"  mean per-row shift: {dres.mean_per_row_shift_px:.3f} px\n"
+                f"  elapsed:            {dres.elapsed_s:.1f} s\n"
+                f"  stacked PNG:        {dres.output_path}\n"
+            )
+            prev = dres.output_path
+            if self.grs_anchor_var.get():
+                try:
+                    grs_xy = (float(self.grs_x_var.get()), float(self.grs_y_var.get()))
+                except (ValueError, TypeError):
+                    grs_xy = None
+                if grs_xy is not None:
+                    gx, gy = grs_xy
+                    from jupiter_zonal_stacker import run_jupiter_zonal_stacker
+                    sres = run_jupiter_zonal_stacker(
+                        frames, out / "grs_anchor",
+                        n_grid=self._resolve_n_grid(frames), grs_xy=grs_xy, save=True,
+                    )
+                    txt += (
+                        f"  GRS-anchor stack (x={gx}, y={gy}):\n"
+                        f"    anchor used: {sres.grs_anchor_used}\n"
+                        f"    grid:        {sres.n_grid}x{sres.n_grid}\n"
+                        f"    drift RMS:   {sres.mean_rms_drift_px:.3f} px\n"
+                    )
+                    for n in sres.notes:
+                        txt += f"    - {n}\n"
+                else:
+                    txt += "  GRS anchor: skipped (enter numeric GRS x and y to enable)\n"
+            self.msg_q.put(("progress", 100))
+            return {"text": txt, "preview": prev}
+
+        self._run_bg("Derotate (zonal, GRS-anchor)", job)
+
     def _section(self, parent, title: str):
         """Section header: bold navy text on tinted strip with accent underline."""
         wrap = tk.Frame(parent, bg=PANEL2, highlightbackground=BORDER, highlightthickness=1)
@@ -1304,6 +1535,13 @@ class GRSDesktopApp(tk.Tk):
                             self._show_preview(Path(prev))
                 elif kind == "status":
                     self.status_var.set("● " + str(payload))
+                elif kind == "progress":
+                    # Determinate bar on the Stacking tab (frame-ingest %)
+                    if hasattr(self, "stack_prog"):
+                        try:
+                            self.stack_prog["value"] = max(0, min(100, int(payload)))
+                        except Exception:
+                            pass
                 elif kind == "nn_report":
                     init_l = payload.get("initial_loss")
                     fin_l = payload.get("final_loss")

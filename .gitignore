@@ -47,6 +47,13 @@ app/admin_session.json
 *.tmp.npz
 app/models/*.tmp.*
 
+# SPIRE-Net fine-tune output (never commit fine-tuned weights — keep the
+# shipped weights as the canonical state)
+app/models/spire_net_finetuned.npz
+app/models/spire_net_finetuned.json
+app/nn_finetune_cache/
+app/outputs/stack_runs/
+
 # Pre-refactor backups
 *.bak_before_deadstrip
 

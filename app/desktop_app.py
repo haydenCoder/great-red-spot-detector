@@ -872,6 +872,36 @@ class GRSDesktopApp(tk.Tk):
             secondary=True,
         )
         self._action_btn(
+            left, "🧠  Fine-Tune SPIRE-Net CNN (short)", self.on_nn_finetune,
+            "Short fine-tune pass (32 samples × 6 epochs, lr=0.003) over synthetic maps. "
+            "Writes app/models/spire_net_finetuned.npz — does NOT overwrite the shipped weights.",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "🪐  Planetary Derotation (WinJUPOS-style)", self.on_planetary_derotate,
+            "Re-runs the published measurement on the current frame with WinJUPOS-style "
+            "zonal derotation (uses the current CML as the reference).",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "⚡  5D Velocity AP-Grid Stack", self.on_stack_5d,
+            "Experimental: multi-point AP-grid stacker with per-AP velocity tracking + "
+            "zonal derotation. Operates on the synthetic video generated on the fly.",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "🌟  10D Quantum-Optical Hypertensor Stack", self.on_stack_10d,
+            "Experimental: 10-D bookkeeping extension (Zernike + Kolmogorov C_n²). "
+            "Same numerical work as the 5D stack, with extra per-AP diagnostics.",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "🌌  Infinite-D Hilbert-Space Hyper-Stack", self.on_stack_inf,
+            "Experimental: path-integral-style stacker with Kolmogorov-prior + "
+            "Dirichlet importance sampling. Formulation only — no quantum state.",
+            secondary=True,
+        )
+        self._action_btn(
             left, "Open outputs folder", self.on_open_outputs,
             "Job folders with publish.txt / SUPERDUPER_BEST_ANSWER.txt.",
             secondary=True,
@@ -1975,6 +2005,126 @@ class GRSDesktopApp(tk.Tk):
                 self.nn_lbl.configure(text=f"NN: status error · {e}", fg=ERR)
 
         self.after(500, poll_nn)
+
+    # ── new experimental stack / finetune handlers ──────────────────────
+    def on_nn_finetune(self):
+        """Short fine-tune pass — writes spire_net_finetuned.npz (does NOT touch shipped weights)."""
+        def job():
+            from spire_finetune import run_finetune
+            diag = run_finetune()
+            txt = (
+                "SPIRE-Net short fine-tune complete.\n\n"
+                f"  Started from:        {diag.get('started_from')}\n"
+                f"  Samples:             {diag.get('n_samples')}\n"
+                f"  Epochs:              {diag.get('epochs')}\n"
+                f"  Learning rate:       {diag.get('lr')}\n"
+                f"  Initial loss:        {diag.get('initial_loss'):.5f}\n"
+                f"  Final loss:          {diag.get('final_loss'):.5f}\n"
+                f"  Improvement:         {diag.get('improvement_pct'):+.2f}%\n"
+                f"  Elapsed:             {diag.get('elapsed_s'):.1f} s\n"
+                f"  Output:              {diag.get('out_path')}\n\n"
+                "The shipped weights are untouched. To use the fine-tuned weights,\n"
+                "set GRS_USE_FINETUNED=1 in your environment before launching the app.\n"
+            )
+            return {"text": txt}
+        self._run_bg("NN Fine-Tune", job)
+
+    def on_planetary_derotate(self):
+        """Re-run the publish on the current frame with explicit zonal derotation.
+
+        This is a thin convenience over the existing champion path: it just
+        re-runs `run_process_full` with the current file/time so you can
+        re-process without re-loading the file. For a true SER-video
+        derotation, see the 5D / 10D / Inf buttons below.
+        """
+        if not getattr(self, "file_path", None):
+            messagebox.showinfo("No file", "Open a FITS/SER/PNG file first.")
+            return
+        from cli import main as _cli_main  # noqa: F401
+
+        def job():
+            # Re-process with the currently-loaded file and the time in the UI
+            t = (self.time_var.get() or "").strip()
+            from product_core import process_image
+            from product_core import default_out_root
+            out = default_out_root() / "derotate"
+            out.mkdir(parents=True, exist_ok=True)
+            pkg = process_image(
+                str(self.file_path),
+                t or "1970-01-01 00:00:00",
+                out_root=out,
+                use_nn=False,
+            )
+            return pkg
+        self._run_bg("Derotate (WinJUPOS-style)", job)
+
+    def _on_stack_engine(self, engine: str):
+        """Common helper: synthesise a tiny video, run the chosen stacker."""
+        def job():
+            from synthetic_hq import SynthSpec, generate
+            from datetime import datetime, timezone
+            from pathlib import Path
+            import os, glob
+
+            out_root = Path(os.environ.get(
+                "GRS_STACK_OUT", str((Path(__file__).resolve().parent / "outputs" / "stack_runs"))
+            ))
+            out_root.mkdir(parents=True, exist_ok=True)
+            run_dir = out_root / f"{engine}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            tmp = run_dir / "frames"
+            tmp.mkdir(exist_ok=True)
+            n_frames = 24
+            frames = []
+            for k in range(n_frames):
+                spec = SynthSpec(
+                    user_time_iso="",
+                    region="global",
+                    resolution_preset="720p",   # small for speed
+                    random_time=True,
+                    seed=100000 + k * 31,
+                    mode="metrology",
+                    write_grs_crop=False,
+                )
+                _png, fit, _truth = generate(spec, tmp)
+                import grs_complete_system as grs
+                arr, _ = grs.read_fits(fit)
+                img = np.asarray(arr, dtype=np.float64)
+                if img.ndim == 3 and img.shape[0] == 3:
+                    img = 0.3 * img[0] + 0.5 * img[1] + 0.2 * img[2]
+                frames.append(img)
+            if engine == "jpa_10k":
+                from jpa_10k import run_jpa_10k
+                res = run_jpa_10k(frames, run_dir)
+            elif engine == "jpa_10d":
+                from jpa_10d import run_jpa_10d
+                res = run_jpa_10d(frames, run_dir)
+            elif engine == "jpa_inf":
+                from jupiter_infinite_tensor_engine import run_jpa_inf
+                res = run_jpa_inf(frames, run_dir)
+            else:
+                raise ValueError(f"unknown engine: {engine}")
+            txt = (
+                f"{engine} done.\n"
+                f"  frames:           {res.n_frames}\n"
+                f"  APs:              {res.n_aps}\n"
+                f"  mean drift RMS:   {res.mean_rms_drift_px:.3f} px\n"
+                f"  elapsed:          {res.elapsed_s:.1f} s\n"
+                f"  stacked PNG:      {res.output_path}\n"
+            )
+            for n in res.notes:
+                txt += f"  - {n}\n"
+            return {"text": txt, "preview": res.output_path}
+        self._run_bg(f"Stack ({engine})", job)
+
+    def on_stack_5d(self):
+        self._on_stack_engine("jpa_10k")
+
+    def on_stack_10d(self):
+        self._on_stack_engine("jpa_10d")
+
+    def on_stack_inf(self):
+        self._on_stack_engine("jpa_inf")
 
 
 

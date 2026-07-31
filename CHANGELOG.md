@@ -3,6 +3,29 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## Unreleased — Experimental engines
+
+Three optional experimental stack / registration engines, plus a short
+fine-tuning pass for SPIRE-Net, have been added as research modules.
+**They are not part of the published answer path** — the
+`champion_measure` / `publish_primary` chain remains authoritative
+for the GRS measurement.
+
+| Module | What it actually is |
+|---|---|
+| `app/dcr.py` | Edlén (1966) atmospheric DCR with Birch (1991) CO₂ / humidity update. Reference implementation; `grs_complete_system.apply_residual_dcr` is the integration point. |
+| `app/jpa_10k.py` | Multi-point AP-grid stacker with per-AP velocity tracking and zonal derotation. The "5D" name is bookkeeping, not physics. |
+| `app/jpa_10d.py` | 10-D bookkeeping extension of JPA-10K: includes Noll-Zernike amplitudes and a 5/3-slope C_n² diagnostic per AP. |
+| `app/jupiter_infinite_tensor_engine.py` | Path-integral-style stacker with Kolmogorov-prior + Poisson-likelihood weights, importance-sampled via Dirichlet. The "Hilbert space" label is a coordinate system; no quantum state is manipulated. |
+| `app/spire_finetune.py` | Short fine-tuning pass (32 samples × 6 epochs, lr=0.003). Writes `spire_net_finetuned.npz` — the shipped weights are NEVER overwritten. |
+| `docs/STUDENT_COURSEWORK_REPORT.md` | Background, geometry, ephemeris, validation summary. |
+
+The "Hilbert space" / "10D quantum-optical" labels are *names*. The
+actual numerics are standard amateur-planetary-imaging maths (phase
+correlation, weighted stacking, RBF interpolation, Zernike projection,
+Kolmogorov 5/3 structure function). The student report explains this
+framing honestly.
+
 ## [6.6.1] — 2026-07-30
 
 Deep-audit accuracy tuning + speed. Mission (tiered-honest): clear/mild < 0.2°,

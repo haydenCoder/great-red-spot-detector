@@ -187,7 +187,7 @@ def run_planetary_derotate(
         f"PLANETARY-DEROT done: {n_frames} frames, planet={planet.name}, "
         f"mode={mode}, mean per-row |dx| {mean_shift:.2f}px, {elapsed:.1f}s"
     )
-    return PlanetaryDerotatorResult(
+    result = PlanetaryDerotatorResult(
         n_frames=n_frames,
         planet=planet.name,
         mode=mode,
@@ -205,6 +205,54 @@ def run_planetary_derotate(
         ],
         drift_summary={"per_frame_median_abs_dx_px": [float(v) for v in per_frame_med_shift]},
     )
+    if save:
+        write_derotator_report(result, out_dir)
+    return result
 
 
-__all__ = ["run_planetary_derotate", "PlanetaryDerotatorResult"]
+def derotator_report_text(res: "PlanetaryDerotatorResult") -> str:
+    """Human-readable one-page report card for a derotator run."""
+    bar = "=" * 60
+    shifts = res.drift_summary.get("per_frame_median_abs_dx_px", [])
+    lines = [
+        bar,
+        f"PLANETARY DEROTATOR REPORT  -  {res.planet}  ({res.n_frames} frames)",
+        bar,
+        f"mode               : {res.mode}",
+        f"reference frame    : #{res.reference_index}",
+        f"mean per-row |dx|  : {res.mean_per_row_shift_px:.2f} px",
+        f"elapsed            : {res.elapsed_s:.1f} s",
+        f"output             : {res.output_path}",
+        "",
+        "per-frame median |dx| (px):",
+    ]
+    if shifts:
+        for i, s in enumerate(shifts):
+            tag = "  (reference)" if i == res.reference_index else ""
+            lines.append(f"  frame {i:3d}: {s:7.2f}{tag}")
+    else:
+        lines.append("  (none)")
+    lines.append("")
+    lines.append("notes:")
+    for n in res.notes:
+        lines.append(f"  - {n}")
+    lines.append(bar)
+    return "\n".join(lines)
+
+
+def write_derotator_report(res: "PlanetaryDerotatorResult", out_dir: Path) -> Path:
+    out_dir = Path(out_dir)
+    p = out_dir / "derotator_report.txt"
+    try:
+        p.write_text(derotator_report_text(res), encoding="utf-8")
+    except Exception as e:
+        CONSOLE.warn(f"PLANETARY-DEROT: report write failed: {e}")
+    return p
+
+
+__all__ = [
+    "run_planetary_derotate",
+    "PlanetaryDerotatorResult",
+    "derotator_report_text",
+    "write_derotator_report",
+]

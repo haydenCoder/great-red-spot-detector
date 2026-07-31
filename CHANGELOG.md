@@ -3,6 +3,21 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.3] — 2026-07-31
+
+Auditability + doc sync.
+
+### Added
+- **Derotator report card** — `run_planetary_derotate` now writes
+  `derotator_report.txt` (mirror of the stacker's): planet, mode, reference
+  frame, mean per-row shift, per-frame median |dx|, timing, notes.
+  `derotator_report_text` / `write_derotator_report` are public.
+
+### Changed
+- `PROJECT_MAP.md` module tree now lists the v6.7 modules
+  (`planet_models`, `planetary_stacker`, `planetary_derotator`, `flow_warp`,
+  `frame_quality`) and the new tools — it was stale.
+
 ## [6.7.2] — 2026-07-31
 
 Stacker report card + an honest "Rejected" record of two ideas that measured

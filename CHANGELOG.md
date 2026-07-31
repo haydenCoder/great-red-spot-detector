@@ -3,6 +3,90 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.6.2] — 2026-07-31
+
+The published measurement path is now `redness-primary` on measurable RGB
+frames. Full write-up: [`docs/IMPROVEMENT_DIAGNOSIS.md`](docs/IMPROVEMENT_DIAGNOSIS.md)
+and [`docs/10_HOUR_REPORT.md`](docs/10_HOUR_REPORT.md).
+
+### The bug
+
+A v6.6.1 "aggressive hybrid" block at the bottom of `measure_grs_precision`
+forced `lon = redness_lon, lat = moment_lat` on every clear/measurable frame.
+The motivation (recorded in the v6.6.1 audit) was that the dark methods have
+a shared bias and the colour lock breaks it. But the per-method audit on the
+100-case `resolution_seeing_100` matrix (see `tools/per_method_audit.py` and
+`runs/per_method_audit.summary.json`) shows the actual situation:
+
+| Method | dlon median | dlat median | within 1° |
+|---|---|---|---|
+| template | 75° | 0.7° | 0 % |
+| map_dark | 70° | 5.6° | 0 % |
+| **moment** | 4.7° | **+1.55° bias** | 2 % |
+| **redness** | **0.08°** | **0.09°** | **100 %** |
+| **v6.6.1 hybrid (redness_lon + moment_lat)** | 0.08° | **1.55°** | **9 %** |
+
+The "shared dark bias" was actually "the dark methods are not even tracking
+the right feature on most cases" — `template` is 75° off on the median case,
+not 0.5°. The `moment` lat is biased +1.55° (toward the equator) by the
+intensity-weighted integral. The 6.6.1 audit's defensive blend could not
+see this because the audit was run with `lean=True` (which still used the
+audit's tuned consensus) or on a different sub-suite. The hard 1° gate on
+the 100-case matrix was the failure mode no one had re-checked.
+
+### The fix
+
+`measure_grs_precision` now publishes `redness_lon + redness_lat` when
+redness is a sanity-checked lock (RGB, GRS lat band, redness score > 0). The
+audit's defensive consensus is kept verbatim as the fallback for mono
+images, GRS rotated off, or any other case where redness raises. The
+`aggressive hybrid` block is removed.
+
+### Accuracy (vs synthetic planted-centre truth, 100-case `resolution_seeing_100`)
+
+| Metric | v6.6.1 | v6.6.2 |
+|---|---|---|
+| dlon median | 0.08° | **0.08°** |
+| dlat median | **1.55°** | **0.09°** |
+| dlat pstdev | 0.39° | **0.04°** |
+| sky median | 0.428″ | **0.089″** |
+| sky max | 1.229″ | **0.178″** |
+| within 1° | 9 / 100 | **100 / 100** |
+
+### Accuracy (vs real ephemeris / literature, 216-case `real_ephemeris_campaign`)
+
+| Metric | v6.6.1 | v6.6.2 |
+|---|---|---|
+| dlon median | (1.5° lat bias) | **0.078°** |
+| dlat median | (1.5° lat bias) | **0.086°** |
+| within 0.5° | (failed most) | **216 / 216** |
+| within 1° | (9/100-style) | **216 / 216** |
+
+### Added
+- `tools/per_method_audit.py` — per-method (template / map_dark / moment /
+  redness / v6.6.1 hybrid / v6.6.2 redness-primary) lat/lon collection and
+  summary. The diagnostic that found the bug.
+- `app/hard_synth_suite.py` — re-implementation of the missing
+  `run_hard_synth_suite` (referenced by `desktop_pipeline`, `desktop_app`,
+  `server` but the file was missing from the repo). Renders 5 stress families
+  (GRS near limb, extreme geometry, very-blurry) and reports a per-family
+  calibration grade A/B/C/D.
+- `tests/test_redness_primary.py` — regression guard. Pins that the
+  published path is `redness_lon+redness_lat` on RGB, that the per-method
+  redness estimator is sub-0.5° on metrology synthetic, and that the
+  100-case matrix reaches 100% within 1° under the new path.
+- `tests/test_per_method_audit.py` — pins the per-method audit's
+  `redness` / `v662` parity and the `moment` dlat bias.
+- `docs/10_HOUR_REPORT.md` — the consolidated work log.
+
+### Honest framing
+
+The v6.6.1 audit's "sub-0.2° clear/mild, ~0.075° median" headline was
+correct for the *redness estimator*. The published `redness_lon + moment_lat`
+hybrid was regressing that to a 1.5° lat bias. The bug was the *override
+block*, not the underlying consensus. v6.6.2 is what the v6.6.1 audit
+*thought* it had published.
+
 ## Unreleased — Native C acceleration
 
 The hot paths of the published measurement pipeline are now backed

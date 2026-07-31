@@ -1735,49 +1735,49 @@ def measure_grs_precision(
     primary = f"{pos_tag}+{size_src}"
 
     # =====================================================================
-    # THE REAL NEW METHOD FOR 0.2° GUARANTEE ON CLEAR FRAMES
+    # 6.6.1 → 6.6.2: redness-primary for measurable RGB frames
     # =====================================================================
-    # After extensive diagnosis on the exact 7 hard seeds (and the 3 that
-    # remained >0.2°), the winning combination is:
+    # Diagnosis on the 100-case resolution_seeing_100 matrix (runs/per_method_audit.summary.json):
     #
-    #   Longitude  ← redness (R-B colour excess)   -- most robust to seeing
-    #   Latitude   ← moment mask (intensity integral) -- unbiased
+    #   template      dlon median 75°    (catastrophically wrong: locks on decoy SEB ovals)
+    #   map_dark      dlon median 70°
+    #   moment        dlon median 4.7°   dlat BIAS +1.55°  (intensity integral is pulled off-centre)
+    #   redness       dlon median 0.08°  dlat median 0.09°  ← 100% within 1° on 100/100
     #
-    # This hybrid (RED_LON + MOM_LAT) gives on the 3 tail seeds:
-    #   42197975 → 0.130°
-    #   42380112 → 0.233°
-    #   42158380 → 0.195°
+    # The "aggressive hybrid" that this block replaced (redness_lon + moment_lat)
+    # was mixing the one excellent estimator (redness) with the one biased
+    # estimator (moment), regressing the published result to 9% within 1°.
     #
-    # It is the practical "new method" that actually solves the remaining
-    # hard tail when SPIRE-Net prior is still garbage and dark methods disagree.
-    # We apply it aggressively on clear/measurable frames.
+    # The fix: on a measurable RGB frame with a sanity-checked redness lock,
+    # redness is the answer. The audit's defensive consensus (template+redness
+    # lon, template+moment+redness lat) is kept as the fallback for cases
+    # where redness fails (mono image, GRS rotated off, GRS too faint).
+    #
+    # This is NOT a wholesale "trust redness" — it is a strict improvement on
+    # every case in the 100-case matrix and identical on the cases where the
+    # audit's consensus was already the answer.
     # =====================================================================
-    try:
-        # AGGRESSIVE HYBRID for clear/measurable frames (unconditional on lean for audit evals)
-        # redness_lon + moment_lat is the proven winner on the remaining hard tail.
-        # Apply for EVERY measurable frame so that 1000-case audits and normal evals
-        # both see the improvement (previously gated behind not lean, so audits still saw old logic).
-        if (disk_q.get("measurable", True) and
-                "redness" in usable and "moment" in usable):
-            red_m = usable["redness"]
-            mom_m = usable["moment"]
-
-            hybrid_lon = float(red_m["lon_iii_deg"])
-            hybrid_lat = float(mom_m["lat_deg"])
-
-            # Force hybrid (redness for lon, moment for lat) on clear frames.
-            # This is the new default behaviour.
-            lon = hybrid_lon
-            lat = hybrid_lat
-            primary = "redness_lon+moment_lat"
-            notes.append("NEW METHOD (aggressive clear-frame): redness longitude + moment latitude (unconditional for measurable)")
-            methods["new_red_mom_hybrid"] = {
-                "lon_iii_deg": hybrid_lon,
-                "lat_deg": hybrid_lat,
-                "method": "redness_lon + moment_lat"
-            }
-    except Exception:
-        pass
+    redness_ok = (
+        disk_q.get("measurable", True)
+        and "redness" in usable
+        and usable["redness"].get("score", 0) > 0
+        and (GRS_LAT_BAND_WIDE[0] <= float(usable["redness"]["lat_deg"]) <= GRS_LAT_BAND_WIDE[1])
+    )
+    if redness_ok:
+        red_m = usable["redness"]
+        lon = float(red_m["lon_iii_deg"])
+        lat = float(red_m["lat_deg"])
+        primary = "redness_lon+redness_lat"
+        notes.append(
+            "6.6.2: redness-primary on measurable RGB frame (catastrophic dark-method "
+            f"bias, redness 100% within 1° on the 100-case benchmark)"
+        )
+        methods["redness_primary"] = {
+            "lon_iii_deg": float(red_m["lon_iii_deg"]),
+            "lat_deg": float(red_m["lat_deg"]),
+            "method": "redness",
+            "score": float(red_m.get("score", float("nan"))),
+        }
 
     if len(lons_k) >= 2:
         dlon = np.array([wrap_diff(x, lon) for x in lons_k])

@@ -374,6 +374,7 @@ class PlanetaryStackerResult:
     dropped_frames: List[int]
     mean_rms_drift_px: float
     mean_ap_quality: float
+    warp_consistency_std: float
     used_prior_fallback_bins: int
     elapsed_s: float
     output_path: str
@@ -475,74 +476,84 @@ def run_planetary_stacker(
     ap_lats = _ap_latitudes(aps, nav, sub_lat_deg, north_pa_deg)
     deg_to_px = nav.a_eq_px / 90.0
 
-    accumulated = np.zeros((h, w), dtype=np.float64)
-    weights = np.zeros((h, w), dtype=np.float64)
-    per_frame_rms: List[float] = []
-    quality_snrs: List[float] = []
-    prior_bins_total = 0
-
-    # reference frame contributes at full weight
-    ref_q = max(_laplacian_var(ref, on_disk), 1e-3)
-    accumulated += ref * ref_q
-    weights += np.full((h, w), ref_q)
-
-    for k, frame in enumerate(mono):
-        if k == ref_idx:
-            per_frame_rms.append(0.0)
-            continue
-        if k in dropped_set:
-            per_frame_rms.append(float("nan"))
-            continue
-        # Per-AP expected drift (planet prior: bulk rotation + zonal wind).
-        dt_k = _frame_dt(planet, k, ref_idx, cm_iii_per_frame, dt_s_per_frame)
-        drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
-        snrs = np.zeros(n_aps, dtype=np.float64)
-        for i, (ax, ay) in enumerate(aps):
-            exp_dx = _per_ap_expected_dx(planet, float(ap_lats[i]), dt_k, deg_to_px)
-            tdy, tdx, snr = _track_ap_planetary(
-                ref, frame, (ax, ay), ap_half, expected_dx=exp_dx,
-            )
-            drifts[i, 0] = tdy
-            drifts[i, 1] = tdx
-            snrs[i] = snr
-        valid = np.isfinite(drifts[:, 0])
-        if valid.any():
-            per_frame_rms.append(float(np.sqrt(np.mean(drifts[valid, 0] ** 2 + drifts[valid, 1] ** 2))))
-        else:
-            per_frame_rms.append(float("nan"))
-
-        if warp_mode == "global":
-            # legacy: single weighted-mean translation
-            vmask = valid & (snrs > 0.05)
-            if vmask.any():
-                wv = snrs[vmask]
-                dy = -float(np.average(drifts[vmask, 0], weights=wv))
-                dx = -float(np.average(drifts[vmask, 1], weights=wv))
+    def _pass(ref_array: np.ndarray):
+        """One track + warp + weighted-stack pass against `ref_array`."""
+        accumulated = np.zeros((h, w), dtype=np.float64)
+        weights = np.zeros((h, w), dtype=np.float64)
+        rms_pass: List[float] = []
+        snr_pass: List[float] = []
+        prior_pass = 0
+        # cross-frame consistency: mean on-disk std of the warped frames.
+        # Lower = frames agree better after warping. Diagnostic only: it is a
+        # raw per-run agreement number, NOT a cross-mode quality rank (it
+        # rewards warp flexibility, so it can't be used to pick a mode).
+        s_sum = ref_array.astype(np.float64).copy()
+        ss_sum = s_sum * s_sum
+        cnt = 1
+        rq = max(_laplacian_var(ref_array, on_disk), 1e-3)
+        accumulated += ref_array * rq
+        weights += np.full((h, w), rq)
+        for k, frame in enumerate(mono):
+            if k == ref_idx:
+                rms_pass.append(0.0)
+                continue
+            if k in dropped_set:
+                rms_pass.append(float("nan"))
+                continue
+            dt_k = _frame_dt(planet, k, ref_idx, cm_iii_per_frame, dt_s_per_frame)
+            drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
+            snrs = np.zeros(n_aps, dtype=np.float64)
+            for i, (ax, ay) in enumerate(aps):
+                exp_dx = _per_ap_expected_dx(planet, float(ap_lats[i]), dt_k, deg_to_px)
+                tdy, tdx, snr = _track_ap_planetary(
+                    ref_array, frame, (ax, ay), ap_half, expected_dx=exp_dx,
+                )
+                drifts[i, 0] = tdy
+                drifts[i, 1] = tdx
+                snrs[i] = snr
+            valid = np.isfinite(drifts[:, 0])
+            if valid.any():
+                rms_pass.append(float(np.sqrt(np.mean(
+                    drifts[valid, 0] ** 2 + drifts[valid, 1] ** 2))))
             else:
-                dy, dx = 0.0, 0.0
-            shifted = _global_shift(frame, dy, dx)
-            prior_bins = 0
-        elif warp_mode == "flow":
-            # dense 2D displacement field from the per-AP drifts (captures local
-            # / meridional motion the per-row warp cannot represent).
-            field = fit_dense_apply_field(aps, drifts, snrs, (h, w))
-            shifted = apply_flow_warp(frame, field)
-            prior_bins = 0
-        else:
-            dx_bins, dy_g = fit_dx_vs_latitude(
-                ap_lats, drifts, snrs, planet,
-                dt_s=float(dt_s_per_frame[k]), deg_to_px=deg_to_px,
-            )
-            prior_bins = int(np.sum(dx_bins == 0.0) + np.sum(~np.isfinite(dx_bins)))
-            shifted = per_row_warp(frame, dx_bins, dy_g, on_disk, row_lats)
+                rms_pass.append(float("nan"))
 
-        qk = max(_laplacian_var(frame, on_disk), 1e-3)
-        accumulated += shifted * qk
-        weights += np.full((h, w), qk)
-        quality_snrs.append(float(np.nanmean(snrs[valid])) if valid.any() else 0.0)
-        prior_bins_total += prior_bins
+            if warp_mode == "global":
+                vmask = valid & (snrs > 0.05)
+                if vmask.any():
+                    wv = snrs[vmask]
+                    dy = -float(np.average(drifts[vmask, 0], weights=wv))
+                    dx = -float(np.average(drifts[vmask, 1], weights=wv))
+                else:
+                    dy, dx = 0.0, 0.0
+                shifted = _global_shift(frame, dy, dx)
+                prior_bins = 0
+            elif warp_mode == "flow":
+                field = fit_dense_apply_field(aps, drifts, snrs, (h, w))
+                shifted = apply_flow_warp(frame, field)
+                prior_bins = 0
+            else:
+                dx_bins, dy_g = fit_dx_vs_latitude(
+                    ap_lats, drifts, snrs, planet,
+                    dt_s=float(dt_s_per_frame[k]), deg_to_px=deg_to_px,
+                )
+                prior_bins = int(np.sum(dx_bins == 0.0) + np.sum(~np.isfinite(dx_bins)))
+                shifted = per_row_warp(frame, dx_bins, dy_g, on_disk, row_lats)
 
-    stacked = accumulated / np.maximum(weights, 1e-9)
+            qk = max(_laplacian_var(frame, on_disk), 1e-3)
+            accumulated += shifted * qk
+            weights += np.full((h, w), qk)
+            s_sum += shifted
+            ss_sum += shifted * shifted
+            cnt += 1
+            snr_pass.append(float(np.nanmean(snrs[valid])) if valid.any() else 0.0)
+            prior_pass += prior_bins
+        mean_img = s_sum / cnt
+        var_img = np.clip(ss_sum / cnt - mean_img * mean_img, 0.0, None)
+        consistency = float(np.sqrt(np.mean(var_img[on_disk]))) if on_disk.any() else 0.0
+        return accumulated / np.maximum(weights, 1e-9), rms_pass, snr_pass, prior_pass, consistency
+
+    stacked, per_frame_rms, quality_snrs, prior_bins_total, warp_consistency_std = _pass(ref)
     out_path = out_dir / f"stacked_planetary_{planet.name.lower()}.png"
     if save:
         try:
@@ -562,7 +573,7 @@ def run_planetary_stacker(
         f"warp={warp_mode}, ref={ref_idx}, mean drift RMS {mean_rms:.2f}px, "
         f"{elapsed:.1f}s"
     )
-    return PlanetaryStackerResult(
+    result = PlanetaryStackerResult(
         n_frames=n_frames,
         n_aps=n_aps,
         n_grid=n_grid,
@@ -574,6 +585,7 @@ def run_planetary_stacker(
         dropped_frames=[int(i) for i in dropped],
         mean_rms_drift_px=mean_rms,
         mean_ap_quality=mean_q,
+        warp_consistency_std=float(warp_consistency_std),
         used_prior_fallback_bins=int(prior_bins_total),
         elapsed_s=float(elapsed),
         output_path=str(out_path),
@@ -594,6 +606,9 @@ def run_planetary_stacker(
             "per_frame_rms_px": [float(v) for v in per_frame_rms],
         },
     )
+    if save:
+        write_stacker_report(result, out_dir)
+    return result
 
 
 def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
@@ -606,10 +621,73 @@ def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
     return np.real(np.fft.ifft2(f * phase))
 
 
+def stacker_report_text(res: "PlanetaryStackerResult") -> str:
+    """Human-readable one-page report card for a stacker run.
+
+    Surfaces what actually happened (planet, warp mode, reference frame,
+    dropped frames, per-frame drift, consistency, timing) so a result is
+    auditable rather than just a PNG.
+    """
+    rms = res.drift_summary.get("per_frame_rms_px", [])
+    rms_finite = [r for r in rms if isinstance(r, float) and math.isfinite(r)]
+    bar = "=" * 60
+    lines = [
+        bar,
+        f"PLANETARY STACK REPORT  -  {res.planet}  ({res.n_frames} frames)",
+        bar,
+        f"warp mode          : {res.warp_mode}",
+        f"AP grid            : {res.n_grid}x{res.n_grid}  ({res.n_aps} APs, ap_half={res.ap_half})",
+        f"reference frame    : #{res.reference_index}",
+        f"quality gate       : {res.quality_gate:.2f}  "
+        f"(dropped {len(res.dropped_frames)} frame(s): {res.dropped_frames or 'none'})",
+        f"mean drift RMS     : {res.mean_rms_drift_px:.2f} px",
+        f"mean AP quality    : {res.mean_ap_quality:.3f}",
+        f"warp consistency   : {res.warp_consistency_std:.4f}  "
+        f"(raw on-disk std of warped frames; lower=more agree; NOT a cross-mode rank)",
+        f"prior-fallback bins: {res.used_prior_fallback_bins}",
+        f"elapsed            : {res.elapsed_s:.1f} s",
+        f"output             : {res.output_path}",
+        "",
+        "per-frame drift RMS (px):",
+    ]
+    if rms:
+        for i, r in enumerate(rms):
+            tag = "  (reference)" if i == res.reference_index else (
+                "  (dropped)" if i in res.dropped_frames else "")
+            rv = f"{r:.2f}" if isinstance(r, float) and math.isfinite(r) else "  -  "
+            lines.append(f"  frame {i:3d}: {rv:>7}{tag}")
+    else:
+        lines.append("  (none)")
+    if rms_finite:
+        import statistics
+        lines.append("")
+        lines.append(f"  drift RMS - median {statistics.median(rms_finite):.2f} px, "
+                     f"max {max(rms_finite):.2f} px")
+    lines.append("")
+    lines.append("notes:")
+    for n in res.notes:
+        lines.append(f"  - {n}")
+    lines.append(bar)
+    return "\n".join(lines)
+
+
+def write_stacker_report(res: "PlanetaryStackerResult", out_dir: Path) -> Path:
+    """Write the report card next to the stacked image. Returns its path."""
+    out_dir = Path(out_dir)
+    p = out_dir / "stacker_report.txt"
+    try:
+        p.write_text(stacker_report_text(res), encoding="utf-8")
+    except Exception as e:
+        CONSOLE.warn(f"PLANETARY-STACK: report write failed: {e}")
+    return p
+
+
 __all__ = [
     "run_planetary_stacker",
     "PlanetaryStackerResult",
     "select_reference_index",
     "fit_dx_vs_latitude",
     "per_row_warp",
+    "stacker_report_text",
+    "write_stacker_report",
 ]

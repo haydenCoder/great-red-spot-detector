@@ -3,6 +3,44 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.7.2] — 2026-07-31
+
+Stacker report card + an honest "Rejected" record of two ideas that measured
+negative (kept out of the product on purpose).
+
+### Added
+- **Stacker report card** — `run_planetary_stacker` now writes
+  `stacker_report.txt` next to the PNG: planet, warp mode, reference frame,
+  quality-gate drops, per-frame drift RMS (with reference/dropped tags),
+  consistency, timing, notes. `stacker_report_text` / `write_stacker_report`
+  are public. Makes a stack auditable instead of just an image.
+- `warp_consistency_std` result field — mean on-disk std of the warped frames.
+  Surfaced in the report as a raw per-run agreement diagnostic.
+
+### Changed
+- Refactored the stacker's track+warp+stack core into a `_pass(ref)` helper
+  (cleaner; identical behaviour). This was in preparation for multi-pass
+  stacking, which was then measured-negative and dropped (see Rejected).
+
+### Rejected (tried, measured negative, NOT shipped)
+- **Iterative / multi-pass stacking** (re-track against the denoised stack).
+  Made the result WORSE: on an all-frames-noisy benchmark, 1 pass = 0.073
+  on-disk RMS, 2 passes = 0.120, 3 passes = 0.117. Cause: re-tracking against
+  a denoised (smoothed) stack loses the high-frequency content phase-correlation
+  locks onto, so drifts get noisier and the warp degrades — outweighing any
+  denoising benefit. Removed rather than shipped.
+- **No-reference auto warp-mode selection** (`--warp-mode auto`). Tried three
+  no-reference metrics; all are confounded:
+  - sharpness (Laplacian var) — biased toward warps that smooth less, so it
+    spuriously favours per-latitude regardless of alignment;
+  - split-half between-stack RMS — noisy, ranked the middle mode worst;
+  - cross-frame consistency std — rewards the MOST flexible warp, because
+  flexibility lowers residuals even by overfitting noise (it picked `flow` on
+  noisy data where flow is measured-worst).
+  Conclusion: no-reference warp-mode selection is ill-posed without a reference
+  or a noise model. Use `tools/flow_warp_benchmark.py` (which has a known
+  reference) to pick a mode for your data. The default stays `per_latitude`.
+
 ## [6.7.1] — 2026-07-31
 
 Three more stacking improvements, each measured.

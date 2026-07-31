@@ -130,6 +130,23 @@ class TestPlanetaryStackerRuns(unittest.TestCase):
             self.assertEqual(res.planet, "Saturn")
             self.assertTrue(Path(res.output_path).exists())
 
+    def test_writes_report_card(self):
+        from planetary_stacker import run_planetary_stacker, stacker_report_text
+        ref, truth = _render_ref(seed=2024, resolution="720p")
+        frames, cm_list = _make_sheared_frames(ref, truth, n_frames=5, cm_drift=2.0)
+        with tempfile.TemporaryDirectory(prefix="grs_ps_rep_") as d:
+            res = run_planetary_stacker(
+                frames, Path(d), n_grid=6, ap_half=16,
+                cm_iii_per_frame=cm_list, reference="first",
+            )
+            report_path = Path(d) / "stacker_report.txt"
+            self.assertTrue(report_path.exists())
+            txt = report_path.read_text()
+            for key in ("PLANETARY STACK REPORT", "warp mode", "reference frame",
+                        "warp consistency", "per-frame drift"):
+                self.assertIn(key, txt)
+            self.assertEqual(stacker_report_text(res).strip(), txt.strip())
+
 
 class TestPerLatitudeWarpBeatsGlobal(unittest.TestCase):
     """The headline accuracy test: per-latitude warp > global translation

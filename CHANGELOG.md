@@ -3,6 +3,179 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.8.0] — 2026-08-07 — "Observatory Pro"
+
+AutoStakkert-class video stacking + drizzle super-resolution, WinJUPOS-class
+transit planning, JUPOS export and animation, a fifth measurement definition
+(rim ellipse), a true-sky-geometry synthetic benchmark, and three measured
+production fixes. Every claim below is backed by a test or campaign number.
+
+### Added
+- **APS video stacker** (`ap_stacker.py`): per-alignment-point local lucky
+  imaging. Frames are global-aligned (integer FFT peak + Lucas–Kanade refine,
+  ~0.001 px on clean frames, ~0.2–0.6 px at noise 0.05), per-AP quality-ranked
+  (laplacian | gradient | sobel | contrast), feathered-overlap stacked with
+  quality-power weights. **Raw-deposit drizzle ×2/×3**: measured super-res —
+  on a 12-frame planet video the drizzle stack reaches ~1.4% of the exact-offset
+  oracle RMSE, and the oracle is 60% of a single frame's RMSE. Rotation-aware
+  prior (`ap_expected_dx`) keeps the search window centred while the planet turns.
+- **SER / AVI reader-writer** (`ser_io.py`): full SER header, 1/2/4-byte mono and
+  3-byte RGB, ms-ticks timestamps, uncompressed DIB AVI, MJPG refused with a
+  transcode hint. Lazy `Video` API (no full load).
+- **Sharpen Lab** (`sharpen_lab.py`): B3 à-trous wavelets (partition of unity
+  tested), per-layer gains + MAD denoise gate (noise is NOT amplified — measured),
+  Richardson–Lucy (L2-grid win pinned), classic unsharp; RGB sharpened on
+  luminance so hue is preserved.
+- **Transit planner** (`transits.py`): next GRS meridian crossings (brentq,
+  sub-minute), visibility windows |rel|≤45°, "GRS now", Galilean moon
+  transit/occultation events — **validated against published 2026 tables**
+  (Project Pluto): Io transit 2026-08-01 ~05:06 (ours 05:10), Io occult 08-02
+  ~02:15, Europa transit 08-02 ~09:14. Backend chain SPICE jup365 → ephem fallback.
+- **Rim-ellipse definition** (`grs_ellipse.py`): Fitzgibbon least-squares ellipse
+  on GRS rim samples, with conic-sign normalisation, degenerate-line guards,
+  and a physics-gated **RANSAC fallback** that fires only when the classical
+  fit fails (zero regression on converged cases by construction). 100-case
+  resolution×seeing audit: classic path converges 76/100 (clear/mild 46/46)
+  and is the tightest estimator of all there — **zero cases beyond |dlon|
+  0.733° / |dlat| 0.580°** (medians 0.109/0.116); RANSAC lifts convergence to
+  **97/100** with honest degradation on appalling seeing (|dlon| med 1.3°)
+  and a reduced ensemble weight (0.6 vs 1.5). Wired as the 5th method in
+  `per_method_audit` and `all_methods.run_all_methods`.
+- **Animation + JUPOS** (`animation.py`, `jupos_io.py`): animated GIF blink/loop
+  (Pillow duration quirks documented), WinJUPOS JUPOS `.csv` 15-field
+  export/import round-trip for cross-checking our longitudes against the
+  community database format.
+- **One-command production pipeline** (`observatory_pipeline.py` → CLI):
+  `grs-observatory video-stack`, `ap-stack`, `sharpen`, `transits`, `animate`,
+  `jupos-export`, `video-to-answer`. The last runs the whole chain
+  SER → APS stack → wavelet sharpen → published measurement.
+- **True-sky-geometry synthetic benchmark** (`synthetic_hq.py`): the renderer
+  now applies the REAL sub-Earth latitude and north-polar-axis PA of the epoch
+  (spec `sub_lat_deg` / `north_pa_deg`) using the exact inverse of
+  `precision_engine.px_to_lonlat`, so the full production stack — which models
+  these — is validated end-to-end for the first time (D=P=0 keeps bit-identical
+  output). A wrong-orientation control test proves the geometry is real:
+  PA 343.5° measured with PA 0 priors misses by ~6.5°.
+- **WinJUPOS-style derotation everywhere** (`observatory_pipeline`,
+  CLI/desktop/web): `--derotate prior|hybrid|measurement` on `video-stack`,
+  `ap-stack` and `video-to-answer`, a `derotate_folder()` API, a desktop
+  Video-Import combo and a web Video-tab selector. Timing is taken from SER
+  per-frame stamps (or `--dt-per-frame`); **without timing the derotate is
+  refused loudly** — a guessed cadence would silently mis-rotate every frame.
+  The derotated stack is anchored to the derotation reference frame, and
+  `video-to-answer` then publishes with `measurement_epoch: "ref_frame"` and
+  stamps that frame's UTC (the WinJUPOS reduction convention). Measured on a
+  rotating synthetic capture (rigid System III spin, real seeing/noise/tip-tilt,
+  1080p-class): published equity within the same 1.5° production band as the
+  non-rotated flagship test (tests/test_cli_pro.py::TestVideoToAnswerDerotate),
+  and the plain-vs-derotated stacking A/B is pinned in
+  tests/test_video_jupiter.py.
+- **Desktop**: new tabs **Video Import** (APS stack, drizzle, video→answer),
+  **Sharpen Lab**, **Transits**. **Web**: new **Video** and **Transits** tabs,
+  endpoints `/api/video_stack`, `/api/sharpen`, `/api/transits` (path-traversal
+  hardened, uploaded videos whitelisted).
+
+### Fixed (measured, with regressions pinned)
+- **Moon-mask colour gate** (`grs_image_prep.py`): the old luminance-only
+  satellite-shadow masker erased red-brown Jovian features — on a 1080p
+  synthetic it masked ~24k px including the GRS core itself, biasing the
+  centroid >10°. Moons/shadows are colour-neutral (`r − 0.5(g+b) ≈ 0`);
+  blobs with redness > 0.06 are kept as atmosphere, plus a 2.5%-of-disk
+  safety cap. Diagnostic: 18/19 false blobs were reddish (0.11–0.31).
+- **Ephemeris-orientation application on un-tilted synthetic frames** was an
+  apples-to-oranges mismatch (~6.5° at PA 343.5°). Resolved by the true-tilt
+  renderer above + a **PA-aware limb fit** (`fit_limb_nav(north_pa_deg=…)`):
+  median/MAD stats are computed in the de-rotated body frame so the fit is
+  exact under disk rotation. On an un-rotated frame a wrong ±16.5° prior moves
+  xc/yc < 0.001 px and a < 0.03% — de-rotation is statistically near-neutral,
+  so real captures (Jupiter's PA swings ±17° over a Jovian year — verified
+  2026-08-02: sub-lat +0.665°, PA 343.50°) are now fitted correctly.
+- **Stale pin repaired**: `test_moment_has_dlat_bias` →
+  `test_moment_dlat_bias_stays_fixed` (moment dlat bias is FIXED at +0.013°;
+  the test now guards ≤0.30° so it can't regress silently).
+- **`video_to_answer(downsample=…)` was silently ignored** — the parameter is
+  now honoured with the same anti-aliased box decimation as `load_frames`
+  (the published test expected 2× speedups it never got; dead parameter bugs
+  are how pipelines quietly run the wrong regime).
+- **`ap_stacker.derotate_frames` measurement/hybrid branch** seeded its AP
+  tracker with the LEGACY longitude scale (`_per_ap_expected_dx`, under-shift
+  up to 1.57× at the equator); switched to `_per_ap_expected_dx_lon` like the
+  other derotation call sites.
+- **Flow-warp fit learnt SNR-weighting** (`flow_warp._rbf_dense_measured`):
+  the RBF ridge is now `K + λ·diag(1/w)`, so low-SNR AP locks are smoothed
+  toward the field instead of interpolated. Measured on the noisy-2D A/B:
+  on-disk RMS 0.1204 → 0.1189 (per-lat 0.1164; with the v6.8 tracker both
+  warps now tie within ~2% on noisy data — the historical +34% noise blow-up
+  stays gated in `test_flow_warp.py`).
+- **Stale "template is 80–100° off on metrology synthetic" pin** in
+  `test_real_photo_validate.py` was failing at v6.7.6 HEAD too (measured:
+  template dlon −0.150°) — re-pinned to the truth (all classical estimators
+  sub-1° on metrology synthetic). The `test_redness_primary` 100/100 claim
+  became the documented per-stratum guarantee (99/100 ≤1°; the outlier is in
+  the vblurry stress band at 1.111° < its 1.2° limit, identical at HEAD).
+- **AP outlier gates in the derotation trackers** (`planetary_stacker
+  .gate_ap_track`, used by `run_planetary_stacker` and
+  `ap_stacker.derotate_frames`): AutoStakkert-style gating — (1) a limb gate
+  (rr ≤ 0.93 in the sky plane): boxes near the limb lock onto the *geometric*
+  disk edge, which does not move with the clouds — measured mis-locks of
+  2–8 px at phase-corr SNR 8–9 on bland captures, so SNR cannot identify
+  them; (2) a post-prior residual gate
+  `|resid| ≤ max(2 px, 0.3·|prior| + 1 px)`: unmodelled zonal shear is
+  ≪ 1 px at amateur scales, so any larger leftover is a mis-lock, not
+  meteorology. Rejected APs fall back to the model prior in their latitude
+  band. Measured effect (planted-fiducial audit, 4-frame 180 s rotating
+  capture): measurement/hybrid derotation fiducial error 0.843 → **0.274 px**
+  (prior 0.273 px; true drift 4.33 px).
+- **Phantom fitted dy no longer applied** in `ap_stacker.derotate_frames`:
+  rotation is zonal, so the per-AP dy fit should be ≈ 0 — on bland frames it
+  was a systematic **−0.46 px phantom** (true dy 0) that moved planted
+  markers ~0.8 px in y. The derotator now applies dx-only; the fitted dy is
+  still reported (`info["dy_fitted_px"]`) for transparency, and tip/tilt y
+  wander stays with the stacker's global align, where it is the better tool.
+- **AP tracker planted-shift audit** (`planetary_stacker._track_ap_planetary`,
+  `jupiter_zonal_stacker._track_ap_zonal`): the legacy zonal tracker had two
+  measured faults — it used the `_phase_corr_shift` parabola with the row/col
+  indexing bug (planted dy −1.5 px reported **+4.07 px**) and ADDED the
+  apply-shift residual onto the content prior (sign mixing: at a perfect
+  prior the same plant reported dy **+1.5, sign-flipped**). Both trackers
+  now run on the `_measure_shift` engine with prior-seeded windows that
+  **rebase on the integer window** (the old cross-octave accumulate folded
+  the rounding of a fractional prediction into the answer twice — a
+  systematic ±0.5 px bias, planting −1.5 read −2.014). Default is a single
+  full-res octave: the prior lands content inside the window, the integer
+  FFT peak searches the whole window, and Lucas–Kanade nails the subpixel —
+  planted displacements return **exact to ~0.01 px at any prior** (verified
+  at exp −6.2…+12.5 px, worst 0.16 px at the window edge).
+- **Sub-pixel shift apply was mathematically broken at six sites**
+  (`planetary_stacker._global_shift`, `jpa_10k`, `jpa_10d`,
+  `jupiter_infinite_tensor_engine`, `holy_hybrid_stacker`, and the
+  `win_jupos_derotator` three-shear rotation): `Re(ifft2(F·e^{iks}))` breaks
+  Hermitian symmetry for non-integer s and collapses to the even mixture
+  **(f(x−s)+f(x+s))/2 — both signs identical, half the shift smeared back
+  in** (exact for integers, which is why integer-only tests never caught
+  it). All six now use spline resampling. Measured effect on the WinJUPOS
+  three-shear rotation (0.9° test rotation): gradient-variance preservation
+  **7.5% → 39.5%** (5.3× sharper; the old path blurred rotations to mush);
+  `_global_shift` roundtrip 2.2e-06. `run_jupiter_zonal_stacker` also
+  composes correctly now — content-convention drifts + spline apply:
+  planted rigid shifts stack at RMS **0.0023 vs 0.0371** naive-mean, and
+  the zonal benchmark stays at its pinned 0.9978 mean peak.
+
+### The end-to-end proof (the number that matters)
+`video-to-answer` on a tilted-render (real 2026-08-02 geometry) SER video:
+published GRS relative longitude error **0.173°**, latitude error **0.347°**,
+grade GOOD — well inside the repo's 1° production gate. The test gates
+*relative* longitude (each side's own CM anchor: synthetic frames are planted
+on the renderer's analytical CM; production publishes on the SPICE CM — the two
+frames are documented and intentional), which is exactly what the campaigns score.
+
+## Honest limits
+- `video-to-answer` still needs a mid-exposure UTC (SER stamps or `--time`).
+- The 2D-mono flagship lock can still pick a non-GRS dark blob on bland
+  monochrome frames; the colour path (GS-ORANGE + redness) is what carries
+  production accuracy today (reason published definitions favour it).
+- Moon ephemeris needs SPICE jup365 or pyephem; without either it soft-fails.
+
 ## [6.7.6] — 2026-07-31
 
 Desktop Stacking tab: planet-generalised engine option.

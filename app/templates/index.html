@@ -187,6 +187,8 @@
           <button type="button" class="tab" data-tab="multi" role="tab">Multi-night</button>
           <button type="button" class="tab" data-tab="hard" role="tab">Stress</button>
           <button type="button" class="tab" data-tab="nasa" role="tab">Geometry</button>
+          <button type="button" class="tab" data-tab="video" role="tab">Video</button>
+          <button type="button" class="tab" data-tab="transits" role="tab">Transits</button>
         </div>
 
         <div id="tab-preview" class="tabpane active" role="tabpanel">
@@ -236,6 +238,85 @@
         <div id="tab-multi" class="tabpane" role="tabpanel"><pre id="multiBox" class="codeblock">Needs at least two measured jobs.</pre></div>
         <div id="tab-hard" class="tabpane" role="tabpanel"><pre id="hardBox" class="codeblock">Optional stress suite for error-bar honesty.</pre></div>
         <div id="tab-nasa" class="tabpane" role="tabpanel"><pre id="nasaBox" class="codeblock">No geometry report yet.</pre></div>
+
+        <div id="tab-video" class="tabpane" role="tabpanel">
+          <p class="muted small results-hint">
+            <strong>Video Import</strong> — AutoStakkert-class APS stacking: per-alignment-point
+            lucky selection + sub-pixel drizzle ×2/×3. Load a .ser / .avi capture.
+          </p>
+          <div class="drop small-drop" id="videoDrop" role="button" tabindex="0">
+            <p>Drop .ser / .avi or click to choose</p>
+            <input type="file" id="videoInput" accept=".ser,.avi" hidden />
+          </div>
+          <div id="videoInfo" class="file-info muted">No capture loaded</div>
+          <div class="row2">
+            <label>Best-frames fraction
+              <input type="number" id="vidKeep" value="0.25" min="0.05" max="1" step="0.05" inputmode="decimal" />
+            </label>
+            <label>Drizzle factor
+              <select id="vidDrizzle">
+                <option value="1" selected>1 (off)</option>
+                <option value="2">2 (super-res)</option>
+                <option value="3">3 (super-res)</option>
+              </select>
+            </label>
+          </div>
+          <div class="row2">
+            <label>AP size (px)
+              <input type="number" id="vidAp" value="32" min="8" max="256" step="8" inputmode="numeric" />
+            </label>
+            <label>Quality estimator
+              <select id="vidQuality">
+                <option value="laplacian" selected>laplacian</option>
+                <option value="gradient">gradient</option>
+                <option value="sobel">sobel</option>
+                <option value="contrast">contrast</option>
+              </select>
+            </label>
+          </div>
+          <div class="row2">
+            <label>Derotate (rotation)
+              <select id="vidDerotate">
+                <option value="none" selected>none</option>
+                <option value="prior">prior (model)</option>
+                <option value="hybrid">hybrid (meas+model)</option>
+                <option value="measurement">measurement</option>
+              </select>
+            </label>
+            <label class="check" style="align-self:end"><input type="checkbox" id="vidFull" /> Full pipeline: stack → sharpen → answer</label>
+          </div>
+          <p class="muted small">Derotation removes planet-rotation smear across a long capture (WinJUPOS-style; needs SER per-frame stamps). With it, the published epoch is the derotation reference frame.</p>
+          <div class="btn-row">
+            <button type="button" id="btnVideoStack" class="btn primary">Run APS stack</button>
+          </div>
+          <pre id="videoBox" class="codeblock">Stack a capture — the APS report appears here.</pre>
+          <div class="preview-wrap small">
+            <img id="videoImg" alt="APS stack preview" />
+          </div>
+        </div>
+
+        <div id="tab-transits" class="tabpane" role="tabpanel">
+          <p class="muted small results-hint">
+            <strong>Transit planner</strong> — WinJUPOS-class: GRS meridian crossings,
+            visibility windows (|rel| ≤ 45°) and Galilean moon transit/occultation
+            events, validated against published 2026 tables.
+          </p>
+          <div class="row2">
+            <label>Start UTC (blank = now)
+              <input type="text" id="trTime" placeholder="YYYY-MM-DD HH:MM" autocomplete="off" />
+            </label>
+            <label>Days ahead
+              <input type="number" id="trDays" value="1" min="0.25" max="30" step="0.25" inputmode="decimal" />
+            </label>
+          </div>
+          <label>Moons (comma list, blank = GRS only)
+            <input type="text" id="trMoons" value="io,europa,ganymede,callisto" autocomplete="off" />
+          </label>
+          <div class="btn-row">
+            <button type="button" id="btnTransits" class="btn primary">Plan night</button>
+          </div>
+          <pre id="transitsBox" class="codeblock">Plan a night — events appear here.</pre>
+        </div>
       </section>
 
       <section class="panel console-panel" aria-label="Live console">

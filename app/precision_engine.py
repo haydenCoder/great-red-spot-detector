@@ -340,6 +340,7 @@ def fit_limb_nav(
     cm_iii_deg: float = 0.0,
     distance_au: float = 5.2,
     isophote_frac: float = 0.18,
+    north_pa_deg: float = 0.0,
 ) -> NavState:
     """
     Sub-pixel limb navigation — the most critical step in the whole pipeline.
@@ -357,6 +358,16 @@ def fit_limb_nav(
     This can shift absolute lon/lat by tenths of a degree! The champion path
     probes multiple isophote levels and picks the one that stabilises the GRS
     measurement, which is how WinJUPOS practitioners do it by eye.
+
+    north_pa_deg: disk rotation prior (deg, E of N). Jupiter's true pole PA
+    reaches ~±17 deg over a Jovian year (e.g. 343.4 deg in Aug 2026), and the
+    apparent limb ellipse rotates with it. The robust centre/radius statistics
+    below assume an AXIS-ALIGNED ellipse; with a rotated disk the median radius
+    is biased ~1-3% low and outlier rejection misbehaves. When a PA prior is
+    supplied (the production stack passes the ephemeris value), the isophote
+    hits are de-rotated into the body frame before the median/MAD stats and
+    the updated centre is rotated back — WinJUPOS does the equivalent with its
+    free-rotating outline. Zero behaviour change when north_pa_deg == 0.
     """
     im = to_mono(image)
     h, w = im.shape
@@ -374,6 +385,8 @@ def fit_limb_nav(
     a = float(r_est)
     n_iter = 6 if n_rays >= 800 else 5
     n_rad = 360 if n_rays >= 800 else 300
+    pa_rad = deg2rad(float(north_pa_deg or 0.0))
+    cPa, sPa = math.cos(pa_rad), math.sin(pa_rad)
     # Precompute ray directions once (fixed across iterations)
     _angs = 2.0 * np.pi * np.arange(n_rays, dtype=np.float64) / n_rays
     _cos, _sin = np.cos(_angs), np.sin(_angs)
@@ -434,20 +447,46 @@ def fit_limb_nav(
             break
         xs_p = np.asarray(pts_x, dtype=np.float64)
         ys_p = np.asarray(pts_y, dtype=np.float64)
-        # robust centre
-        xc_n = float(np.median(xs_p))
-        yc_n = float(np.median(ys_p))
-        rr = np.sqrt((xs_p - xc_n) ** 2 + ((ys_p - yc_n) / (1.0 - FLAT)) ** 2)
-        med = float(np.median(rr))
-        mad = float(np.median(np.abs(rr - med))) + 1e-9
-        keep = np.abs(rr - med) < 3.0 * 1.4826 * mad
-        if int(keep.sum()) > 40:
-            xs_p, ys_p = xs_p[keep], ys_p[keep]
-            xc_n = float(np.mean(xs_p))
-            yc_n = float(np.mean(ys_p))
-            a_n = float(np.median(np.sqrt((xs_p - xc_n) ** 2 + ((ys_p - yc_n) / (1.0 - FLAT)) ** 2)))
+        if abs(pa_rad) > 1e-12:
+            # de-rotate hit points into the body frame about the current centre
+            # (image coords: body-x = dx·cP − dy·sP, body-y = −dx·sP − dy·cP;
+            #  exact inverse of planet_xyz_to_px step 2 with y-axis flip)
+            _dx = xs_p - xc
+            _dy = ys_p - yc
+            _bx = _dx * cPa - _dy * sPa
+            _by = -_dx * sPa - _dy * cPa
+            mbx = float(np.median(_bx))
+            mby = float(np.median(_by))
+            xc_n = xc + (mbx * cPa - mby * sPa)
+            yc_n = yc - (mbx * sPa + mby * cPa)
+            rr = np.sqrt((_bx - mbx) ** 2 + ((_by - mby) / (1.0 - FLAT)) ** 2)
+            med = float(np.median(rr))
+            mad = float(np.median(np.abs(rr - med))) + 1e-9
+            keep = np.abs(rr - med) < 3.0 * 1.4826 * mad
+            if int(keep.sum()) > 40:
+                _bx, _by = _bx[keep], _by[keep]
+                mbx = float(np.mean(_bx))
+                mby = float(np.mean(_by))
+                xc_n = xc + (mbx * cPa - mby * sPa)
+                yc_n = yc - (mbx * sPa + mby * cPa)
+                a_n = float(np.median(np.sqrt((_bx - mbx) ** 2 + ((_by - mby) / (1.0 - FLAT)) ** 2)))
+            else:
+                a_n = med
         else:
-            a_n = med
+            # robust centre
+            xc_n = float(np.median(xs_p))
+            yc_n = float(np.median(ys_p))
+            rr = np.sqrt((xs_p - xc_n) ** 2 + ((ys_p - yc_n) / (1.0 - FLAT)) ** 2)
+            med = float(np.median(rr))
+            mad = float(np.median(np.abs(rr - med))) + 1e-9
+            keep = np.abs(rr - med) < 3.0 * 1.4826 * mad
+            if int(keep.sum()) > 40:
+                xs_p, ys_p = xs_p[keep], ys_p[keep]
+                xc_n = float(np.mean(xs_p))
+                yc_n = float(np.mean(ys_p))
+                a_n = float(np.median(np.sqrt((xs_p - xc_n) ** 2 + ((ys_p - yc_n) / (1.0 - FLAT)) ** 2)))
+            else:
+                a_n = med
         # damp large jumps (stability)
         if abs(xc_n - xc) > 0.15 * a or abs(yc_n - yc) > 0.15 * a or abs(a_n - a) > 0.2 * a:
             # reject pathological iteration — blend gently toward bbox seed

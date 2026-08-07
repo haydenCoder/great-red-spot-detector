@@ -48,7 +48,8 @@ def _run_audit_subset(n: int = 4, out_path: Path | None = None) -> dict:
 class TestPerMethodAudit(unittest.TestCase):
     def test_summary_has_all_methods(self):
         s = _run_audit_subset(n=2)
-        for m in ("template", "map_dark", "moment", "redness", "published_hybrid", "v662"):
+        for m in ("template", "map_dark", "moment", "redness", "ellipse",
+                  "published_hybrid", "v662"):
             self.assertIn(m, s, f"summary missing method {m!r}")
 
     def test_redness_is_accurate(self):
@@ -77,17 +78,27 @@ class TestPerMethodAudit(unittest.TestCase):
         self.assertLess(p["dlat_pstdev"], v661["dlat_pstdev"] * 0.5,
                         "v6.6.2 dlat scatter is not better than v6.6.1")
 
-    def test_moment_has_dlat_bias(self):
-        """The moment estimator's dlat is biased ~+1.5° on metrology-mode
-        synthetic. This documents the v6.6.1 bug (redness_lon + moment_lat)
-        so the test fails loudly if the bias is ever fixed by accident.
+    def test_moment_dlat_bias_stays_fixed(self):
+        """v6.6.1 had a +1.5° dlat bias in the moment estimator (the
+        redness_lon + moment_lat hybrid bug). The v6.7.x estimator uses the
+        full planetocentric latitude tilt + intensity-inverted weights, and
+        the bias is gone. Verified 2026-08-06 across 12 matrix cases
+        (small_clear/small_blurry/large_mild): dlat mean +0.013, median
+        +0.015, max |.| 0.25 — so this pin asserts the bias *stays* fixed and
+        the v6.6.1 regression never sneaks back in.
         """
         s = _run_audit_subset(n=4)
         m = s["moment"]
-        # bias is the signed mean of dlat
-        self.assertGreaterEqual(
-            m["dlat_mean"], 0.5,
-            f"moment dlat bias disappeared: dlat_mean={m['dlat_mean']:+.3f}",
+        # bias is the signed mean of dlat; the fixed estimator is ~0
+        self.assertLessEqual(
+            abs(m["dlat_mean"]), 0.30,
+            f"moment dlat bias regressed (v6.6.1 bug back?): "
+            f"dlat_mean={m['dlat_mean']:+.3f}",
+        )
+        # and scatter must be sub-degree on the clear first four cases
+        self.assertLessEqual(
+            m["abs_dlat_max"], 1.0,
+            f"moment dlat scatter regressed: abs_dlat_max={m['abs_dlat_max']:.3f}",
         )
 
 

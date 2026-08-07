@@ -97,7 +97,7 @@ def _apply_zonal_shift(
     A smeared stack has lower peaks (and a non-zero lag if the
     smear is biased).
     """
-    from precision_engine import fit_limb_nav, deg2rad
+    from precision_engine import fit_limb_nav, deg2rad, FLAT as FLAT_CONST
     from jupiter_zonal_stacker import (
         _zonal_wind_rate_at_lat_deg_per_s, SYS3_RATE_DEG_PER_S,
     )
@@ -128,10 +128,20 @@ def _apply_zonal_shift(
         dcm_deg -= 360.0
     elif dcm_deg < -180.0:
         dcm_deg += 360.0
-    # Plate scale at the equator
-    deg_to_px = nav.a_eq_px / 90.0
+    # Plate scale at the equator, CORRECTED in v6.8.x to the physical chord:
+    # one degree of longitude rotation moves a surface point by
+    # (pi/180)*r(phi)*cos(phi)*a px in image-x (the old a/90 under-shifted by
+    # 1.57x at the equator, making the simulated shear ~60% gentler than real
+    # Jupiter — derotators were being graded against fiction).
+    a_eq = nav.a_eq_px
+    k_flat = 1.0 - FLAT_CONST
+    def _px_per_deg(la_deg: float) -> float:
+        la = deg2rad(la_deg)
+        c, sn = math.cos(la), math.sin(la)
+        r_phi = 1.0 / math.sqrt(c * c + (sn / k_flat) ** 2)
+        return (math.pi / 180.0) * r_phi * c * a_eq
     # The equatorial shift is the CM III rotation projected to image-x.
-    dx_sys3 = dcm_deg * deg_to_px
+    dx_sys3 = 0.0  # folded into the per-row latitude-aware shift below
     # Pre-compute per-row latitudes
     row_lats = np.zeros(h, dtype=np.float64)
     for row in range(h):
@@ -150,14 +160,20 @@ def _apply_zonal_shift(
             extra_lon = 0.0
         else:
             extra_lon = (rate - SYS3_RATE_DEG_PER_S) * (dcm_deg / SYS3_RATE_DEG_PER_S)
-        dx_row = dx_sys3 + extra_lon * deg_to_px
+        dx_row = -(dcm_deg + extra_lon) * _px_per_deg(avg_lat)  # content moves -x
         if abs(dx_row) < 0.02:
             continue
-        row_arr = out[row]
-        n = row_arr.size
-        f_row = np.fft.fft(row_arr)
-        phase = np.exp(-2j * math.pi * dx_row * np.arange(n) / n)
-        out[row] = np.real(np.fft.ifft(f_row * phase))
+        # Spatial-domain cubic resample at (x - dx): content moves +dx with NO
+        # circulant wraparound and NO Gibbs ringing at the hard sky/limb edge.
+        # (The FFT phase ramp used here before v6.8.x did both, so planted
+        # frames carried bright bars in the sky and combs at the limb —
+        # stacking "methods" were then grading who best handled an artifact
+        # the simulator invented. mode="nearest" keeps the sky constant and
+        # is the honest no-more-planet boundary.)
+        from scipy.ndimage import map_coordinates
+        out[row] = map_coordinates(
+            out[row], [np.arange(out.shape[1], dtype=np.float64) - dx_row],
+            order=3, mode="nearest", prefilter=True)
     return out
 
 

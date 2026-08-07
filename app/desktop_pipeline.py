@@ -818,7 +818,11 @@ def run_process_full(
     )
     write_ephemeris_report(out / "pro_ephemeris.json", pe)
 
-    nav = fit_limb_nav(meas, cm_iii_deg=pe.cm_iii_deg, distance_au=pe.distance_au)
+    # PA prior from the ephemeris: the limb ellipse rotates with the pole, so
+    # fit the limb in the de-rotated body frame (no-op when PA ≈ 0).
+    _nav_pa = float(pe.north_pa_deg or 0.0) if pe.apply_orientation else 0.0
+    nav = fit_limb_nav(meas, cm_iii_deg=pe.cm_iii_deg, distance_au=pe.distance_au,
+                       north_pa_deg=_nav_pa)
     nav.cm_iii_deg = pe.cm_iii_deg
     nav.distance_au = pe.distance_au
     # One geometry contract: orientation on NavState for map + moment methods

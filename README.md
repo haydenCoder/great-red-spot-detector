@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.7.6 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 6.8.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -91,6 +91,35 @@ On per-latitude-sheared synthetic frames the per-latitude warp beats the legacy
 global translation (+0.037 mean per-belt correlation) and the new measurement
 derotator beats naive stacking (+0.106). Full write-up:
 [`docs/PLANETARY_STACKING_6.7.0.md`](docs/PLANETARY_STACKING_6.7.0.md).
+
+### v6.8.0 — Observatory Pro: from video to published answer (2026-08-07)
+
+The whole pre-processing chain AutoStakkert/RegiStax/WinJUPOS users hop between
+now lives here:
+
+- **SER/AVI video import** (`ser_io.py`) and an **APS stacker** (`ap_stacker.py`):
+  per-alignment-point quality maps + lucky imaging + **true drizzle ×2/×3**
+  super-resolution, with a rotation-aware search window so the planet can turn
+  during the capture.
+- **Sharpen Lab** (`sharpen_lab.py`): à-trous wavelets (RegiStax-style), RL
+  deconvolution, unsharp — noise-gated so sharpening doesn't amplify grain.
+- **Transit planner** (`transits.py`): GRS crossings, visibility windows,
+  Galilean moon events — checked against published 2026 tables.
+- **JUPOS export** (`jupos_io.py`) and **blink GIFs** (`animation.py`).
+- Fifth measurement definition: **rim-ellipse fit** (`grs_ellipse.py`) — the
+  tightest latitude of any estimator (12-case audit: |dlat| median 0.107°).
+- One command for the full chain:
+
+```bash
+grs-observatory video-to-answer capture.ser --drizzle 2 --sharpen wavelet
+```
+
+Measured end-to-end proof on a tilted-geometry synthetic capture (real
+2026-08-02 sub-lat + pole PA): published relative longitude error **0.173°**,
+latitude **0.347°**. Three more measured production fixes (moon-mask colour
+gate, pole-PA-aware limb fit, derotation scale/sign) — all in
+[`CHANGELOG.md`](CHANGELOG.md) and [`docs/OBSERVATORY_PRO_6.8.0.md`](docs/OBSERVATORY_PRO_6.8.0.md).
+Desktop/web got **Video Import**, **Sharpen Lab** and **Transits** tabs.
 
 ---
 

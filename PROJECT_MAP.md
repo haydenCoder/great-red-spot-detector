@@ -3,7 +3,7 @@
 **User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
 **Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
 **Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
-**Version:** see `VERSION` (**6.7.6**)
+**Version:** see `VERSION` (**6.8.0**)
 
 ```
 great-red-spot-detector/   (or GRS_Observatory/)
@@ -28,8 +28,16 @@ great-red-spot-detector/   (or GRS_Observatory/)
 │   ├── planet_models.py             ← Planet profiles (v6.7): Jupiter/Saturn/Neptune/Uranus/Mars
 │   ├── planetary_stacker.py         ← planet-generalised stacker (per-lat / flow / global warp)
 │   ├── planetary_derotator.py       ← planet-generalised derotator (measurement/prior/hybrid)
-│   ├── flow_warp.py                 ← dense 2D optical-flow warp (v6.7.1)
+│   ├── flow_warp.py                 ← dense 2D optical-flow warp (v6.7.1, SNR-weighted in v6.8)
 │   ├── frame_quality.py             ← lucky-imaging frame rejection (v6.7.1)
+│   ├── ser_io.py                    ← SER/AVI capture reader-writer (v6.8)
+│   ├── ap_stacker.py                ← AutoStakkert-class APS stacker + drizzle + derotate_frames (v6.8)
+│   ├── observatory_pipeline.py      ← video-stack / sharpen / animate / jupos / video-to-answer (v6.8)
+│   ├── sharpen_lab.py               ← RegiStax-style wavelets, RL, unsharp (v6.8)
+│   ├── transits.py                  ← GRS + Galilean moon transit planner (v6.8)
+│   ├── grs_ellipse.py               ← rim-ellipse estimator, 5th measurement definition (v6.8)
+│   ├── animation.py · jupos_io.py   ← blink GIF export · JUPOS CSV (v6.8)
+│   ├── video_synth.py               ← rotating-video ground truth (v6.8)
 │   ├── models/                      ← SPIRE-Net weights (frozen)
 │   └── outputs/                     ← job folders after Process
 ├── tools/

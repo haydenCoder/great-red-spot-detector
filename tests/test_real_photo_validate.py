@@ -43,12 +43,28 @@ class TestRealPhotoValidate(unittest.TestCase):
         self.assertIn("redness", d["per_estimator"])
 
     def test_per_estimator_breakdown_honest(self):
-        """The per-estimator table must show that the published
-        redness_lon+moment_lat result is actually a blend: lon from
-        redness, lat from moment. We assert the close-against-truth
-        ordering: redness-lon is closer to truth than template-lon,
-        and moment-lat is closer to truth than the rejected
-        template-lat."""
+        """The per-estimator table must show the classical estimators all
+        landing sub-degree on a metrology synthetic, with the published
+        redness primary inside the same 1° production gate.
+
+        HISTORY: this test used to assert the exact opposite ordering —
+        "template is ~80-100° off, redness carries the publish". That was
+        true before the v6.6 consensus tuning and the moon-mask colour
+        gate: the old luminance moon masker erased the GRS core from the
+        measurement mono (the core is compact and dark), so any dark-blob
+        estimator was yanked off the planet. Measured 2026-08-07 on this
+        exact smoke frame (identical at v6.7.6 and v6.8.0):
+
+            template  dlon=-0.150  dlat=-0.453
+            moment    dlon=-0.056  dlat=-0.232
+            redness   dlon=+0.207  dlat=-0.228
+            spire_net dlon=-27.7   dlat=+14.6   (the remaining far-off one —
+                                                a soft PRIOR, never published)
+
+        The stale ">30°" pin made the suite fail at v6.7.6 HEAD itself; the
+        assertions below now pin the truth, including that spire_net stays
+        non-primary.
+        """
         out_path = Path("/tmp/test_rpv_synthetic2.json")
         if out_path.exists():
             out_path.unlink()
@@ -59,14 +75,19 @@ class TestRealPhotoValidate(unittest.TestCase):
         self.assertEqual(r.returncode, 0, f"stderr={r.stderr[:500]}")
         d = json.loads(out_path.read_text())
         pe = d["per_estimator"]
-        # The template method on metrology synthetic is far from
-        # truth (~80-100°). The moment is closer (~4-7°). The redness
-        # is the closest (~0.2-0.4°). This is the per-estimator
-        # ordering that motivates any redness-based improvement.
-        self.assertLess(abs(pe["redness"]["dlon_deg"]), 1.0,
-                        f"redness dlon {pe['redness']['dlon_deg']} should be <1°")
-        self.assertGreater(abs(pe["template"]["dlon_deg"]), 30.0,
-                           f"template dlon {pe['template']['dlon_deg']} should be far")
+        for name in ("template", "moment", "redness"):
+            self.assertLess(
+                abs(pe[name]["dlon_deg"]), 1.0,
+                f"{name} dlon {pe[name]['dlon_deg']:+.3f} regressed out of the 1° gate",
+            )
+            self.assertLess(
+                abs(pe[name]["dlat_deg"]), 1.0,
+                f"{name} dlat {pe[name]['dlat_deg']:+.3f} regressed out of the 1° gate",
+            )
+        # publish is redness-based and inside the same gate
+        self.assertIn("redness", d["method"])
+        dpub = (d["publish_lon_iii_deg"] - d["truth_lon_iii_deg"] + 180) % 360 - 180
+        self.assertLess(abs(dpub), 1.0, f"published dlon {dpub:+.3f} outside the 1° gate")
 
 
 if __name__ == "__main__":

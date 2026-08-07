@@ -1169,6 +1169,133 @@ class GRSDesktopApp(tk.Tk):
             secondary=True,
         )
 
+        # ── Video Import (APS stacking + drizzle, AutoStakkert-class) ────
+        tab_vid = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_vid, text="  Video Import  ")
+        self.video_path = None
+        self._action_btn(
+            tab_vid, "Choose SER / AVI…", self.on_video_pick,
+            "Pick a planetary capture (.ser preferred; uncompressed .avi works). "
+            "Frames are ranked, lucky-selected per alignment point and stacked.",
+            secondary=True,
+        )
+        self.video_lbl = tk.Label(
+            tab_vid, text="No capture chosen", bg=PANEL, fg=MUTED,
+            font=("Helvetica", 11), wraplength=900, justify=tk.LEFT,
+        )
+        self.video_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
+        self.vid_keep_var = tk.StringVar(value="0.25")
+        self._labeled_entry(
+            tab_vid, "Best-frames fraction per AP (lucky imaging)", self.vid_keep_var,
+            "AutoStakkert-style: for every alignment point only the sharpest "
+            "fraction of frame-patches contributes. 0.25 = best 25 %.",
+        )
+        self.vid_drizzle_var = tk.StringVar(value="1")
+        self._labeled_combo(
+            tab_vid, "Drizzle factor", self.vid_drizzle_var, ["1", "2", "3"],
+            "1 = off. 2 or 3 = super-resolution output grid (uses sub-pixel "
+            "information between frames; measured to beat single-frame RMSE).",
+        )
+        self.vid_ap_var = tk.StringVar(value="32")
+        self._labeled_entry(
+            tab_vid, "Alignment-point size (px)", self.vid_ap_var,
+            "Square AP box side. 32 px is the AutoStakkert-typical value; "
+            "smaller = follows local seeing more tightly, slower.",
+        )
+        self.vid_quality_var = tk.StringVar(value="laplacian")
+        self._labeled_combo(
+            tab_vid, "Frame quality estimator", self.vid_quality_var,
+            ["laplacian", "gradient", "sobel", "contrast"],
+            "How each patch is scored for sharpness. laplacian is the default "
+            "and the most robust to brightness gradients.",
+        )
+        self.vid_sharpen_var = tk.StringVar(value="none")
+        self._labeled_combo(
+            tab_vid, "Post-stack sharpen", self.vid_sharpen_var,
+            ["none", "wavelet", "unsharp", "rl"],
+            "Optional Sharpen Lab pass on the stacked image (see Sharpen Lab tab).",
+        )
+        self.vid_derot_var = tk.StringVar(value="none")
+        self._labeled_combo(
+            tab_vid, "Derotate (WinJUPOS-style rotation handling)", self.vid_derot_var,
+            ["none", "prior", "hybrid", "measurement"],
+            "Per-latitude rotation derotation BEFORE stacking — removes the "
+            "smear a multi-minute capture builds up as the planet turns. "
+            "prior = physics model only; measurement = measured cloud drifts; "
+            "hybrid = measured, model-blended where the lock is weak. Needs "
+            "SER per-frame stamps (real captures have them).",
+        )
+        self._action_btn(
+            tab_vid, "▶  Run APS Stack", self.on_video_stack_run,
+            "APS stack the capture: per-AP lucky selection + sub-pixel drizzle. "
+            "Writes aps_stack.png / aps_weight.png / APS_REPORT.txt.",
+            color=ACCENT,
+        )
+        self._action_btn(
+            tab_vid, "▶  Video → GRS Answer (full pipeline)", self.on_video_to_answer_run,
+            "The whole v6.8 production chain: read capture, APS stack, sharpen, "
+            "then the published measurement path. Needs mid-exposure UTC in the "
+            "time box (or SER per-frame stamps are used automatically).",
+            color=ACCENT,
+        )
+
+        # ── Sharpen Lab ──────────────────────────────────────────────────
+        tab_sharp = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_sharp, text="  Sharpen Lab  ")
+        self.sharpen_path = None
+        self._action_btn(
+            tab_sharp, "Choose image…", self.on_sharpen_pick,
+            "Pick a PNG / JPG stack to sharpen.", secondary=True,
+        )
+        self.sharpen_lbl = tk.Label(
+            tab_sharp, text="No image chosen", bg=PANEL, fg=MUTED,
+            font=("Helvetica", 11), wraplength=900, justify=tk.LEFT,
+        )
+        self.sharpen_lbl.pack(anchor=tk.W, padx=14, pady=(0, 4))
+        self.sharp_method_var = tk.StringVar(value="wavelet")
+        self._labeled_combo(
+            tab_sharp, "Method", self.sharp_method_var,
+            ["wavelet", "unsharp", "rl"],
+            "wavelet = B3 à-trous band gains + MAD denoise gate (default, "
+            "recommended). rl = Richardson–Lucy deconvolution. unsharp = "
+            "classic sharpen. RGB is sharpened on luminance only (hue preserved).",
+        )
+        self.sharp_amount_var = tk.StringVar(value="1.0")
+        self._labeled_entry(
+            tab_sharp, "Strength (unsharp amount / wavelet gain scale)", self.sharp_amount_var,
+            "1.0 = standard. The wavelet method is gain-tested not to amplify noise.",
+        )
+        self._action_btn(
+            tab_sharp, "▶  Sharpen", self.on_sharpen_run,
+            "Sharpen and write <name>_sharp_<method>.png next to the input.",
+            color=ACCENT,
+        )
+
+        # ── Transits (WinJUPOS-class event planner) ──────────────────────
+        tab_tr = tk.Frame(self.siril_nb, bg=PANEL)
+        self.siril_nb.add(tab_tr, text="  Transits  ")
+        self.tr_time_var = tk.StringVar(value="")
+        self._labeled_entry(
+            tab_tr, "Start UTC (blank = now)  YYYY-MM-DD HH:MM", self.tr_time_var,
+            "Times are naive UTC, the convention used across the whole app.",
+        )
+        self.tr_days_var = tk.StringVar(value="1.0")
+        self._labeled_entry(
+            tab_tr, "Window (days)", self.tr_days_var,
+            "How far ahead to plan. 1 day lists tonight's events.",
+        )
+        self.tr_moons_var = tk.StringVar(value="io,europa,ganymede,callisto")
+        self._labeled_entry(
+            tab_tr, "Moons (comma list, blank = GRS only)", self.tr_moons_var,
+            "Galilean moon transit/occultation predictions via SPICE (jup365) "
+            "or ephem fallback — validated against published 2026 event tables.",
+        )
+        self._action_btn(
+            tab_tr, "▶  Plan night", self.on_transits_run,
+            "GRS transits + visibility windows + moon events, printed to the log.",
+            color=ACCENT,
+        )
+
     # ── Stacking / Derotate handlers ──────────────────────────────────────
     def on_stack_pick_folder(self):
         d = filedialog.askdirectory(title="Choose a folder of Jupiter frames (PNG / JPG / FITS)")
@@ -1329,6 +1456,167 @@ class GRSDesktopApp(tk.Tk):
             return {"text": txt, "preview": prev}
 
         self._run_bg("Derotate (zonal, GRS-anchor)", job)
+
+    # ── Video Import / Sharpen Lab / Transits handlers (v6.8) ────────────
+    def on_video_pick(self):
+        f = filedialog.askopenfilename(
+            title="Choose a planetary capture",
+            filetypes=[("Planetary video", "*.ser *.avi"), ("All files", "*.*")],
+        )
+        if f:
+            self.video_path = Path(f)
+            self.video_lbl.configure(text=f"Capture: {f}", fg=FG)
+            CONSOLE.info(f"Video capture: {f}")
+
+    def _vid_cfg(self):
+        try:
+            keep = max(0.05, min(1.0, float(self.vid_keep_var.get())))
+        except Exception:
+            keep = 0.25
+        try:
+            drizzle = int(self.vid_drizzle_var.get())
+            drizzle = drizzle if drizzle in (1, 2, 3) else 1
+        except Exception:
+            drizzle = 1
+        try:
+            ap = max(8, min(256, int(self.vid_ap_var.get())))
+        except Exception:
+            ap = 32
+        derot = str(getattr(self, "vid_derot_var", tk.StringVar(value="none")).get() or "none")
+        if derot not in ("none", "prior", "hybrid", "measurement"):
+            derot = "none"
+        return (keep, drizzle, ap, str(self.vid_quality_var.get()),
+                str(self.vid_sharpen_var.get()), derot)
+
+    def on_video_stack_run(self):
+        if not getattr(self, "video_path", None):
+            messagebox.showinfo("Video Import", "Choose a SER / AVI capture first.")
+            return
+
+        def job():
+            import observatory_pipeline as op
+            keep, drizzle, ap, quality, sharp, derot = self._vid_cfg()
+            out = BASE / "outputs" / "aps_runs" / datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            rep = op.stack_video(
+                str(self.video_path), out_dir=out, keep_frac=keep, drizzle=drizzle,
+                ap_size=ap, quality=quality, sharpen_method=sharp, derotate=derot,
+            )
+            self.msg_q.put(("progress", 100))
+            dinfo = rep.get("derotate") or {}
+            dtxt = (f"  derotate:        {dinfo.get('mode')} "
+                    f"(ref frame #{dinfo.get('ref_index')}, "
+                    f"median row shift {dinfo.get('median_per_row_shift_px', 0.0):.2f} px)\n"
+                    if dinfo else "")
+            txt = (
+                "APS stack done (AutoStakkert-class).\n"
+                f"  frames:          {rep.get('n_frames')}\n"
+                f"  APs:             {rep.get('n_aps')}\n"
+                f"  drizzle:         x{rep.get('drizzle')}\n"
+                + dtxt +
+                f"  local shift RMS: {rep.get('mean_local_shift_rms', 0.0):.3f} px\n"
+                f"  elapsed:         {rep.get('secs', 0.0):.1f} s\n"
+                f"  stack PNG:       {rep.get('stack_png')}\n"
+                f"  weight PNG:      {out / 'aps_weight.png'}\n"
+                f"  full report:     {out / 'APS_REPORT.txt'}\n"
+            )
+            return {"text": txt, "preview": rep.get("stack_png")}
+
+        self._run_bg("APS Stack (Video Import)", job)
+
+    def on_video_to_answer_run(self):
+        if not getattr(self, "video_path", None):
+            messagebox.showinfo("Video Import", "Choose a SER / AVI capture first.")
+            return
+
+        def job():
+            import observatory_pipeline as op
+            keep, drizzle, ap, quality, _sharp, derot = self._vid_cfg()
+            t = (self.time_var.get() or "").strip() or None
+            rep = op.video_to_answer(
+                str(self.video_path), time_utc=t, keep_frac=keep, drizzle=drizzle,
+                ap_size=ap, sharpen_method="wavelet", derotate=derot,
+            )
+            self.msg_q.put(("progress", 100))
+            dinfo = rep.get("derotate") or {}
+            txt = (
+                "Video → GRS answer done.\n"
+                f"  frames used: {rep.get('n_frames_used')} / {rep.get('n_frames_video')}\n"
+                f"  epoch:       {rep.get('time_utc')}  [{rep.get('measurement_epoch', 'mid_exposure')}]\n"
+                + (f"  derotate:    {dinfo.get('mode')} anchored to ref frame "
+                   f"#{dinfo.get('ref_index')} ({dinfo.get('ref_time_utc')})\n"
+                   if dinfo else "")
+                + f"  stack:       {rep.get('stack_png')}\n"
+            )
+            meas = rep.get("measurement")
+            if meas:
+                h = meas.get("headline") or {}
+                pub = meas.get("publish") or {}
+                lon = pub.get("publish_lon_iii_deg", h.get("lon_iii_deg"))
+                lat = pub.get("publish_lat_deg", h.get("lat_deg"))
+                txt += (
+                    f"  GRS lon III: {lon}\n"
+                    f"  GRS lat:     {lat}\n"
+                    f"  definition:  {pub.get('publish_definition')}\n"
+                    f"  grade:       {h.get('grade')}\n"
+                )
+            else:
+                txt += f"  note: {rep.get('note')}\n"
+            return {"text": txt, "preview": rep.get("stack_png")}
+
+        self._run_bg("Video → GRS Answer", job)
+
+    def on_sharpen_pick(self):
+        f = filedialog.askopenfilename(
+            title="Choose an image to sharpen",
+            filetypes=[("Images", "*.png *.jpg *.jpeg"), ("All files", "*.*")],
+        )
+        if f:
+            self.sharpen_path = Path(f)
+            self.sharpen_lbl.configure(text=f"Image: {f}", fg=FG)
+
+    def on_sharpen_run(self):
+        if not getattr(self, "sharpen_path", None):
+            messagebox.showinfo("Sharpen Lab", "Choose an image first.")
+            return
+
+        def job():
+            import observatory_pipeline as op
+            try:
+                amt = max(0.1, min(4.0, float(self.sharp_amount_var.get())))
+            except Exception:
+                amt = 1.0
+            rep = op.sharpen_file(
+                str(self.sharpen_path), method=str(self.sharp_method_var.get()),
+                amount=amt,
+            )
+            self.msg_q.put(("progress", 100))
+            txt = (
+                f"Sharpen Lab ({rep.get('method')}).\n"
+                f"  Laplacian variance: {rep.get('lapvar_before', 0.0):.4f} → "
+                f"{rep.get('lapvar_after', 0.0):.4f} "
+                f"(x{rep.get('lapvar_after', 0.0) / max(1e-12, rep.get('lapvar_before', 1.0)):.2f})\n"
+                f"  output: {rep.get('out')}\n"
+            )
+            return {"text": txt, "preview": rep.get("out")}
+
+        self._run_bg("Sharpen Lab", job)
+
+    def on_transits_run(self):
+        def job():
+            import transits
+            t = (self.tr_time_var.get() or "").strip() or None
+            try:
+                days = max(0.25, min(30.0, float(self.tr_days_var.get())))
+            except Exception:
+                days = 1.0
+            moons = tuple(m.strip() for m in (self.tr_moons_var.get() or "").split(",")
+                          if m.strip())
+            t0 = transits._to_utc(t) if t else datetime.now(timezone.utc)
+            plan = transits.night_planner(t0, days=days, moons=moons)
+            self.msg_q.put(("progress", 100))
+            return {"text": transits.planner_text(plan)}
+
+        self._run_bg("Transit planner", job)
 
     def _section(self, parent, title: str):
         """Section header: bold navy text on tinted strip with accent underline."""

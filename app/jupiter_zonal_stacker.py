@@ -83,7 +83,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from verbose_log import CONSOLE
-from jpa_10k import _build_ap_grid, _phase_corr_shift, _laplacian_octave
+from jpa_10k import _build_ap_grid, _laplacian_octave
 from precision_engine import (
     FLAT, JUP_REQ_KM, deg2rad, rad2deg, wrap_deg, km_per_deg_lon,
     planetocentric_to_planetographic,
@@ -283,16 +283,17 @@ def _ap_expected_drift_px(
     # x-axis (east-west). The y-axis component comes from the
     # latitudinal profile shift (Δlat = -Δu/r * dt for retrograde,
     # 0 for the equatorial band's pure zonal motion).
-    # Convert deg of longitude to pixels at this AP's distance from
-    # the rotation axis.
-    x_ap, y_ap = ap_xy
-    xc, yc = nav_center_xy
-    dx_deg = delta_deg
-    # x-pixels per degree at this latitude (the projected disk has
-    # longitude squeezed near the limb, but the APs are interior so
-    # the unsqueezed plate scale is a fine approximation)
-    deg_to_px = nav_a_px / 90.0     # 180° spans the disk diameter = 2a
-    dx_px = dx_deg * deg_to_px
+    # Convert deg of longitude to pixels with the PHYSICAL chord:
+    # +dCM moves content -x by (pi/180)·r(phi)·cos(phi)·a px/deg
+    # (v6.8.x: the old a/90 scale was 1.57x too small at the equator and
+    # the sign was positive — both inherited from an unphysical simulator;
+    # verified against the delta-spot ground truth in video_synth).
+    k = 1.0 - 0.06487
+    la = math.radians(float(lat_deg))
+    c, sn = math.cos(la), math.sin(la)
+    r_phi = 1.0 / math.sqrt(c * c + (sn / k) ** 2)
+    px_per_deg = (math.pi / 180.0) * r_phi * c * float(nav_a_px)
+    dx_px = -delta_deg * px_per_deg
     return 0.0, float(dx_px)
 
 
@@ -307,12 +308,27 @@ def _track_ap_zonal(
     ap_half: int,
     expected_dy: float,
     expected_dx: float,
-    octaves: Sequence[int] = (0, 1, 2),
+    octaves: Sequence[int] = (0,),
 ) -> Tuple[float, float, float]:
     """
     Track one AP, with the *expected* drift subtracted before
-    correlation. Returns (dy_total, dx_total, snr). The total
-    drift = expected + residual measured by phase correlation.
+    correlation. Returns (dy_total, dx_total, snr) where the totals are the
+    CONTENT displacement of the frame relative to the reference
+    (= expected + measured residual, both in content convention).
+
+    v6.8.x re-implementation on the proven `ap_stacker._measure_shift`
+    engine (integer FFT peak + Lucas–Kanade refine). The legacy internals
+    had two measured faults (planted-shift audit 2026-08-07):
+      1. it used `jpa_10k._phase_corr_shift`, whose parabola sub-pixel peak
+         has a row/col indexing bug — a planted (dy=−1.5, dx=+3.0) content
+         displacement reported dy=+4.07 px;
+      2. it ADDED the measured apply-shift residual onto the
+         content-convention prediction (sign mixing): with a perfect x
+         prior the same planted pair reported dy=+1.5 — y sign-flipped.
+    Single full-res octave by default: prior-seeded content predictions
+    rebase on the integer window (pred_total = round(pred) - apply·scale),
+    so fractional priors do not double-count — planted shifts return exact
+    to ~0.01 px at any prior within the window. API unchanged.
     """
     h, w = ref.shape
     if frame.shape != ref.shape:
@@ -325,47 +341,39 @@ def _track_ap_zonal(
     if xi - ap_half < 0 or yi - ap_half < 0 or xi + ap_half >= w or yi + ap_half >= h:
         return float("nan"), float("nan"), 0.0
     ref_crop = ref[yi - ap_half:yi + ap_half + 1, xi - ap_half:xi + ap_half + 1]
-    # Initial shift: expected
-    cur_xi = xi + int(round(expected_dx))
-    cur_yi = yi + int(round(expected_dy))
-    cur_xi = max(ap_half, min(w - ap_half - 1, cur_xi))
-    cur_yi = max(ap_half, min(h - ap_half - 1, cur_yi))
-    frame_crop = frame[cur_yi - ap_half:cur_yi + ap_half + 1,
-                       cur_xi - ap_half:cur_xi + ap_half + 1]
-    if frame_crop.shape != ref_crop.shape:
-        return float("nan"), float("nan"), 0.0
-    total_dy, total_dx = 0.0, 0.0
+    from ap_stacker import _measure_shift
+    pred_dy, pred_dx = float(expected_dy), float(expected_dx)
     log_snr = 0.0
     n_ok = 0
     for oct in octaves:
         ref_oct = _laplacian_octave(ref_crop, oct)
-        # Apply the cumulative expected shift in the frame at this
-        # octave (coarse-to-fine within the multi-octave loop)
+        cx = xi + int(round(pred_dx))
+        cy = yi + int(round(pred_dy))
+        cx = max(ap_half, min(w - ap_half - 1, cx))
+        cy = max(ap_half, min(h - ap_half - 1, cy))
+        frame_oct_crop = frame[cy - ap_half:cy + ap_half + 1,
+                               cx - ap_half:cx + ap_half + 1]
+        if frame_oct_crop.shape != ref_oct.shape:
+            break
         try:
-            cur_xi_oct = xi + int(round(expected_dx + total_dx * (2 ** oct)))
-            cur_yi_oct = yi + int(round(expected_dy + total_dy * (2 ** oct)))
-            cur_xi_oct = max(ap_half, min(w - ap_half - 1, cur_xi_oct))
-            cur_yi_oct = max(ap_half, min(h - ap_half - 1, cur_yi_oct))
-            frame_oct_crop = frame[cur_yi_oct - ap_half:cur_yi_oct + ap_half + 1,
-                                   cur_xi_oct - ap_half:cur_xi_oct + ap_half + 1]
-            if frame_oct_crop.shape != ref_oct.shape:
-                break
-            dy, dx, snr = _phase_corr_shift(ref_oct, frame_oct_crop)
+            dy, dx, snr = _measure_shift(ref_oct, frame_oct_crop, refine=True)
         except Exception:
             break
         if not (math.isfinite(dy) and math.isfinite(dx) and math.isfinite(snr)):
             break
-        total_dy += dy * (2 ** oct)
-        total_dx += dx * (2 ** oct)
-        log_snr += math.log(max(snr, 1e-3))
+        # Rebase on the integer window: the crop was centred at
+        # round(pred), so the total content displacement is
+        # round(pred) - apply_residual·scale. (Updating pred -= apply
+        # WITHOUT rebasing folds the rounding of a fractional pred into
+        # the answer twice — a systematic ±0.5 px bias, measured on a
+        # planted -1.5 px displacement reporting -2.014.)
+        pred_dy = float(round(pred_dy)) - float(dy) * (2 ** oct)
+        pred_dx = float(round(pred_dx)) - float(dx) * (2 ** oct)
+        log_snr += math.log(max(float(snr), 1e-3))
         n_ok += 1
     if n_ok == 0:
         return float("nan"), float("nan"), 0.0
-    return (
-        expected_dy + total_dy,
-        expected_dx + total_dx,
-        math.exp(log_snr / n_ok),
-    )
+    return pred_dy, pred_dx, math.exp(log_snr / n_ok)
 
 
 # -----------------------------------------------------------------------------
@@ -634,7 +642,14 @@ def run_jupiter_zonal_stacker(
             # We use the simple plate scale here; the precise one
             # would need the full disk geometry.
             dlon_total = delta_deg_zonal + dlon_per_ap
-            dx_px = dlon_total * deg_to_px / max(cos_la, 0.05)
+            # (pi/180)·r(phi)·cos(phi)·a — the physical longitude chord
+            # (replaces deg_to_px/cos(phi), which overshoots by ~1.5x here)
+            k_flat = 1.0 - 0.06487
+            la_r = deg2rad(lat)
+            c_l, s_l = math.cos(la_r), math.sin(la_r)
+            r_phi = 1.0 / math.sqrt(c_l * c_l + (s_l / k_flat) ** 2)
+            px_per_deg_chord = (math.pi / 180.0) * r_phi * c_l * a_est
+            dx_px = dlon_total * px_per_deg_chord
             dy_px, dx_px_meas, snr = _track_ap_zonal(
                 ref, frame, (x, y), ap_half,
                 expected_dy=0.0, expected_dx=dx_px,
@@ -717,45 +732,33 @@ def run_jupiter_zonal_stacker(
             snr_k = snr_k / snr_k.sum()
             dy = float(np.sum(all_drifts[k, valid, 0] * snr_k))
             dx = float(np.sum(all_drifts[k, valid, 1] * snr_k))
-            # Equatorial-band rotation: use the SPICE CM III to
-            # compute the equatorial shift exactly
-            cm_ref = cm_iii_per_frame[0]
-            cm_k = cm_iii_per_frame[k]
-            dcm_deg = wrap_deg(cm_k - cm_ref)
-            if dcm_deg > 180.0:
-                dcm_deg -= 360.0
-            r_eq = a_est
-            deg_to_px_eq = a_est / 90.0
-            dx_sys3 = -dcm_deg * deg_to_px_eq
-            # Combine: the per-AP zonal-shear tracker and the SPICE
-            # CM III prior agree on the equatorial band by
-            # construction, so the per-AP median ≈ SPICE prior.
-            # Use the SPICE prior as the *primary* dx shift (it's
-            # the most accurate) and use the per-AP residual as a
-            # local refine via a per-pixel shift field.
-            # For simplicity (and to keep this honest): use the
-            # per-AP zonal tracker for the *equatorial* component
-            # and a zonal-shear interpolation for the
-            # latitude-dependent part.
-            # Build a per-latitude mean shift
-            lat_mean = float(np.average(ap_lat[valid], weights=snr_k))
-            # The expected equatorial shift from the tracker
-            dy_eq, dx_eq = 0.0, float(np.interp(0.0, np.sort(ap_lat[valid]), np.sort(all_drifts[k, valid, 1])))
-            # The measured shift at the mean lat
+            # We apply a single sub-pixel shift: the equatorial
+            # component is the dominant motion; use the SNR-weighted
+            # AP mean (which already carries the per-AP zonal-shear
+            # prior with the correct v6.8 longitude chord). This is the
+            # conservative choice: it doesn't over-apply the prior when
+            # the data contradicts it. (The dead SPICE-CM grade and
+            # mean-lat variables that used to sit here were removed in
+            # the v6.8 audit.)
             dy_mean, dx_mean = float(np.average(all_drifts[k, valid, 0], weights=snr_k)), \
                                 float(np.average(all_drifts[k, valid, 1], weights=snr_k))
-            # We apply a single sub-pixel shift: the equatorial
-            # component is the dominant motion. Use the AP median
-            # (which includes the per-AP zonal-shear prior).
-            # This is the conservative choice: it doesn't over-apply
-            # the prior when the data contradicts it.
             total_dx = dx_mean
             total_dy = dy_mean
-            # Apply via FFT sub-pixel shift
-            f = np.fft.fft2(frame.astype(np.float64))
-            yy, xx = np.mgrid[0:h, 0:w]
-            phase = np.exp(-2j * math.pi * (total_dy * yy / h + total_dx * xx / w))
-            shifted = np.real(np.fft.ifft2(f * phase))
+            # v6.8.x: drifts are CONTENT displacements -> apply the NEGATIVE
+            # shift, in the SPATIAL domain (scipy spline). The old FFT phase
+            # ramp here had two measured faults (2026-08-07 audit):
+            #   1. sign: it applied s=+drift (legacy drifts were
+            #      apply-convention junk that happened to compose
+            #      correctly);
+            #   2. sub-pixel: Re(ifft(F * exp(iks))) of a broken-Hermitian
+            #      spectrum collapses to the even mixture
+            #      (f(x-s) + f(x+s))/2 — both signs identical, half the
+            #      shift smeared back in (exact for integers, garbage
+            #      between). Spline resampling is exact here.
+            from scipy.ndimage import shift as _nd_shift
+            shifted = _nd_shift(frame.astype(np.float64),
+                                shift=(-total_dy, -total_dx), order=3,
+                                mode="nearest")
         # Per-pixel quality weight: per-AP-mean SNR
         snr_global = float(np.mean(all_snrs[k][np.isfinite(all_snrs[k])]))
         w_k = max(snr_global, 1e-3)

@@ -116,31 +116,55 @@ def _fit_rigid_rotation(
 def _rotate_about_centre(img: np.ndarray, theta_rad: float,
                         cx: float, cy: float) -> np.ndarray:
     """
-    Rotate the image by `theta_rad` about (cx, cy) using Fourier-domain
-    sub-pixel shifts. For very small angles this is essentially
-    a translation at the equator; for larger angles it samples the
-    spectrum on a sheared grid. We use a shear decomposition
-    (3-pass resampling) which is fast and preserves flux.
+    Rotate the image by `theta_rad` about (cx, cy) via the three-shear
+    decomposition (Unser et al. 1995), resampled in the SPATIAL domain.
+
+    v6.8.x: the passes used to be FFT phase ramps, which are exact only for
+    INTEGER shifts — at fractional shifts Re(ifft(F * e^{iks})) breaks
+    Hermitian symmetry and collapses to the even mixture
+    (f(x-s)+f(x+s))/2, so every fractional shear smeared half the shift
+    back in (measured 2026-08-07). Spline resampling is exact; signs and
+    pass order are unchanged, so integer-grid results are bit-near-identical
+    and sub-pixel rotations are finally real.
     """
     h, w = img.shape
     if abs(theta_rad) < 1e-7:
         return img.copy()
+    from scipy.ndimage import map_coordinates, shift as _nd_shift
+    tan_half = math.tan(theta_rad / 2.0)
+    sin_th = math.sin(theta_rad)
+    ys = np.arange(h, dtype=np.float64)
+    xs = np.arange(w, dtype=np.float64)
+
+    def _shift_translate(im: np.ndarray, dy: float, dx: float) -> np.ndarray:
+        return _nd_shift(im, shift=(dy, dx), order=3, mode="nearest")
+
+    def _shear_y(im: np.ndarray, a: float) -> np.ndarray:
+        # content of column x moves along y by a*(x - cx)
+        out = np.empty_like(im)
+        for x in range(w):
+            d = a * (x - cx)
+            out[:, x] = map_coordinates(im[:, x], [ys - d], order=3,
+                                        mode="nearest")
+        return out
+
+    def _shear_x(im: np.ndarray, b: float) -> np.ndarray:
+        # content of row y moves along x by b*(y - cy)
+        out = np.empty_like(im)
+        for y in range(h):
+            d = b * (y - cy)
+            out[y] = map_coordinates(im[y], [xs - d], order=3,
+                                     mode="nearest")
+        return out
+
     # Three-shear decomposition (Unser et al. 1995):
     #   R(θ) = T(cx, cy) * Sh_y(tan(θ/2)) * T(-cx, -cy)
     #         * Sh_x(-sin θ) * T(cx, cy) * Sh_y(tan(θ/2)) * T(-cx, -cy)
-    # We implement the shears with FFT sub-pixel shifts.
-    tan_half = math.tan(theta_rad / 2.0)
-    sin_th = math.sin(theta_rad)
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    def _shift(im: np.ndarray, dy: float, dx: float) -> np.ndarray:
-        f = np.fft.fft2(im)
-        phase = np.exp(-2j * math.pi * (dy * yy / h + dx * xx / w))
-        return np.real(np.fft.ifft2(f * phase))
-    img = _shift(img, -cy, -cx)
-    img = _shift(img,  tan_half * (xx - cx),  0.0)
-    img = _shift(img,  0.0, -sin_th * (yy - cy))
-    img = _shift(img,  tan_half * (xx - cx),  0.0)
-    img = _shift(img,  cy, cx)
+    img = _shift_translate(img, -cy, -cx)
+    img = _shear_y(img, tan_half)
+    img = _shear_x(img, -sin_th)
+    img = _shear_y(img, tan_half)
+    img = _shift_translate(img, cy, cx)
     return img
 
 

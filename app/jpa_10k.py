@@ -430,11 +430,11 @@ def run_jpa_10k(
     weights = np.zeros((h, w), dtype=np.float64)
     for k, frame in enumerate(frames):
         dy, dx = per_frame_shift[k]
-        # Sub-pixel shift via FFT
-        f = np.fft.fft2(frame.astype(np.float64))
-        yy, xx = np.mgrid[0:h, 0:w]
-        phase = np.exp(-2j * np.pi * (dy * yy / h + dx * xx / w))
-        shifted = np.real(np.fft.ifft2(f * phase))
+        # v6.8.x: spline apply — the FFT phase ramp was exact only for
+        # integer shifts (sub-pixel Re(ifft) is an even ±s mixture).
+        from scipy.ndimage import shift as _nd_shift
+        shifted = _nd_shift(frame.astype(np.float64), shift=(dy, dx),
+                            order=3, mode="nearest")
         # Per-pixel quality weight: a global SNR proxy
         snr_k = float(np.nanmean(all_snrs[k]))
         w_k = max(snr_k, 1e-3)

@@ -69,18 +69,25 @@ def _to_hwc(frame: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def _per_ap_expected_dx(planet: Planet, lat_deg: float, dt_s: float, deg_to_px: float) -> float:
-    """Image-x displacement (px) a cloud feature at φ makes over dt_s.
-
-    = -ω_cloud(φ)·dt·(a/90) — the FULL cloud-tracking motion (bulk rotation +
-    zonal wind). Re-centering the AP crop by this before phase correlation
-    keeps the residual small enough to lock even when the bulk rotation has
-    swept the feature many pixels (the raw tracker saturates past ap_half).
-    """
+    """LEGACY scaling — superseded by `_per_ap_expected_dx_lon` (which uses the
+    correct (π/180)r cosφ chord conversion; this one under-shifts by up to
+    1.57× at the equator). Kept for signature compatibility; all in-repo
+    derotation call sites have been switched over."""
     if dt_s == 0.0:
         return 0.0
     # cloud moves +longitude; in image-x that is -deg_to_px per degree (observer
     # convention, matching the synthetic simulator / winjupos_derotator).
     return -planet.cloud_tracking_rate_deg_per_s(lat_deg) * dt_s * deg_to_px
+
+
+def _per_ap_expected_dx_lon(planet: Planet, lat_deg: float, dt_s: float, a_eq_px: float) -> float:
+    """Correctly scaled image-x displacement (px) a cloud feature at φ makes
+    over dt_s: −ω_cloud(φ)·dt·(π/180)·r(φ)cosφ·a_eq_px. Ground-truthed on
+    rotating-video renders (<0.5° left after 350 s drift; test_video_jupiter).
+    Re-centering the AP crop by this before phase correlation keeps the
+    residual small enough to lock even when bulk rotation has swept the
+    feature many pixels (the raw tracker saturates past ap_half)."""
+    return planet.lon_drift_px(lat_deg, dt_s, a_eq_px)
 
 
 def _track_ap_planetary(
@@ -90,14 +97,19 @@ def _track_ap_planetary(
     ap_half: int,
     expected_dx: float,
     expected_dy: float = 0.0,
-    octaves: Sequence[int] = (0, 1, 2),
+    octaves: Sequence[int] = (0,),
 ) -> Tuple[float, float, float]:
     """Track one AP with the expected drift removed before correlation.
 
-    Multi-octave coarse-to-fine, frame crop re-centred by (expected + residual
-    so far). Returns the TOTAL (dy, dx) displacement frame-vs-reference at the
-    AP (= expected + measured residual), and a geometric-mean SNR. Mirrors the
-    proven `jupiter_zonal_stacker._track_ap_zonal`, generalised to any planet.
+    Single full-res octave by default (v6.8.x): the prior seed lands the
+    content inside the window, the integer FFT peak catches the whole window
+    range, and the Lucas-Kanade refine nails the subpixel residual. Planted
+    shifts come back exact to ~0.01 px regardless of the prior (the old
+    coarse-to-fine cross-octave accumulation drifted by up to 0.5 px on
+    fractional window rounding and its LK guard kicked integer peaks back —
+    retired 2026-08-07; pass ``octaves=(0, 1, 2)`` only if you know why).
+    Returns the TOTAL (dy, dx) CONTENT displacement frame-vs-reference at the
+    AP (= expected + measured residual), plus a geometric-mean SNR.
     """
     h, w = ref.shape
     x, y = ap_xy
@@ -105,11 +117,22 @@ def _track_ap_planetary(
     if xi - ap_half < 0 or yi - ap_half < 0 or xi + ap_half >= w or yi + ap_half >= h:
         return float("nan"), float("nan"), 0.0
     ref_crop = ref[yi - ap_half:yi + ap_half + 1, xi - ap_half:xi + ap_half + 1]
-    total_dy, total_dx, log_snr, n_ok = 0.0, 0.0, 0.0, 0
+    # pred = current best CONTENT DISPLACEMENT (px, full-res) of the frame
+    # relative to the reference, seeded by the model prior. The window is
+    # re-centred by pred; ap_stacker._measure_shift returns the residual
+    # APPLY-shift at the octave scale, so a residual content displacement is
+    # minus that. (The previous implementation accumulated apply-shifts as if
+    # they were displacements AND re-centred the window by (2**oct)x the
+    # prediction; against a known planted 4.2 px displacement it returned
+    # garbage unless the prior was already exact — i.e. it tracked nothing.
+    # Measured and fixed in v6.8.x).
+    from ap_stacker import _measure_shift
+    pred_dy, pred_dx = float(expected_dy), float(expected_dx)
+    log_snr, n_ok = 0.0, 0
     for oct in octaves:
         ref_oct = _laplacian_octave(ref_crop, oct)
-        cx = xi + int(round((expected_dx + total_dx) * (2 ** oct)))
-        cy = yi + int(round((expected_dy + total_dy) * (2 ** oct)))
+        cx = xi + int(round(pred_dx))
+        cy = yi + int(round(pred_dy))
         cx = max(ap_half, min(w - ap_half - 1, cx))
         cy = max(ap_half, min(h - ap_half - 1, cy))
         fr_crop = frame[cy - ap_half:cy + ap_half + 1, cx - ap_half:cx + ap_half + 1]
@@ -117,18 +140,71 @@ def _track_ap_planetary(
         if fr_oct.shape != ref_oct.shape:
             break
         try:
-            dy, dx, snr = _phase_corr_shift(ref_oct, fr_oct)
+            dy, dx, snr = _measure_shift(ref_oct, fr_oct, refine=True)
         except Exception:
             break
         if not (math.isfinite(dy) and math.isfinite(dx) and math.isfinite(snr)):
             break
-        total_dy += dy * (2 ** oct)
-        total_dx += dx * (2 ** oct)
-        log_snr += math.log(max(snr, 1e-3))
+        # Rebase on the integer window: the crop was centred at
+        # round(pred), so the total content displacement is
+        # round(pred) - apply_residual·scale. (Updating pred -= apply
+        # WITHOUT rebasing folds the rounding of a fractional pred into
+        # the answer twice — a systematic ±0.5 px bias, measured on a
+        # planted -1.5 px displacement reporting -2.014.)
+        pred_dy = float(round(pred_dy)) - float(dy) * (2 ** oct)
+        pred_dx = float(round(pred_dx)) - float(dx) * (2 ** oct)
+        log_snr += math.log(max(float(snr), 1e-3))
         n_ok += 1
     if n_ok == 0:
         return float("nan"), float("nan"), 0.0
-    return expected_dy + total_dy, expected_dx + total_dx, math.exp(log_snr / n_ok)
+    return pred_dy, pred_dx, math.exp(log_snr / n_ok)
+
+
+def _ap_sky_rr(nav, x: float, y: float) -> float:
+    """Normalised squared sky-plane radius of an image point (1.0 = limb).
+
+    rr is invariant to north-PA rotation (a rotation in the sky plane), so
+    no PA correction is needed; sub-lat tilt maps the *surface* point but the
+    limb ellipse itself is unchanged.
+    """
+    b = nav.a_eq_px * (1.0 - float(nav.flattening))
+    xs = (float(x) - nav.xc) / (nav.a_eq_px + 1e-12)
+    ys = (nav.yc - float(y)) / (b + 1e-12)
+    return xs * xs + ys * ys
+
+
+def gate_ap_track(nav, ap_xy: Tuple[float, float], tdy: float, tdx: float,
+                  expected_dx: float, expected_dy: float = 0.0,
+                  limb_rr_max: float = 0.93,
+                  resid_floor_px: float = 2.0, resid_frac: float = 0.3) -> bool:
+    """Accept/reject one prior-seeded AP track (AutoStakkert-style AP gating).
+
+    Two independent, physically motivated gates — both failure modes were
+    measured directly on rotating-video renders (v6.8.x zonal audit):
+
+      1. LIMB GATE: the AP centre must be inside rr <= limb_rr_max.
+         Nearer the limb the phase correlation locks onto the *geometric*
+         disk edge (which does not move with the clouds) or onto sky noise.
+         Those boxes mis-lock by 2-8 px even with phase-corr SNR 8-9, so
+         SNR alone cannot identify them; geometry can.
+      2. RESIDUAL GATE: after removing the wind-model prior, the leftover
+         must be small: |resid| <= max(resid_floor_px, resid_frac*|prior|+1).
+         Unmodelled zonal shear is far below 1 px at amateur scales
+         (0.05 km/s of shear over 3 min of capture is ~0.01 px at 2 px/deg),
+         so a multi-px residual is a tracker mis-lock, not meteorology.
+
+    Rejected APs become NaN in the drift table: the per-latitude fit then
+    falls back to the model prior for that band instead of warping garbage.
+    """
+    if not (math.isfinite(tdx) and math.isfinite(tdy)):
+        return False
+    if _ap_sky_rr(nav, ap_xy[0], ap_xy[1]) > float(limb_rr_max):
+        return False
+    rx = abs(float(tdx) - float(expected_dx))
+    ry = abs(float(tdy) - float(expected_dy))
+    lim = max(float(resid_floor_px),
+              float(resid_frac) * (abs(float(expected_dx)) + abs(float(expected_dy))) + 1.0)
+    return (rx <= lim) and (ry <= lim)
 
 
 def _frame_dt(planet: Planet, k: int, ref_idx: int,
@@ -279,8 +355,9 @@ def fit_dx_vs_latitude(
     for j in range(n_bins):
         m = good & (abs_lat >= edges[j]) & (abs_lat < edges[j + 1])
         if int(m.sum()) < 1:
-            # prior fallback: planet-model expected drift (negated to align)
-            dx_bin[j] = -planet.expected_drift_dx_px(centres[j], dt_s, deg_to_px)
+            # prior fallback: planet-model expected drift (negated to align),
+            # correctly scaled via the (π/180)r cosφ longitude chord
+            dx_bin[j] = -planet.lon_drift_px(centres[j], dt_s, deg_to_px * 90.0)
             continue
         med = float(np.median(ap_dx[m]))
         mad = float(np.median(np.abs(ap_dx[m] - med))) + 1e-9
@@ -305,14 +382,32 @@ def fit_dx_vs_latitude(
                 neigh.append(dx_bin[j + 1])
             sm[j] = float(np.mean(neigh))
         dx_bin = sm
-    # Fill prior-only bins by blending the model fill with the nearest measured
-    # bin (continuous where data exists, model where it does not).
-    idx = np.where(filled)[0]
-    if idx.size:
-        for j in range(n_bins):
-            if not filled[j]:
-                nb = idx[int(np.argmin(np.abs(idx - j)))]
-                dx_bin[j] = 0.5 * dx_bin[j] + 0.5 * dx_bin[nb]
+    # PHYSICAL BOUND (v6.8.x): no latitude band can legitimately shift by more
+    # than ~2x the cloud-tracked model (Jovian winds are bounded; deltas larger
+    # than that are tracker garbage, and near the poles a single per-row shift
+    # is ill-posed anyway — a polar row spans many latitudes AND longitudes).
+    # The old "blend empty bins toward the nearest measured bin" rule dragged
+    # equatorial ±100 px warps into the polar bands and visibly tore the limb;
+    # the clamp keeps the poles intact while the equator still derotates.
+    a_eq_px = deg_to_px * 90.0
+    meas_mag = np.abs(dx_bin[filled])
+    med_meas = float(np.median(meas_mag)) if meas_mag.size else 0.0
+    for j in range(n_bins):
+        model_lim = 2.0 * abs(planet.lon_drift_px(float(centres[j]), dt_s, a_eq_px)) + 1.5
+        # Unmeasured bins trust the model only; measured bins may exceed the
+        # model when their measured neighbourhood does (bounded wind shear and
+        # model-free unit tests alike), but an isolated tear cannot.
+        if filled[j]:
+            neigh = [abs(dx_bin[j])]
+            if j > 0 and filled[j - 1]:
+                neigh.append(abs(dx_bin[j - 1]))
+            if j < n_bins - 1 and filled[j + 1]:
+                neigh.append(abs(dx_bin[j + 1]))
+            data_lim = 2.0 * float(np.median(neigh)) + 1.5
+        else:
+            data_lim = 2.0 * med_meas + 1.5
+        lim = max(model_lim, min(data_lim, 3.0 * med_meas + 1.5) if filled[j] else model_lim)
+        dx_bin[j] = float(np.clip(dx_bin[j], -lim, lim))
     # dy: single robust value over all APs. Pure zonal rotation barely moves
     # latitude, so the per-lat structure is all in dx; a global dy is enough.
     dy_global = 0.0
@@ -339,8 +434,12 @@ def per_row_warp(
     """Apply a per-row x-shift (from the latitude fit) + a uniform y-shift.
 
     Each row is shifted by the dx at that row's |latitude| (interpolated from
-    the binned fit). Implemented as a per-row FFT phase ramp, matching the
-    proven convention used by win_jupos_derotator / the synthetic simulator.
+    the binned fit). Implemented as spatial-domain quintic-spline resampling
+    (map_coordinates order=5, content moves by +dx per row) — the same shift
+    convention as the original FFT phase ramp but with no circulant wraparound
+    or Gibbs ringing: the FFT version streaked limb bars through the sky on
+    long-rotation stacks and measurably degraded derotated outputs (see the
+    rotating-video benchmark in test_video_jupiter).
 
     Channel-aware: pass an (h,w,3) frame to warp every channel identically.
     """
@@ -350,33 +449,33 @@ def per_row_warp(
             [per_row_warp(arr[..., c], dx_apply_per_bin, dy_global, on_disk, row_lats)
              for c in range(arr.shape[2])], axis=-1,
         )
+    from scipy.ndimage import map_coordinates
     out = arr.copy()
     h, w = out.shape
     n_bins = dx_apply_per_bin.size
     centres = (np.arange(n_bins) + 0.5) * (90.0 / n_bins)
-    # per-row dx: interpolate the |lat| fit at each row's |lat|
     abs_lats = np.abs(row_lats)
     row_dx = np.interp(abs_lats, centres, dx_apply_per_bin)
-    ncol = w
-    idx = np.arange(ncol)
+    idx = np.arange(w, dtype=np.float64)
     for row in range(h):
         if not on_disk[row].any():
             continue
         dx = float(row_dx[row])
         if abs(dx) < 0.02:
             continue
-        # exp(-2πi·dx·k/ncol) — bake dx in directly (NOT (e^{-2πik/n})**dx,
-        # which wraps the phase on the wrong branch for fractional dx).
-        # IMPORTANT: must invert the FFT (real(ifft(fft*phase))); without the
-        # ifft this returns the un-inverted spectrum and blows up to |fft|max.
-        out[row] = np.real(
-            np.fft.ifft(np.fft.fft(out[row]) * np.exp(-2j * np.pi * dx * idx / ncol))
-        )
+        # Spatial-domain resample at (x - dx): content moves by +dx, exactly the
+        # old FFT phase-ramp convention (out(x) = in(x - dx)) — but WITHOUT the
+        # circulant wraparound that smeared limb bars into the sky and the
+        # bar-code striping plainly visible on long-rotation stacks (36-frame,
+        # 3.5-deg video benchmark, fixed in v6.8.x). mode="nearest" keeps the
+        # sky constant.
+        out[row] = map_coordinates(arr[row], [idx - dx], order=5,
+                                   mode="nearest", prefilter=True)
     if abs(dy_global) > 0.02:
-        f = np.fft.fft2(out)
-        yy = np.arange(h)[:, None]
-        phase = np.exp(-2j * np.pi * dy_global * yy / h)
-        out = np.real(np.fft.ifft2(f * phase))
+        yy = np.arange(h, dtype=np.float64)[:, None] - dy_global
+        yy = np.broadcast_to(yy, (h, w))
+        xx = np.broadcast_to(np.arange(w, dtype=np.float64)[None, :], (h, w))
+        out = map_coordinates(out, [yy, xx], order=5, mode="nearest", prefilter=True)
     return out
 
 
@@ -533,10 +632,16 @@ def run_planetary_stacker(
             drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
             snrs = np.zeros(n_aps, dtype=np.float64)
             for i, (ax, ay) in enumerate(aps):
-                exp_dx = _per_ap_expected_dx(planet, float(ap_lats[i]), dt_k, deg_to_px)
+                exp_dx = _per_ap_expected_dx_lon(planet, float(ap_lats[i]), dt_k, deg_to_px * 90.0)
                 tdy, tdx, snr = _track_ap_planetary(
                     ref_array, frame, (ax, ay), ap_half, expected_dx=exp_dx,
                 )
+                # AutoStakkert-style AP outlier gates (limb + post-prior
+                # residual): a mis-locked AP is NaN'd so the per-latitude
+                # fit falls back to the model prior in its band instead of
+                # dragging a wrong warp in (v6.8.x zonal audit).
+                if not gate_ap_track(nav, (ax, ay), tdy, tdx, exp_dx):
+                    tdy, tdx, snr = float("nan"), float("nan"), 0.0
                 drifts[i, 0] = tdy
                 drifts[i, 1] = tdx
                 snrs[i] = snr
@@ -657,11 +762,12 @@ def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
         return np.stack(
             [_global_shift(out[..., c], dy, dx) for c in range(out.shape[2])], axis=-1
         )
-    h, w = out.shape
-    f = np.fft.fft2(out)
-    yy, xx = np.mgrid[0:h, 0:w]
-    phase = np.exp(-2j * np.pi * (dy * yy / h + dx * xx / w))
-    return np.real(np.fft.ifft2(f * phase))
+    # v6.8.x: spline apply, not the FFT phase ramp. Re(ifft(F*e^{iks}))
+    # breaks Hermitian symmetry at non-integer s and collapses to the even
+    # mixture (f(x-s)+f(x+s))/2 — both signs identical, half the shift
+    # smeared back in (measured 2026-08-07; exact only for integer s).
+    from scipy.ndimage import shift as _nd_shift
+    return _nd_shift(out, shift=(dy, dx), order=3, mode="nearest")
 
 
 def stacker_report_text(res: "PlanetaryStackerResult") -> str:
@@ -730,6 +836,7 @@ __all__ = [
     "PlanetaryStackerResult",
     "select_reference_index",
     "fit_dx_vs_latitude",
+    "gate_ap_track",
     "per_row_warp",
     "stacker_report_text",
     "write_stacker_report",

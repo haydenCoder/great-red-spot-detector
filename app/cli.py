@@ -262,6 +262,120 @@ def main(argv=None) -> int:
     ppd.add_argument("--seed", type=int, default=0)
     ppd.add_argument("--out", default="")
 
+    # ------------------------------------------------------------------
+    # v6.8.0 Observatory Pro commands
+    # ------------------------------------------------------------------
+    pvs = sub.add_parser(
+        "video-stack",
+        help="AutoStakkert-class APS stack from a SER/AVI capture: per-alignment-"
+             "point quality maps + drizzle super-resolution + optional sharpen.",
+    )
+    pvs.add_argument("capture", help=".ser or .avi capture file")
+    pvs.add_argument("--best", type=float, default=0.25, help="per-AP lucky fraction (0..1)")
+    pvs.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pvs.add_argument("--pixfrac", type=float, default=1.0)
+    pvs.add_argument("--ap-size", type=int, default=32)
+    pvs.add_argument("--spacing", type=int, default=0)
+    pvs.add_argument("--quality", default="laplacian",
+                     choices=["laplacian", "gradient", "sobel", "contrast"])
+    pvs.add_argument("--step", type=int, default=1)
+    pvs.add_argument("--limit", type=int, default=0)
+    pvs.add_argument("--downsample", type=int, default=1)
+    pvs.add_argument("--align-downsample", type=int, default=1)
+    pvs.add_argument("--derotate", default="none",
+                     choices=["none", "prior", "hybrid", "measurement"],
+                     help="per-latitude rotation derotation before stacking "
+                          "(stamped SER, or --dt-per-frame for uniform cadence)")
+    pvs.add_argument("--dt-per-frame", type=float, default=0.0,
+                     help="seconds between frames when no stamps are available")
+    pvs.add_argument("--sharpen", default="none", choices=["none", "wavelet", "rl", "unsharp"])
+    pvs.add_argument("--out", default="")
+
+    pas = sub.add_parser(
+        "ap-stack",
+        help="APS stack a folder of frames (PNG/JPG/FITS) with per-AP quality + drizzle.",
+    )
+    pas.add_argument("--frames-dir", required=True)
+    pas.add_argument("--best", type=float, default=0.25)
+    pas.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pas.add_argument("--pixfrac", type=float, default=1.0)
+    pas.add_argument("--ap-size", type=int, default=32)
+    pas.add_argument("--spacing", type=int, default=0)
+    pas.add_argument("--quality", default="laplacian",
+                     choices=["laplacian", "gradient", "sobel", "contrast"])
+    pas.add_argument("--step", type=int, default=1)
+    pas.add_argument("--limit", type=int, default=0)
+    pas.add_argument("--derotate", default="none",
+                     choices=["none", "prior", "hybrid", "measurement"])
+    pas.add_argument("--dt-per-frame", type=float, default=0.0)
+    pas.add_argument("--sharpen", default="none", choices=["none", "wavelet", "rl", "unsharp"])
+    pas.add_argument("--out", default="")
+
+    psh = sub.add_parser(
+        "sharpen",
+        help="Sharpen an image (RegiStax-style wavelets, Richardson-Lucy, unsharp).",
+    )
+    psh.add_argument("image")
+    psh.add_argument("--method", default="wavelet", choices=["wavelet", "rl", "unsharp"])
+    psh.add_argument("--gains", default="1.8,1.5,1.25,1.1,1.0")
+    psh.add_argument("--rl-sigma", type=float, default=1.5)
+    psh.add_argument("--rl-iters", type=int, default=14)
+    psh.add_argument("--radius", type=float, default=2.5)
+    psh.add_argument("--amount", type=float, default=1.0)
+    psh.add_argument("--no-denoise", action="store_true")
+    psh.add_argument("--out", default="")
+
+    pt = sub.add_parser(
+        "transits",
+        help="GRS transit & Galilean-moon planner (WinJUPOS-style night sheet).",
+    )
+    pt.add_argument("--time", default="", help="start UTC (default: now)")
+    pt.add_argument("--days", type=float, default=1.0)
+    pt.add_argument("--moons", default="io,europa,ganymede,callisto")
+    pt.add_argument("--json", action="store_true")
+
+    pan = sub.add_parser(
+        "animate",
+        help="Export a blink/animation GIF (WinJUPOS-style derotation QA).",
+    )
+    pan.add_argument("frames", nargs="+", help="image paths (2+ for blink)")
+    pan.add_argument("--out", required=True)
+    pan.add_argument("--fps", type=float, default=4.0)
+    pan.add_argument("--stretch", default="global", choices=["global", "per_frame"])
+    pan.add_argument("--scale", type=int, default=1)
+    pan.add_argument("--stamps", default="", help="comma-separated per-frame text")
+
+    pje = sub.add_parser(
+        "jupos-export",
+        help="Export measurement packages to the JUPOS community CSV format.",
+    )
+    pje.add_argument("packages", nargs="+", help="package JSON files")
+    pje.add_argument("--out", required=True)
+    pje.add_argument("--observer", default="")
+    pje.add_argument("--instrument", default="")
+    pje.add_argument("--seeing", default="")
+
+    pv2a = sub.add_parser(
+        "video-to-answer",
+        help="Production one-shot: SER/AVI capture -> APS drizzle stack -> sharpen "
+             "-> published GRS measurement (SUPERDUPER card).",
+    )
+    pv2a.add_argument("capture")
+    pv2a.add_argument("--time", default="", help="mid-exposure UTC (SER stamps auto-if-empty)")
+    pv2a.add_argument("--best", type=float, default=0.25)
+    pv2a.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pv2a.add_argument("--ap-size", type=int, default=32)
+    pv2a.add_argument("--step", type=int, default=1)
+    pv2a.add_argument("--limit", type=int, default=0)
+    pv2a.add_argument("--downsample", type=int, default=1)
+    pv2a.add_argument("--sharpen", default="wavelet", choices=["none", "wavelet", "rl", "unsharp"])
+    pv2a.add_argument("--derotate", default="none",
+                      choices=["none", "prior", "hybrid", "measurement"],
+                      help="derotate before stacking (needs stamped SER); the "
+                           "measurement epoch becomes the derotation ref frame")
+    pv2a.add_argument("--no-nn", action="store_true", default=True)
+    pv2a.add_argument("--out", default="")
+
     args = p.parse_args(argv)
 
     if args.cmd == "version":
@@ -651,6 +765,105 @@ def main(argv=None) -> int:
             reference=args.reference,
         )
         print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    # ------------------------------------------------------------------
+    # v6.8.0 Observatory Pro handlers
+    # ------------------------------------------------------------------
+    if args.cmd == "video-stack":
+        import observatory_pipeline as op
+        rep = op.stack_video(
+            args.capture,
+            out_dir=Path(args.out) if args.out else default_out_root() / "video_stack",
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            spacing=args.spacing, quality=args.quality, pixfrac=args.pixfrac,
+            step=args.step, limit=args.limit, downsample=args.downsample,
+            align_downsample=args.align_downsample, sharpen_method=args.sharpen,
+            derotate=args.derotate,
+            dt_per_frame_s=(args.dt_per_frame or None),
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "ap-stack":
+        import observatory_pipeline as op
+        rep = op.stack_video(
+            None,
+            frames_dir=args.frames_dir,
+            out_dir=Path(args.out) if args.out else default_out_root() / "ap_stack",
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            spacing=args.spacing, quality=args.quality, step=args.step,
+            limit=args.limit, sharpen_method=args.sharpen, pixfrac=args.pixfrac,
+            derotate=args.derotate,
+            dt_per_frame_s=(args.dt_per_frame or None),
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "sharpen":
+        import observatory_pipeline as op
+        gains = tuple(float(x) for x in str(args.gains).split(",") if x.strip())
+        rep = op.sharpen_file(
+            args.image, method=args.method, out=args.out or None,
+            gains=gains, rl_sigma=args.rl_sigma, rl_iters=args.rl_iters,
+            radius=args.radius, amount=args.amount, denoise=not args.no_denoise,
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "transits":
+        import transits as _tr
+        start = args.time or None
+        moons = tuple(m.strip() for m in args.moons.split(",") if m.strip())
+        plan = _tr.night_planner(start or __import__("datetime").datetime.now(), days=args.days, moons=moons)
+        if args.json:
+            print(json.dumps(plan, indent=2, default=str))
+        else:
+            print(_tr.planner_text(plan))
+        return 0
+
+    if args.cmd == "animate":
+        import observatory_pipeline as op
+        stamps = [s.strip() for s in args.stamps.split(",") if s.strip()] or None
+        rep = op.animate_frames(args.frames, args.out, fps=args.fps,
+                                stamps=stamps, stretch=args.stretch, scale=args.scale)
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "jupos-export":
+        import observatory_pipeline as op
+        packages = []
+        for f in args.packages:
+            try:
+                packages.append(json.loads(Path(f).read_text(encoding="utf-8")))
+            except Exception as e:
+                print(f"WARNING: {f}: {e}", file=sys.stderr)
+        rep = op.export_jupos(
+            packages, args.out,
+            observer=args.observer, instrument=args.instrument, seeing=args.seeing,
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "video-to-answer":
+        import observatory_pipeline as op
+        rep = op.video_to_answer(
+            args.capture,
+            time_utc=args.time or None,
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            step=args.step, limit=args.limit, downsample=args.downsample,
+            sharpen_method=args.sharpen,
+            derotate=args.derotate,
+            out_root=Path(args.out) if args.out else None,
+        )
+        def _slim(d, depth=0):
+            if isinstance(d, dict):
+                return {k: _slim(v, depth + 1) for k, v in d.items()
+                        if k not in ("notes", "all_methods", "debug", "raw")}
+            if isinstance(d, list) and len(d) > 12:
+                return d[:12] + [f"...({len(d) - 12} more)"]
+            return d
+        print(json.dumps(_slim(rep), indent=2, default=str))
         return 0
 
     return 1

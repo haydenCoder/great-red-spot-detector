@@ -512,7 +512,7 @@ def upload():
         else:
             ext = Path(f.filename).suffix.lower()
             safe_name = Path(f.filename).name
-            if ext not in (".fit", ".fits", ".fts", ".ser", ".png", ".jpg", ".jpeg"):
+            if ext not in (".fit", ".fits", ".fts", ".ser", ".avi", ".png", ".jpg", ".jpeg"):
                 return jsonify({"ok": False, "error": f"Bad type {ext}"}), 400
     except SecurityError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -1683,6 +1683,215 @@ def api_factory_night():
 
     threading.Thread(target=worker, daemon=True).start()
     return jsonify({"ok": True, "job_id": jid, "run_n": run_n, "output_dir": str(out)})
+
+
+# ---------------------------------------------------------------------------
+# v6.8 "Observatory Pro" endpoints: transit planner, Sharpen Lab, APS video stack
+# ---------------------------------------------------------------------------
+
+@app.route("/api/transits")
+def api_transits():
+    """Tonight's GRS transits + visibility windows + Galilean moon events.
+
+    Query: time (UTC "YYYY-MM-DD HH:MM", default now), days (0.25..30),
+    moons (comma list of io|europa|ganymede|callisto, empty = GRS only).
+    """
+    import transits as _tr
+    t_raw = (request.args.get("time") or "").strip()
+    try:
+        days = float(request.args.get("days") or 1.0)
+    except Exception:
+        days = 1.0
+    days = max(0.25, min(30.0, days))
+    moons_raw = (request.args.get("moons") or "").strip()
+    moons = tuple(m for m in (m.strip().lower() for m in moons_raw.split(","))
+                  if m in _tr.MOONS)
+    if _SEC:
+        t_raw = strip_control_chars(t_raw, 40)
+        moons_raw = strip_control_chars(moons_raw, 120)
+    try:
+        t0 = _tr._to_utc(t_raw) if t_raw else datetime.now(timezone.utc).replace(tzinfo=None)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"bad time: {e}"}), 400
+    try:
+        plan = _tr.night_planner(t0, days=days, moons=moons)
+        return jsonify({"ok": True, "plan": plan, "text": _tr.planner_text(plan)})
+    except Exception as e:
+        CONSOLE.warn(f"transits: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/sharpen", methods=["POST"])
+def api_sharpen():
+    """Sharpen Lab: wavelet / unsharp / Richardson–Lucy on an uploaded image."""
+    data = request.get_json(force=True, silent=True) or {}
+    path = data.get("path")
+    if not path:
+        return jsonify({"ok": False, "error": "missing path"}), 400
+    method = str(data.get("method") or "wavelet").lower()
+    if method not in ("wavelet", "unsharp", "rl"):
+        return jsonify({"ok": False, "error": f"unknown method {method!r}"}), 400
+    try:
+        amount = max(0.1, min(4.0, float(data.get("amount") or 1.0)))
+    except Exception:
+        amount = 1.0
+    try:
+        if _SEC:
+            path = str(assert_safe_process_path(path, *data_roots(APP_DIR)))
+        if not Path(path).is_file():
+            return jsonify({"ok": False, "error": "missing file"}), 400
+    except SecurityError as e:
+        return jsonify({"ok": False, "error": str(e)}), 403
+    try:
+        import observatory_pipeline as op
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        out_path = UPLOAD / f"{stamp}_{uuid.uuid4().hex[:8]}_sharp_{method}.png"
+        rep = op.sharpen_file(path, method=method, out=str(out_path), amount=amount)
+        return jsonify({
+            "ok": True,
+            "method": method,
+            "lapvar_before": rep.get("lapvar_before"),
+            "lapvar_after": rep.get("lapvar_after"),
+            "out": rep.get("out"),
+            "preview": f"/api/file?path={rep.get('out')}",
+        })
+    except Exception as e:
+        CONSOLE.warn(f"sharpen: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/video_stack", methods=["POST"])
+def api_video_stack():
+    """Background APS stack of an uploaded SER/AVI (AutoStakkert-class)."""
+    data = request.get_json(force=True, silent=True) or {}
+    path = data.get("path")
+    if not path:
+        return jsonify({"ok": False, "error": "missing path"}), 400
+    try:
+        if _SEC:
+            path = str(assert_safe_process_path(path, *data_roots(APP_DIR)))
+        if not Path(path).is_file():
+            return jsonify({"ok": False, "error": "missing file"}), 400
+        if Path(path).suffix.lower() not in (".ser", ".avi"):
+            return jsonify({"ok": False, "error": "video-stack needs a .ser / .avi capture"}), 400
+    except SecurityError as e:
+        return jsonify({"ok": False, "error": str(e)}), 403
+
+    def _f(name, lo, hi, default):
+        try:
+            return max(lo, min(hi, float(data.get(name) or default)))
+        except Exception:
+            return default
+    keep_frac = _f("keep_frac", 0.05, 1.0, 0.25)
+    drizzle = int(_f("drizzle", 1, 3, 1))
+    drizzle = drizzle if drizzle in (1, 2, 3) else 1
+    ap_size = int(_f("ap_size", 8, 256, 32))
+    quality = str(data.get("quality") or "laplacian")
+    if quality not in ("laplacian", "gradient", "sobel", "contrast"):
+        quality = "laplacian"
+    sharpen = str(data.get("sharpen") or "none")
+    if sharpen not in ("none", "wavelet", "unsharp", "rl"):
+        sharpen = "none"
+    derotate = str(data.get("derotate") or "none")
+    if derotate not in ("none", "prior", "hybrid", "measurement"):
+        derotate = "none"
+    time_utc = (data.get("time_utc") or "").strip() or None
+    if _SEC and time_utc:
+        time_utc = strip_control_chars(time_utc, 40)
+    full_pipeline = bool(data.get("full_pipeline", False))
+
+    try:
+        jid, run_n, out = _start("stack")
+    except RuntimeError as e:
+        return jsonify({"ok": False, "error": str(e)}), 409
+
+    def worker():
+        try:
+            import observatory_pipeline as op
+            CONSOLE.info("=" * 60)
+            CONSOLE.info(f"APS VIDEO STACK run=#{run_n:04d}  {Path(path).name}")
+            CONSOLE.info(f"keep={keep_frac} drizzle=x{drizzle} AP={ap_size}px quality={quality}")
+            if full_pipeline:
+                rep = op.video_to_answer(
+                    path, time_utc=time_utc, keep_frac=keep_frac,
+                    drizzle=drizzle, ap_size=ap_size, derotate=derotate,
+                    sharpen_method=(sharpen if sharpen != "none" else "wavelet"),
+                    out_root=out,
+                )
+                result: Dict[str, Any] = {
+                    "kind": "video_stack",
+                    "run_n": run_n,
+                    "source_kind": "real_file",
+                    "output_dir": str(out),
+                    "n_frames": rep.get("n_frames_used"),
+                    "stack": rep.get("stack"),
+                    "time_utc": rep.get("time_utc"),
+                    "measurement_epoch": rep.get("measurement_epoch"),
+                    "derotate": rep.get("derotate"),
+                    "preview": f"/api/file?path={rep.get('stack_png')}",
+                    "preview_label": "APS drizzle stack (your capture)",
+                }
+                meas = rep.get("measurement") or {}
+                h = meas.get("headline") or {}
+                pub = meas.get("publish") or {}
+                dinfo = rep.get("derotate") or {}
+                dtxt = (f"derotate: {dinfo.get('mode')} → ref frame "
+                        f"#{dinfo.get('ref_index')} ({dinfo.get('ref_time_utc')})\n"
+                        if dinfo else "")
+                if meas:
+                    result["headline"] = h
+                    result["publish"] = pub
+                    result["text"] = (
+                        "VIDEO → GRS ANSWER\n"
+                        f"frames used: {rep.get('n_frames_used')}\n"
+                        f"epoch: {rep.get('time_utc')} [{rep.get('measurement_epoch', 'mid_exposure')}]\n"
+                        + dtxt +
+                        f"publish lon III: {pub.get('publish_lon_iii_deg')}\n"
+                        f"publish lat: {pub.get('publish_lat_deg')}\n"
+                        f"definition: {pub.get('publish_definition')}   grade: {h.get('grade')}\n"
+                    )
+                else:
+                    result["text"] = (
+                        "VIDEO STACK (no measurement — no mid-exposure time known)\n"
+                        + json.dumps(rep.get("stack"), indent=2, default=str)
+                    )
+                _finish(result, None)
+                return
+            rep = op.stack_video(
+                path, out_dir=out, keep_frac=keep_frac, drizzle=drizzle,
+                ap_size=ap_size, quality=quality, sharpen_method=sharpen,
+                derotate=derotate,
+            )
+            dinfo = rep.get("derotate") or {}
+            txt_lines = [
+                "APS STACK (AutoStakkert-class)",
+                f"frames: {rep.get('n_frames')}   APs: {rep.get('n_aps')}   drizzle: x{rep.get('drizzle')}",
+            ]
+            if dinfo:
+                txt_lines.append(
+                    f"derotate: {dinfo.get('mode')} (ref frame #{dinfo.get('ref_index')}, "
+                    f"median row shift {float(dinfo.get('median_per_row_shift_px') or 0.0):.2f} px)")
+            txt_lines += [
+                f"local shift RMS: {rep.get('mean_local_shift_rms'):.3f} px",
+                f"elapsed: {rep.get('secs'):.1f} s",
+                f"stack: {rep.get('stack_png')}",
+            ]
+            _finish({
+                "kind": "video_stack",
+                "run_n": run_n,
+                "source_kind": "real_file",
+                "output_dir": str(out),
+                "text": "\n".join(txt_lines),
+                "report": rep,
+                "preview": f"/api/file?path={rep.get('stack_png')}",
+                "preview_label": "APS drizzle stack (your capture)",
+            }, None)
+        except Exception as e:
+            CONSOLE.error(f"video stack: {e}")
+            _finish(None, str(e))
+
+    threading.Thread(target=worker, daemon=True).start()
+    return jsonify({"ok": True, "job_id": jid, "run_n": run_n})
 
 
 @app.route("/api/output/<job_id>/<path:filename>")

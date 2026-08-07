@@ -98,10 +98,29 @@ def mask_satellite_shadows(
     mono: np.ndarray,
     *,
     disk_mask: Optional[np.ndarray] = None,
+    rgb: Optional[np.ndarray] = None,
+    redness_max: float = 0.06,
+    max_disk_frac: float = 0.025,
 ) -> np.ndarray:
     """
     Boolean mask of compact dark blobs (moon umbra / satellites).
     True = pixel is moon/shadow — should not drive GRS dark centroid.
+
+    COLOUR-NEUTRAL GATE (why it exists)
+    -----------------------------------
+    A Galilean moon in front of the disk or its shadow umbra is essentially
+    GREY/BLACK: r ≈ g ≈ b. Jovian dark features — the GRS core, SEB festoons,
+    dark ovals — are brown/red (r − 0.5(g+b) ≫ 0). The old pure-luminance
+    detector happily masked every dark festoon AND the GRS core itself
+    (measured on a 1080p synthetic: ~24k px of reddish features erased,
+    biasing the GRS centroid by > 10 deg). When ``rgb`` (HWC float, roughly
+    [0,1], same normalisation as ``mono``) is supplied, blobs whose mean
+    redness r − 0.5(g+b) exceeds ``redness_max`` are kept as atmosphere.
+
+    SAFETY CAP: if the surviving mask would still exceed ``max_disk_frac``
+    of the disk, something else went wrong (heavy colour artefact, mottled
+    sky); masking that much of the planet is worse than leaving one moon in,
+    so the whole mask is dropped instead.
     """
     im = np.asarray(mono, dtype=np.float64)
     if im.ndim != 2:
@@ -118,6 +137,15 @@ def mask_satellite_shadows(
         from scipy.ndimage import binary_dilation, label
     except Exception:
         return out
+
+    rgb_arr = None
+    if rgb is not None:
+        try:
+            rgb_arr = np.asarray(rgb, dtype=np.float64)
+            if rgb_arr.ndim != 3 or rgb_arr.shape[2] < 3 or rgb_arr.shape[:2] != (h, w):
+                rgb_arr = None
+        except Exception:
+            rgb_arr = None
 
     dark = (im < float(np.percentile(im[disk], 9.0))) & disk
     lab, n = label(dark)
@@ -136,7 +164,16 @@ def mask_satellite_shadows(
         aspect = (xs.max() - xs.min() + 1) / max(1, (ys.max() - ys.min() + 1))
         if aspect > 3.5 or aspect < 1 / 3.5:
             continue
+        # colour-neutral gate: moons/shadows are grey; Jovian features are red-brown
+        if rgb_arr is not None:
+            red = float(rgb_arr[..., 0][m].mean()) - 0.5 * (
+                float(rgb_arr[..., 1][m].mean()) + float(rgb_arr[..., 2][m].mean())
+            )
+            if red > float(redness_max):
+                continue
         out |= binary_dilation(m, iterations=3)
+    if out.any() and int(out.sum()) > max(80, int(float(max_disk_frac) * disk.sum())):
+        return np.zeros((h, w), dtype=bool)
     return out
 
 
@@ -352,7 +389,16 @@ def prepare_grs_measure_image(
     except Exception:
         disk = mono_for_moon > float(np.percentile(mono_for_moon, 40))
 
-    moon = mask_satellite_shadows(mono_for_moon, disk_mask=disk)
+    moon_rgb = None
+    if all(k in ch_out for k in ("R", "G", "B")):
+        try:
+            moon_rgb = np.stack([_norm01(ch_out["R"]), _norm01(ch_out["G"]),
+                                 _norm01(ch_out["B"])], axis=-1)
+            if moon_rgb.shape != mono_for_moon.shape + (3,):
+                moon_rgb = None
+        except Exception:
+            moon_rgb = None
+    moon = mask_satellite_shadows(mono_for_moon, disk_mask=disk, rgb=moon_rgb)
     meta["moon_pixels"] = int(moon.sum())
     if moon.any():
         fill = float(np.median(meas[disk & ~moon])) if (disk & ~moon).any() else float(np.median(meas))

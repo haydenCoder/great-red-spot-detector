@@ -24,6 +24,11 @@ from __future__ import annotations
 
 import numpy as np
 
+try:  # optional C core (v7.0.0) — identical math, compiled speed
+    import cspeed as _cspeed
+except Exception:  # pragma: no cover - import guard
+    _cspeed = None
+
 
 def warp_shift2d(img: np.ndarray, dy: float, dx: float, order: int = 3) -> np.ndarray:
     """Translate an image: content moves by (+dy, +dx) pixels.
@@ -37,6 +42,20 @@ def warp_shift2d(img: np.ndarray, dy: float, dx: float, order: int = 3) -> np.nd
     """
     from scipy.ndimage import shift as _nd_shift
     arr = np.asarray(img, dtype=np.float64)
+    if int(order) == 3 and _cspeed is not None and _cspeed.have_c():
+        # C fast path (v7.0.0): prefilter once, batch-sample in compiled
+        # code (parity pinned ~1e-15 in tests/test_cspeed.py).
+        h, w = arr.shape[:2]
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+        yy -= float(dy)
+        xx -= float(dx)
+        if arr.ndim == 3:
+            return np.stack(
+                [_cspeed.field_warp3(arr[..., c], yy, xx)
+                 for c in range(arr.shape[2])],
+                axis=-1,
+            )
+        return _cspeed.field_warp3(arr, yy, xx)
     if arr.ndim == 3:
         return np.stack(
             [_nd_shift(arr[..., c], shift=(float(dy), float(dx)),
@@ -75,6 +94,16 @@ def warp_field2d(img: np.ndarray, dy: np.ndarray, dx: np.ndarray,
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
     sy = yy - fy
     sx = xx - fx
+    if int(order) == 3 and _cspeed is not None and _cspeed.have_c():
+        # C fast path (v7.0.0): prefilter once, batch-sample in compiled
+        # code (parity pinned ~1e-15 in tests/test_cspeed.py).
+        if arr.ndim == 3:
+            return np.stack(
+                [_cspeed.field_warp3(arr[..., c], sy, sx)
+                 for c in range(arr.shape[2])],
+                axis=-1,
+            )
+        return _cspeed.field_warp3(arr, sy, sx)
     if arr.ndim == 3:
         return np.stack(
             [map_coordinates(arr[..., c], [sy, sx], order=int(order),

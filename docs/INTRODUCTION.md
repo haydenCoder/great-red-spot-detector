@@ -1,6 +1,6 @@
 # Introduction — GRS Observatory (great-red-spot-detector)
 
-*Version 6.9.0 ("Analysis Pro") · This document introduces the project to a
+*Version 7.0.0 ("Velocity Pro") · This document introduces the project to a
 newcomer: what it does, why it can be trusted, and where to start.*
 
 ## What this is
@@ -43,6 +43,8 @@ from the in-repo test suite (848 tests):
 | GRS CM-II drift over 30 d | planted −0.42° → **−0.42 ± 0.10°** | `tests/test_grs_drift.py` |
 | Dither-diversity forensics | clones **0.000** vs real dither **0.145** (gate 0.10) | `tests/test_stack_report.py` |
 | Capture-span inversion (px/deg exact) | rel. err **1e-9** | `tests/test_session_planner.py` |
+| C spline kernels vs scipy (parity) | max δ **1.3e-15** | `tests/test_cspeed.py` |
+| `stack_ap`: C core vs numpy path | **3.52×** faster, stack δ **3.5e-16** | `tools/cspeed_benchmark.py` |
 
 Ground truth comes from `video_synth.py`, a renderer with known System-III
 rotation, known wind fields, known limb darkening and known noise: we plant
@@ -64,6 +66,11 @@ physics, hide the answer, and make the pipeline recover it.
   span before rotation blurs your stack, filter-switch windows), **stack
   forensics** (drizzle fill, dither-diversity audit, sharpness gain), and
   **limb-darkening fitting**.
+- **v7.0 — Velocity Pro:** an optional **C core** (ctypes, builds on
+  demand) around the two proven hot spots — a fused Lucas–Kanade pass and
+  batch spline sampling — for a measured **3.52×** end-to-end stacker
+  speedup with **3.5e-16** answer drift. Strict IEEE, no `-ffast-math`;
+  identical scipy fallback when no compiler exists.
 
 ## Interfaces — pick one
 

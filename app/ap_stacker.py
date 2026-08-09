@@ -56,6 +56,11 @@ import numpy as np
 from frame_quality import assess_frames
 from jpa_10k import _phase_corr_shift, _laplacian_octave
 
+try:  # optional C core (v7.0.0) — identical math, compiled speed
+    import cspeed as _cspeed
+except Exception:  # pragma: no cover - import guard
+    _cspeed = None
+
 
 # ---------------------------------------------------------------------------
 # Config / result
@@ -189,23 +194,40 @@ def _lk_refine(ref: np.ndarray, img: np.ndarray, ay: float, ax: float,
     yy, xx = np.meshgrid(ys0, xs0, indexing="ij")
     ref_c = ref[margin:h - margin, margin:w - margin]
     cy, cx = float(ay), float(ax)
+    use_c = _cspeed is not None and _cspeed.have_c()
+    if use_c:
+        # PERF (C core, v7.0.0): one fused compiled pass per iteration
+        # computes the spline value, both gradients and the normal-equation
+        # sums — tests/test_cspeed.py pins parity with the scipy path
+        # (~1e-14 max|delta|, pure summation-order noise).
+        ref_f = np.ascontiguousarray(ref_c.ravel(), dtype=np.float64)
+        y0f = np.ascontiguousarray((yy + P).ravel(), dtype=np.float64)
+        x0f = np.ascontiguousarray((xx + P).ravel(), dtype=np.float64)
     for _ in range(iters):
-        ys = yy - cy + P
-        xs = xx - cx + P
-        warped = map_coordinates(img_c, [ys, xs], order=3, mode="nearest",
-                                 prefilter=False)
-        gy = 0.5 * (map_coordinates(img_c, [ys + 1, xs], order=3, mode="nearest", prefilter=False)
-                    - map_coordinates(img_c, [ys - 1, xs], order=3, mode="nearest", prefilter=False))
-        gx = 0.5 * (map_coordinates(img_c, [ys, xs + 1], order=3, mode="nearest", prefilter=False)
-                    - map_coordinates(img_c, [ys, xs - 1], order=3, mode="nearest", prefilter=False))
-        if float((gy * gy + gx * gx).sum()) < 1e-9:
-            break                                    # flat box: no information
-        A = np.stack([gy.ravel(), gx.ravel()], 1)
+        if use_c:
+            a, b, g2, d1, d2 = _cspeed.lk_sums(img_c, ref_f, None,
+                                               y0f, x0f, cy, cx)
+            if a + g2 < 1e-9:
+                break                                # flat box: no information
+            AtA = np.array([[a, b], [b, g2]])
+            AtB = np.array([d1, d2])
+        else:
+            ys = yy - cy + P
+            xs = xx - cx + P
+            warped = map_coordinates(img_c, [ys, xs], order=3, mode="nearest",
+                                     prefilter=False)
+            gy = 0.5 * (map_coordinates(img_c, [ys + 1, xs], order=3, mode="nearest", prefilter=False)
+                        - map_coordinates(img_c, [ys - 1, xs], order=3, mode="nearest", prefilter=False))
+            gx = 0.5 * (map_coordinates(img_c, [ys, xs + 1], order=3, mode="nearest", prefilter=False)
+                        - map_coordinates(img_c, [ys, xs - 1], order=3, mode="nearest", prefilter=False))
+            if float((gy * gy + gx * gx).sum()) < 1e-9:
+                break                                # flat box: no information
+            A = np.stack([gy.ravel(), gx.ravel()], 1)
+            AtA = A.T @ A
+            AtB = A.T @ (ref_c - warped).ravel()
         # Tikhonov regularisation keeps flat/one-sided boxes sane
-        AtA = A.T @ A
         lam = 1e-6 * float(np.trace(AtA))
-        sol = np.linalg.solve(AtA + lam * np.eye(2), A.T @ diff.ravel()) \
-            if (diff := ref_c - warped) is not None else 0.0
+        sol = np.linalg.solve(AtA + lam * np.eye(2), AtB)
         if not np.all(np.isfinite(sol)) or max(abs(sol[0]), abs(sol[1])) > 2.0:
             return float(ay), float(ax)              # diverged: keep integer
         cy -= float(sol[0]); cx -= float(sol[1])

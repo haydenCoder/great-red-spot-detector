@@ -73,6 +73,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+try:  # optional C core (v7.0.0) — identical math, compiled speed
+    import cspeed as _cspeed
+except Exception:  # pragma: no cover - import guard
+    _cspeed = None
+
 
 # ---------------------------------------------------------------------------
 # Vectorised exact inverse projection (mirrors precision_engine.px_to_lonlat)
@@ -216,23 +221,41 @@ def _lk_refine_windowed(ref: np.ndarray, img: np.ndarray, w: np.ndarray,
     ref_c = ref[margin:h - margin, margin:wd - margin]
     w_c = w[margin:h - margin, margin:wd - margin]
     cy = cx = 0.0
+    use_c = _cspeed is not None and _cspeed.have_c()
+    if use_c:
+        # PERF (C core, v7.0.0): fused compiled pass — value, gradients,
+        # windowed normal-equation sums (parity pinned ~1e-14,
+        # tests/test_cspeed.py); identical math to the scipy block below.
+        ref_f = np.ascontiguousarray(ref_c.ravel(), dtype=np.float64)
+        w_f = np.ascontiguousarray(w_c.ravel(), dtype=np.float64)
+        y0f = np.ascontiguousarray((yy + P).ravel(), dtype=np.float64)
+        x0f = np.ascontiguousarray((xx + P).ravel(), dtype=np.float64)
     for _ in range(iters):
-        ys = yy - cy + P
-        xs = xx - cx + P
-        warped = map_coordinates(img_c, [ys, xs], order=3, mode="nearest",
-                                 prefilter=False) * w_c
-        gy = 0.5 * (map_coordinates(img_c, [ys + 1, xs], order=3, mode="nearest", prefilter=False)
-                    - map_coordinates(img_c, [ys - 1, xs], order=3, mode="nearest", prefilter=False)) * w_c
-        gx = 0.5 * (map_coordinates(img_c, [ys, xs + 1], order=3, mode="nearest", prefilter=False)
-                    - map_coordinates(img_c, [ys, xs - 1], order=3, mode="nearest", prefilter=False)) * w_c
-        if float((gy * gy + gx * gx).sum()) < 1e-9:
-            break
-        A = np.stack([gy.ravel(), gx.ravel()], 1)
-        diff = ref_c - warped
-        AtA = A.T @ A
+        if use_c:
+            a, b, g2, d1, d2 = _cspeed.lk_sums(img_c, ref_f, w_f,
+                                               y0f, x0f, cy, cx)
+            if a + g2 < 1e-9:
+                break
+            AtA = np.array([[a, b], [b, g2]])
+            AtB = np.array([d1, d2])
+        else:
+            ys = yy - cy + P
+            xs = xx - cx + P
+            warped = map_coordinates(img_c, [ys, xs], order=3, mode="nearest",
+                                     prefilter=False) * w_c
+            gy = 0.5 * (map_coordinates(img_c, [ys + 1, xs], order=3, mode="nearest", prefilter=False)
+                        - map_coordinates(img_c, [ys - 1, xs], order=3, mode="nearest", prefilter=False)) * w_c
+            gx = 0.5 * (map_coordinates(img_c, [ys, xs + 1], order=3, mode="nearest", prefilter=False)
+                        - map_coordinates(img_c, [ys, xs - 1], order=3, mode="nearest", prefilter=False)) * w_c
+            if float((gy * gy + gx * gx).sum()) < 1e-9:
+                break
+            A = np.stack([gy.ravel(), gx.ravel()], 1)
+            diff = ref_c - warped
+            AtA = A.T @ A
+            AtB = A.T @ diff.ravel()
         lam = 1e-6 * float(np.trace(AtA))
         try:
-            sol = np.linalg.solve(AtA + lam * np.eye(2), A.T @ diff.ravel())
+            sol = np.linalg.solve(AtA + lam * np.eye(2), AtB)
         except np.linalg.LinAlgError:
             break
         if not np.all(np.isfinite(sol)) or max(abs(sol[0]), abs(sol[1])) > 2.5:

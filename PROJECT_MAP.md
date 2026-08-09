@@ -3,7 +3,7 @@
 **User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
 **Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
 **Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
-**Version:** see `VERSION` (**6.9.0**)
+**Version:** see `VERSION` (**7.0.0**)
 
 ```
 great-red-spot-detector/   (or GRS_Observatory/)
@@ -46,11 +46,14 @@ great-red-spot-detector/   (or GRS_Observatory/)
 │   ├── session_planner.py           ← max capture span / filter-window planner (v6.9)
 │   ├── stack_report.py              ← drizzle forensics + dither-diversity audit (v6.9)
 │   ├── limb_darkening.py            ← μ^k limb-darkening coefficient fit (v6.9)
+│   ├── cspeed.c · cspeed.py         ← optional C core: fused LK + batch spline sampling (v7.0)
 │   ├── models/                      ← SPIRE-Net weights (frozen)
 │   └── outputs/                     ← job folders after Process
 ├── tools/
 │   ├── zonal_stacker_benchmark.py   ← Jupiter-zonal stacker benchmark
 │   ├── flow_warp_benchmark.py       ← reproducible warp-mode A/B (v6.7.1)
+│   ├── build_cspeed.py              ← build the optional C core (v7.0)
+│   ├── cspeed_benchmark.py          ← C-vs-numpy measured speed table (v7.0)
 │   └── real_photo_stack.py          ← all-modes run on real frames + report (v6.7.5)
 └── tests/
 ```

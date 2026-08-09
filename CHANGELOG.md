@@ -3,6 +3,46 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [7.0.0] — 2026-08-09 — "Velocity Pro"
+
+### Added
+- `app/cspeed.c` + `app/cspeed.py` — an optional C core (ctypes, no
+  dependencies; builds on demand via cc/gcc/clang, or explicitly with
+  `tools/build_cspeed.py`). Two kernels:
+  - `cs_lk_step`: one fused Lucas–Kanade pass producing the spline value,
+    both central-difference gradients and the Gauss–Newton normal-equation
+    sums from a shared 6×6 coefficient neighbourhood — replacing five
+    `map_coordinates` calls and ~6 numpy temporaries per iteration.
+  - `cs_sample3`: batch cubic-spline coefficient sampling for
+    `warp_shift2d` / `warp_field2d` (scipy `NI_EXTEND_NEAREST` clamping
+    replicated exactly).
+- `tools/cspeed_benchmark.py` — measured C-vs-numpy speed table (same box,
+  same inputs, same APIs). `CSPEED=0` env var forces the pure path;
+  `cspeed.set_enabled(False)` toggles at runtime (used by the A/B tests).
+
+### Performance (measured on the validation box)
+- `stack_ap` end-to-end (12 frames, full AP grid): **3.52×**
+  (197.1 → 56.0 ms).
+- `_lk_refine` micro (32×32 crop, 4 iters): **2.51×** (1.525 → 0.608 ms).
+- `warp_field2d` 300×400 order 3: **1.73×** (17.0 → 9.9 ms);
+  `warp_shift2d` 400×300 order 3: **1.45×** (10.7 → 7.4 ms).
+- The C core also cut the LK-heavy test battery from 188.7 s (29 tests)
+  to 107.2 s (62 tests, a superset incl. full ap_stacker/image_warp/
+  planetary suites).
+
+### Correctness contract (`tests/test_cspeed.py`, 8 tests)
+- `cs_sample3` vs scipy `map_coordinates`: max|δ| **1.3e-15** over 5000
+  sampled points including out-of-range (edge-clamped) coordinates.
+- `cs_lk_step` vs the numpy replication: max|δ| **2.8e-14** plain,
+  **2.6e-13** windowed — pure summation-order noise.
+- End-to-end `stack_ap` golden A/B (with vs without C): stack max|δ|
+  **3.47e-16**, weight/shifts < 1e-9, frame-usage decisions identical.
+- Strict IEEE doubles: `-O3 -fno-math-errno -fno-trapping-math`, never
+  `-ffast-math` / `-march=native`.
+- No C compiler → the identical scipy fallback runs automatically; the
+  loader surfaces `cspeed.status_note()` (soft-fail loudly: correct and
+  slower, never silently different).
+
 ## [6.9.0] — 2026-08-08 — "Analysis Pro"
 
 Rotation-derotated filter-wheel RGB compositing, cloud-tracking wind science,

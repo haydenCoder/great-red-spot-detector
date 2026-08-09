@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.9.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
+**Version:** 7.0.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -120,6 +120,35 @@ latitude **0.347°**. Three more measured production fixes (moon-mask colour
 gate, pole-PA-aware limb fit, derotation scale/sign) — all in
 [`CHANGELOG.md`](CHANGELOG.md) and [`docs/OBSERVATORY_PRO_6.8.0.md`](docs/OBSERVATORY_PRO_6.8.0.md).
 Desktop/web got **Video Import**, **Sharpen Lab** and **Transits** tabs.
+
+### v7.0.0 — Velocity Pro: the C core (2026-08-09)
+
+Hand-written C99 kernels (`app/cspeed.c`, ctypes, zero dependencies, builds
+on demand via cc/gcc/clang) around the two proven hot spots: profiling
+showed **91% of stack time** was cubic-spline sampling inside the
+Lucas–Kanade refinement — five separate scipy evaluations per iteration.
+One fused compiled pass now produces value + gradients + the Gauss–Newton
+normal equations from a shared 6×6 tap neighbourhood, and warps batch-sample
+spline coefficients in compiled code.
+
+Measured on the validation box (`tools/cspeed_benchmark.py` — claims are
+measured, not argued):
+
+| workload | numpy/scipy | C core | speedup |
+|---|---:|---:|---:|
+| `stack_ap` end-to-end (12 f, full AP grid) | 197.1 ms | 56.0 ms | **3.52×** |
+| `_lk_refine` (32×32 crop, 4 iters) | 1.525 ms | 0.608 ms | 2.51× |
+| `warp_field2d` 300×400 order 3 | 17.0 ms | 9.9 ms | 1.73× |
+| `warp_shift2d` 400×300 order 3 | 10.7 ms | 7.4 ms | 1.45× |
+
+Speed that changes the answer is a bug, not an optimisation: the C path is
+pinned to scipy at **1.3e-15** kernel parity, `stack_ap` with vs without C
+differs by **3.5e-16** with byte-identical frame-usage decisions
+(`tests/test_cspeed.py`). Strict IEEE doubles — no `-ffast-math`, ever. No
+compiler → the identical scipy fallback keeps running (status via
+`cspeed.status_note()`); `CSPEED=0` forces the fallback.
+
+Full dossier: [`docs/PERFORMANCE_7.0.0.md`](docs/PERFORMANCE_7.0.0.md).
 
 ### v6.9.0 — Analysis Pro: from stacks to science (2026-08-08)
 

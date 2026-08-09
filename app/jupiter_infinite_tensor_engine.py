@@ -326,12 +326,11 @@ def run_jpa_inf(
     derot_frames: List[np.ndarray] = []
     for k, frame in enumerate(frames):
         dy, dx = per_frame_shift[k]
-        # v6.8.x: spline apply (FFT ramp was integer-only — sub-pixel
-        # Re(ifft(F*e^{iks})) collapses to the even (f(x-s)+f(x+s))/2 mix).
-        from scipy.ndimage import shift as _nd_shift
-        derot_frames.append(_nd_shift(np.asarray(frame, dtype=np.float64),
-                                      shift=(dy, dx), order=3,
-                                      mode="nearest").astype(np.float64))
+        # Exact spatial-domain sub-pixel shift (v6.8.x audit: the FFT phase
+        # ramp returns the even mixture at non-integer shifts — image_warp).
+        from image_warp import warp_shift2d
+        derot_frames.append(warp_shift2d(
+            np.asarray(frame, dtype=np.float64), dy, dx, order=3))
     # Path-integral stack
     stacked = _path_integral_stack(
         derot_frames, ap_drift_rms,

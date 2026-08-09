@@ -3,6 +3,104 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [6.9.0] — 2026-08-08 — "Analysis Pro"
+
+Rotation-derotated filter-wheel RGB compositing, cloud-tracking wind science,
+GRS System-II drift geophysics, stack forensics, limb-darkening measurements
+and physics-derived session planning — the analysis layer AutoStakkert does
+not have and WinJUPOS does by hand. Every claim is backed by a test (74 new
+tests) or a campaign number below.
+
+### Added
+- **`rgb_combine.py`** — WinJUPOS "RGB combine" parity (AutoStakkert
+  fundamentally cannot): mono-filter stacks are derotated to a common epoch
+  with the *exact* oblate-spheroid ephemeris (vectorised inverse+forward
+  projection, so north-PA and sub-Earth-latitude tilts are handled by
+  construction), a wind-adjusted per-parallel cloud rate (vectorised twin
+  of `Planet.cloud_tracking_rate_deg_per_s`, pinned equal to 1e-12), and a
+  measured per-latitude-band residual polish. Measured: tilted synthetic
+  (sub-lat −2.3°, pole PA 18°, 2.419° rotation/hop ≈ 4.86 px): colour
+  fringe 0.1927 → **0.0322 (6.0×)**, channels co-registered < 0.35 px.
+- **`filter_wheel.py`** — the full amateur colour workflow in one call:
+  3× SER/AVI → per-filter APS stacks → re-centre → derotated RGB composite
+  + artefacts (stacks, rgb.png, report JSON). Measured on real SER files
+  with true timestamps (4-min hops): mid-times recovered from SER ticks,
+  fringe **0.1069 → 0.0357 (3.0×)**, coverage ≥ 99.9%.
+- **`wind_analysis.py`** — science over the AP-derived wind profile:
+  shape-discriminated offset fits (uniform m/s advection vs constant
+  angular-rate System-III correction — reduced-χ² picks the shape),
+  jet detection (k-σ local extrema, parabolic peak, honest: never spans
+  evidence gaps), JUPOS-friendly CSV (empty cells, not fabricated zeros),
+  PIL PNG profile panel, `wind_report_text` summary.
+- **`grs_drift.py`** — the GRS as a time-series object: longitude-unwrap +
+  sigma-clipped weighted drift fit (deg/day, deg/30 d convention),
+  curvature included only when the F-test demands it, implied zonal
+  velocity in m/s (shared `surface_parallel_radius_m` convention),
+  prediction cone (parameter covariance + intrinsic scatter), JUPOS CSV
+  ingest, PNG/CSV artefacts. Planted −0.42°/30 d recovered to ±0.10.
+- **`stack_report.py`** — stack forensics: interior coverage fill
+  (enclosed-hole metric), subpixel **dither-diversity audit** from measured
+  alignment phases (the physically true drizzle starvation signal),
+  frame-usage concentration, detrended wander / drift slope / single-frame
+  jump stats, nominal SNR gain, Tenengrad sharpness gain vs input frames,
+  and actionable warnings; PIL forensics panel.
+- **`session_planner.py`** — closed-form session budgets:
+  `max_span_s` (exact inversion of `lon_drift_px`, 1e-9 relative),
+  `max_span_derotated_s` (wind-residual-limited — typically 5–10× longer,
+  the number folklore ignores), filter-wheel gap limits (direct vs
+  polish-gated), composed with `transits.night_planner` into one panel.
+- **`limb_darkening.py`** — band-normalised, MAD-clipped μ^k fit on a
+  finished stack with per-band k(lat) table and PIL panel. On the
+  renderer's planted μ**0.6 law: **k = 0.653 ± 0.020**; on an
+  achromatic-corrected frame: k ≈ 0.
+- **CLI**: `rgb-combine`, `filter-wheel`, `wind-analysis`, `drift`,
+  `session-plan` (all subprocess-tested, `tests/test_cli_v69.py`).
+- **Desktop**: new **RGB Combine** tab (three channel pickers, offsets/times,
+  sub-lat + pole-PA, fringe report + preview) and **Analysis** tab (session
+  planner + wind analysis + GRS drift with PNG panels).
+- **Web**: `/api/analysis_session` and `/api/analysis_drift` endpoints +
+  **Analysis** tab (session budgets; CSV upload → drift fit with preview).
+
+### Performance
+- **APS stacker 1.3–1.8× faster, bitwise identical** (`ap_stacker._lk_refine`):
+  `map_coordinates(order=3, mode="nearest")` reruns its spline prefilter
+  (plus a 12-px edge pad) on every call — 3 calls/GN iteration × 4
+  iterations × every (frame, AP) pair. We replicate the internal recipe
+  once (pad 12 edge + `spline_filter` mode="nearest") and sample the
+  coefficients with `prefilter=False`: verified max|delta| = 0.0 on unit
+  fields, and a golden 16-frame × 86-AP drizzle rig reproduces the stack to
+  4.4×10⁻¹⁶ and the global shifts to exactly 0.0. Measured 23.7 s →
+  16.8–13.2 s single-threaded; same speedup in every LK consumer
+  (derotator trackers, rgb_combine's windowed LK).
+
+### Engineering notes (measured, not argued)
+- Foreshortening is real: the exact rotation field's dX/dλ carries a
+  cos(lon_rel) factor that centre-line chord models (px_per_deg_lon) lack —
+  a naive whole-band unit test read 0.864× the model; tests compare at the
+  central meridian where the analytic chord is exact.
+- Global FFT-peak locks are unsafe for residual polish: every coarse
+  strategy locked 0.4–1.1 px off on adversarial quasi-periodic band
+  texture. The polish is local-only: window-aware Lucas–Kanade from (0,0),
+  gated at max_resid_px + ≥2% RMS improvement; planted (0.45, −1.25) px
+  recovered as (−0.429, +1.255). Window-naive LK recovers dy≈0 — the
+  window belongs in the gradients, measured.
+- Drizzle "holes" from pixfrac alone cannot exist in our deposit scheme
+  (drops are D·pixfrac bins + 1-bin wings): forensics measures enclosed-
+  hole fill + the dither audit instead (identical frames: spread 0.000 →
+  warning; real ±1.2 px dither: 0.145).
+- Fixed a use-after-delete in `test_planted_rotation_recovered` (PNG read
+  after the TemporaryDirectory closed) — the only failure of the
+  1 h 44 m pre-release suite (768 passed, 9 skipped).
+
+### Tests
+- 70 new tests since 6.8.0 (suite collection 778 → **848**) across
+  `test_rgb_combine`, `test_wind_analysis`, `test_grs_drift`,
+  `test_stack_report`, `test_filter_wheel`, `test_session_planner`,
+  `test_limb_darkening`, `test_cli_v69`, `test_web_v69`,
+  `test_desktop_v69`; batteries re-run for every module touching the LK
+  core (29/29), all CLI subprocess paths (6/6), and the full suite for
+  release.
+
 ## [6.8.0] — 2026-08-07 — "Observatory Pro"
 
 AutoStakkert-class video stacking + drizzle super-resolution, WinJUPOS-class
@@ -70,12 +168,61 @@ production fixes. Every claim below is backed by a test or campaign number.
   non-rotated flagship test (tests/test_cli_pro.py::TestVideoToAnswerDerotate),
   and the plain-vs-derotated stacking A/B is pinned in
   tests/test_video_jupiter.py.
+- **Zonal-wind measurement from every derotated capture**
+  (`ap_stacker.wind_report_from_drifts`, surfaced in
+  `derotate_frames(...)[1]["wind_report"]` and the `video-stack` report):
+  the same prior-seeded AP tracks that drive derotation are a
+  cloud-tracking wind experiment — per-track drift rates convert to a
+  measured zonal rate per |lat| bin (deg/s) and a residual vs the
+  literature profile in m/s (`Planet.surface_parallel_radius_m` keeps the
+  px→deg→m/s chain exactly chord-consistent). Robust estimator: per-track
+  m/s, iterated MAD-rejected median (fringe-alias outliers of hundreds of
+  m/s on quasi-periodic bands measured; no mean can survive them). This is
+  the WinJUPOS drift-measurement science AutoStakkert cannot do at all.
+  Prior mode honestly reports ALL-None (no image evidence). Pinned by a
+  planted differential-wind test (planted +30 m/s vs zero-wind control,
+  30-min span, |lat| ≤ 21° recovered inside ±80 m/s;
+  `tests/test_ap_stacker.py::TestWindMeasurement`).
+- **WinJUPOS–AutoStakkert composition verified end-to-end**: `--derotate`
+  and `--drizzle 2` compose in one command (`video-stack`), SER stamps →
+  prior/hybrid derotate → APS drizzle ×2 stack with the full report trail
+  (`tests/test_cli_pro.py::TestVideoStackCLI`).
+- **`image_warp.py`**: shared exact sub-pixel spatial shift (spline
+  resample), replacing the broken FFT phase ramp everywhere (see Fixed).
 - **Desktop**: new tabs **Video Import** (APS stack, drizzle, video→answer),
   **Sharpen Lab**, **Transits**. **Web**: new **Video** and **Transits** tabs,
   endpoints `/api/video_stack`, `/api/sharpen`, `/api/transits` (path-traversal
   hardened, uploaded videos whitelisted).
 
 ### Fixed (measured, with regressions pinned)
+- **The FFT phase-ramp sub-pixel shift was mathematically broken in SIX
+  call sites.** For non-integer shifts on real input, multiplying the
+  spectrum by exp(−2πi·k·s/N) destroys Hermitian symmetry, so
+  `Re(ifft2)` returns the EVEN MIXTURE `(f(x−s)+f(x+s))/2`, not `f(x−s)`.
+  Measured 2026-08-07 (160×160 planted 1.5 px field): ±1.5 px shifts gave
+  **byte-identical MSE 0.001077** — the stacks were smearing every
+  non-integer drift — while integer shifts were exact (2.6e-32), which is
+  how every smooth-texture benchmark missed it. All six sites
+  (`jpa_10k`, `jpa_10d`, `planetary_stacker._global_shift`,
+  `holy_hybrid_stacker`, `jupiter_infinite_tensor_engine`,
+  `win_jupos_derotator`) now use the shared
+  **`image_warp.warp_shift2d`** spline shift (centroid-verified to
+  0.005 px at ±(0.55–3.91) px). The `win_jupos_derotator` "FFT
+  three-shear" was doubly wrong — a spatially-varying phase ramp is not a
+  shear at all (Fourier shift theorem needs constant s) — replaced by an
+  exact single-pass cubic rotation; planted-dot placement verified to
+  **0.003 px**, round-trip drift 0.003 px (`tests/test_image_warp.py`).
+- **`jupiter_zonal_stacker` tracker rewrite** (`_track_ap_zonal`): the
+  legacy loop used the parabola-bug `_phase_corr_shift` (planted dy=−1.5
+  reported +4.07) and ADDED apply-shift residuals onto content-convention
+  priors (sign mixing: perfect x-prior + planted dy=−1.5 → reported
+  dy=+1.5). Re-implemented on the proven prior-seeded `_measure_shift`
+  engine (content accumulation `pred -= apply·2^oct`); the frame apply
+  moved off its dead double-mean onto a single SNR-weighted mean with the
+  sign corrected for content convention. End-to-end proof: three rigidly
+  planted-shifted frames with ZERO declared rotation stack to a
+  gain-matched MSE of **0.000002** vs raw-frame MSE 0.0045 — the stacker
+  now recovers motion it knew nothing about a priori.
 - **Moon-mask colour gate** (`grs_image_prep.py`): the old luminance-only
   satellite-shadow masker erased red-brown Jovian features — on a 1080p
   synthetic it masked ~24k px including the GRS core itself, biasing the
@@ -132,34 +279,6 @@ production fixes. Every claim below is backed by a test or campaign number.
   markers ~0.8 px in y. The derotator now applies dx-only; the fitted dy is
   still reported (`info["dy_fitted_px"]`) for transparency, and tip/tilt y
   wander stays with the stacker's global align, where it is the better tool.
-- **AP tracker planted-shift audit** (`planetary_stacker._track_ap_planetary`,
-  `jupiter_zonal_stacker._track_ap_zonal`): the legacy zonal tracker had two
-  measured faults — it used the `_phase_corr_shift` parabola with the row/col
-  indexing bug (planted dy −1.5 px reported **+4.07 px**) and ADDED the
-  apply-shift residual onto the content prior (sign mixing: at a perfect
-  prior the same plant reported dy **+1.5, sign-flipped**). Both trackers
-  now run on the `_measure_shift` engine with prior-seeded windows that
-  **rebase on the integer window** (the old cross-octave accumulate folded
-  the rounding of a fractional prediction into the answer twice — a
-  systematic ±0.5 px bias, planting −1.5 read −2.014). Default is a single
-  full-res octave: the prior lands content inside the window, the integer
-  FFT peak searches the whole window, and Lucas–Kanade nails the subpixel —
-  planted displacements return **exact to ~0.01 px at any prior** (verified
-  at exp −6.2…+12.5 px, worst 0.16 px at the window edge).
-- **Sub-pixel shift apply was mathematically broken at six sites**
-  (`planetary_stacker._global_shift`, `jpa_10k`, `jpa_10d`,
-  `jupiter_infinite_tensor_engine`, `holy_hybrid_stacker`, and the
-  `win_jupos_derotator` three-shear rotation): `Re(ifft2(F·e^{iks}))` breaks
-  Hermitian symmetry for non-integer s and collapses to the even mixture
-  **(f(x−s)+f(x+s))/2 — both signs identical, half the shift smeared back
-  in** (exact for integers, which is why integer-only tests never caught
-  it). All six now use spline resampling. Measured effect on the WinJUPOS
-  three-shear rotation (0.9° test rotation): gradient-variance preservation
-  **7.5% → 39.5%** (5.3× sharper; the old path blurred rotations to mush);
-  `_global_shift` roundtrip 2.2e-06. `run_jupiter_zonal_stacker` also
-  composes correctly now — content-convention drifts + spline apply:
-  planted rigid shifts stack at RMS **0.0023 vs 0.0371** naive-mean, and
-  the zonal benchmark stays at its pinned 0.9978 mean peak.
 
 ### The end-to-end proof (the number that matters)
 `video-to-answer` on a tilted-render (real 2026-08-02 geometry) SER video:

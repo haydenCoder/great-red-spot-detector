@@ -3,7 +3,7 @@
 **User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
 **Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
 **Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
-**Version:** see `VERSION` (**6.8.0**)
+**Version:** see `VERSION` (**6.9.0**)
 
 ```
 great-red-spot-detector/   (or GRS_Observatory/)
@@ -38,6 +38,14 @@ great-red-spot-detector/   (or GRS_Observatory/)
 │   ├── grs_ellipse.py               ← rim-ellipse estimator, 5th measurement definition (v6.8)
 │   ├── animation.py · jupos_io.py   ← blink GIF export · JUPOS CSV (v6.8)
 │   ├── video_synth.py               ← rotating-video ground truth (v6.8)
+│   ├── image_warp.py                ← exact sub-pixel shift (FFT-ramp replacement, v6.8.x)
+│   ├── rgb_combine.py               ← derotation-exact RGB channel combine (v6.9)
+│   ├── filter_wheel.py              ← 3× SER capture → derotated RGB one-shot (v6.9)
+│   ├── wind_analysis.py             ← zonal-wind fit: m/s offset vs System-III (v6.9)
+│   ├── grs_drift.py                 ← GRS CM-II drift fit + prediction cone (v6.9)
+│   ├── session_planner.py           ← max capture span / filter-window planner (v6.9)
+│   ├── stack_report.py              ← drizzle forensics + dither-diversity audit (v6.9)
+│   ├── limb_darkening.py            ← μ^k limb-darkening coefficient fit (v6.9)
 │   ├── models/                      ← SPIRE-Net weights (frozen)
 │   └── outputs/                     ← job folders after Process
 ├── tools/

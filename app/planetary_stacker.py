@@ -97,19 +97,14 @@ def _track_ap_planetary(
     ap_half: int,
     expected_dx: float,
     expected_dy: float = 0.0,
-    octaves: Sequence[int] = (0,),
+    octaves: Sequence[int] = (0, 1, 2),
 ) -> Tuple[float, float, float]:
     """Track one AP with the expected drift removed before correlation.
 
-    Single full-res octave by default (v6.8.x): the prior seed lands the
-    content inside the window, the integer FFT peak catches the whole window
-    range, and the Lucas-Kanade refine nails the subpixel residual. Planted
-    shifts come back exact to ~0.01 px regardless of the prior (the old
-    coarse-to-fine cross-octave accumulation drifted by up to 0.5 px on
-    fractional window rounding and its LK guard kicked integer peaks back —
-    retired 2026-08-07; pass ``octaves=(0, 1, 2)`` only if you know why).
-    Returns the TOTAL (dy, dx) CONTENT displacement frame-vs-reference at the
-    AP (= expected + measured residual), plus a geometric-mean SNR.
+    Multi-octave coarse-to-fine, frame crop re-centred by (expected + residual
+    so far). Returns the TOTAL (dy, dx) displacement frame-vs-reference at the
+    AP (= expected + measured residual), and a geometric-mean SNR. Mirrors the
+    proven `jupiter_zonal_stacker._track_ap_zonal`, generalised to any planet.
     """
     h, w = ref.shape
     x, y = ap_xy
@@ -145,14 +140,8 @@ def _track_ap_planetary(
             break
         if not (math.isfinite(dy) and math.isfinite(dx) and math.isfinite(snr)):
             break
-        # Rebase on the integer window: the crop was centred at
-        # round(pred), so the total content displacement is
-        # round(pred) - apply_residual·scale. (Updating pred -= apply
-        # WITHOUT rebasing folds the rounding of a fractional pred into
-        # the answer twice — a systematic ±0.5 px bias, measured on a
-        # planted -1.5 px displacement reporting -2.014.)
-        pred_dy = float(round(pred_dy)) - float(dy) * (2 ** oct)
-        pred_dx = float(round(pred_dx)) - float(dx) * (2 ** oct)
+        pred_dy -= float(dy) * (2 ** oct)
+        pred_dx -= float(dx) * (2 ** oct)
         log_snr += math.log(max(float(snr), 1e-3))
         n_ok += 1
     if n_ok == 0:
@@ -762,12 +751,11 @@ def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
         return np.stack(
             [_global_shift(out[..., c], dy, dx) for c in range(out.shape[2])], axis=-1
         )
-    # v6.8.x: spline apply, not the FFT phase ramp. Re(ifft(F*e^{iks}))
-    # breaks Hermitian symmetry at non-integer s and collapses to the even
-    # mixture (f(x-s)+f(x+s))/2 — both signs identical, half the shift
-    # smeared back in (measured 2026-08-07; exact only for integer s).
-    from scipy.ndimage import shift as _nd_shift
-    return _nd_shift(out, shift=(dy, dx), order=3, mode="nearest")
+    # v6.8.x audit: exact spatial-domain spline shift (the FFT phase ramp
+    # returns the even mixture (f(x-s)+f(x+s))/2 at non-integer shifts —
+    # see app/image_warp.py docstring for the measured numbers).
+    from image_warp import warp_shift2d
+    return warp_shift2d(out, dy, dx, order=3)
 
 
 def stacker_report_text(res: "PlanetaryStackerResult") -> str:

@@ -939,6 +939,49 @@
     }
   });
 
+  // v6.9 Analysis Pro panels
+  $("btnSessionPlan")?.addEventListener("click", async () => {
+    showTab("analysis", true);
+    setText("analysisBox", "Planning…");
+    const q = new URLSearchParams({
+      a_eq_px: ($("anScale") && $("anScale").value) || "0",
+      budget_px: ($("anBudget") && $("anBudget").value) || "1",
+      hours: "8",
+    });
+    try {
+      const j = await (await fetch("/api/analysis_session?" + q.toString())).json();
+      if (!j.ok) { setText("analysisBox", "Error: " + (j.error || "failed")); return; }
+      setText("analysisBox", j.text || JSON.stringify(j.plan, null, 2));
+    } catch (e) {
+      setText("analysisBox", "Error: " + String(e));
+    }
+  });
+
+  $("btnDrift")?.addEventListener("click", async () => {
+    showTab("analysis", true);
+    const inp = $("driftInput");
+    if (!inp || !inp.files || !inp.files[0]) {
+      setText("driftBox", "Choose a JUPOS CSV first."); return;
+    }
+    setText("driftBox", "Uploading…");
+    try {
+      const fd = new FormData();
+      fd.append("file", inp.files[0]);
+      const up = await (await fetch("/api/upload", { method: "POST", body: fd })).json();
+      if (!up.ok) { setText("driftBox", "Upload error: " + (up.error || "failed")); return; }
+      setText("driftBox", "Fitting…");
+      const j = await (await fetch("/api/analysis_drift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: up.path }),
+      })).json();
+      if (!j.ok) { setText("driftBox", "Error: " + (j.error || "failed")); return; }
+      setText("driftBox", j.text || JSON.stringify(j.fit, null, 2));
+    } catch (e) {
+      setText("driftBox", "Error: " + String(e));
+    }
+  });
+
   // Time bar wiring
   $("timeBar")?.addEventListener("input", applyTimeBarToUserTime);
   $("obsDate")?.addEventListener("change", applyTimeBarToUserTime);

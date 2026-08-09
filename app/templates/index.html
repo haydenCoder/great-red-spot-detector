@@ -189,6 +189,7 @@
           <button type="button" class="tab" data-tab="nasa" role="tab">Geometry</button>
           <button type="button" class="tab" data-tab="video" role="tab">Video</button>
           <button type="button" class="tab" data-tab="transits" role="tab">Transits</button>
+          <button type="button" class="tab" data-tab="analysis" role="tab">Analysis</button>
         </div>
 
         <div id="tab-preview" class="tabpane active" role="tabpanel">
@@ -316,6 +317,37 @@
             <button type="button" id="btnTransits" class="btn primary">Plan night</button>
           </div>
           <pre id="transitsBox" class="codeblock">Plan a night — events appear here.</pre>
+        </div>
+
+        <div id="tab-analysis" class="tabpane" role="tabpanel">
+          <p class="muted small results-hint">
+            <strong>Analysis Pro</strong> — physics-derived session budgets and GRS
+            System-II drift geophysics, from the same rotation model the
+            derotator uses.
+          </p>
+          <div class="row2">
+            <label>Image scale a_eq (px per R_eq; 0 = ephemeris only)
+              <input type="number" id="anScale" value="0" min="0" max="2000" step="1" inputmode="decimal" />
+            </label>
+            <label>Smear budget (px)
+              <input type="number" id="anBudget" value="1" min="0.1" max="8" step="0.1" inputmode="decimal" />
+            </label>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="btnSessionPlan" class="btn primary">Session plan</button>
+          </div>
+          <pre id="analysisBox" class="codeblock">Smear/span tables, filter gaps and tonight's windows appear here.</pre>
+          <hr class="soft" />
+          <p class="muted small results-hint">
+            <strong>GRS drift</strong> — upload a JUPOS CSV of GRS epochs (our
+            jupos-export format works): sigma-clipped drift rate, curvature
+            F-test, zonal velocity, prediction cone.
+          </p>
+          <div class="btn-row">
+            <input type="file" id="driftInput" accept=".csv" />
+            <button type="button" id="btnDrift" class="btn primary">Fit drift</button>
+          </div>
+          <pre id="driftBox" class="codeblock">Upload a JUPOS CSV and fit.</pre>
         </div>
       </section>
 

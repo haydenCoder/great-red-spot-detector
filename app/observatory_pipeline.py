@@ -205,12 +205,19 @@ def stack_video(
             dt_per_frame_s=dt_per_frame_s)
         frames, dinfo = ap_stacker.derotate_frames(
             frames, dt_s_per_frame=dts, mode=derotate)
+        wind = dinfo.get("wind_report") or {}
+        wind_res = wind.get("wind_residual_mps_vs_model") or []
         derot_report = {
             "mode": derotate,
             "ref_index": dinfo.get("ref_index"),
             "median_per_row_shift_px": dinfo.get("median_per_row_shift_px"),
             "max_per_row_shift_px": dinfo.get("max_per_row_shift_px"),
             "dt_span_s": float(max(dts) - min(dts)),
+            # capture-local cloud-tracking wind experiment (v6.8.x): None in
+            # prior mode (no image evidence) by design, never fabricated
+            "wind_evidence_bins": sum(1 for r in wind_res if r is not None),
+            "wind_max_abs_residual_mps": wind.get("max_abs_residual_mps"),
+            "wind_report": wind,
         }
     cfg = APStackConfig(
         ap_size_px=ap_size, spacing_px=spacing, keep_frac=keep_frac,

@@ -162,8 +162,42 @@ class TestVideoStackCLI(unittest.TestCase):
             self.assertEqual(dinfo.get("mode"), "prior")
             self.assertIsNotNone(dinfo.get("ref_index"))
             self.assertIn("median_per_row_shift_px", dinfo)
+            # wind report rides along (prior mode: evidence honestly empty)
+            self.assertIn("wind_report", dinfo)
+            self.assertEqual(dinfo.get("wind_evidence_bins"), 0)
+            self.assertIsNone(dinfo.get("wind_max_abs_residual_mps"))
             # the refuses-to-guess path (no stamps, no --dt-per-frame) is
             # covered in tests/test_science_p0_fixes.py::TestDerotationWiring
+
+    def test_video_stack_derotate_plus_drizzle_glue(self):
+        """The WinJUPOS-derotate -> AutoStakkert-drizzle composition:
+        --derotate prior --drizzle 2 must produce a 2x-grid stack with the
+        derotate report AND drizzle=2 recorded (combo verified end-to-end
+        2026-08-07: 8-frame rotating video_synth SER, 2x dims out)."""
+        import ser_io
+        with tempfile.TemporaryDirectory() as d:
+            base, truth, _ = _render_truth(seed=779)
+            frames = _make_video_frames(base, 6)
+            t0 = dt.datetime(2026, 8, 1, 22, 0, 0)
+            times = [t0 + dt.timedelta(seconds=20 * k) for k in range(len(frames))]
+            ser_path = Path(d) / "cap.ser"
+            ser_io.write_ser(ser_path, [(f * 255).astype(np.uint8) for f in frames],
+                             frame_times_utc=times, observer="test")
+            out = Path(d) / "stack_ddz"
+            proc = _run_cli("video-stack", str(ser_path), "--best", "0.5",
+                            "--derotate", "prior", "--drizzle", "2",
+                            "--out", str(out))
+            self.assertEqual(proc.returncode, 0, proc.stderr[-800:])
+            rep = json.loads(proc.stdout)
+            self.assertEqual(rep.get("drizzle"), 2)
+            dinfo = rep.get("derotate")
+            self.assertIsNotNone(dinfo)
+            self.assertEqual(dinfo.get("mode"), "prior")
+            st = np.load(out / "aps_stack.npy")
+            # drizzle-2 grid: roughly 2x the input frame in both axes
+            h0, w0 = frames[0].shape[:2]
+            self.assertGreater(st.shape[0], int(1.5 * h0))
+            self.assertGreater(st.shape[1], int(1.5 * w0))
 
 
 class TestVideoToAnswerDerotate(unittest.TestCase):

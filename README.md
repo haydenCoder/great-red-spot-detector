@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.8.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
+**Version:** 6.9.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -120,6 +120,39 @@ latitude **0.347°**. Three more measured production fixes (moon-mask colour
 gate, pole-PA-aware limb fit, derotation scale/sign) — all in
 [`CHANGELOG.md`](CHANGELOG.md) and [`docs/OBSERVATORY_PRO_6.8.0.md`](docs/OBSERVATORY_PRO_6.8.0.md).
 Desktop/web got **Video Import**, **Sharpen Lab** and **Transits** tabs.
+
+### v6.9.0 — Analysis Pro: from stacks to science (2026-08-08)
+
+The layer AutoStakkert doesn't have and WinJUPOS does by hand:
+
+- **Filter-wheel RGB combine** (`rgb_combine.py`): derotate mono R/G/B stacks
+  to a common epoch with the *exact* spheroid ephemeris (north-PA and
+  sub-Earth-lat safe) + measured band-residual polish. AutoStakkert cannot do
+  this at all. On a tilted-geometry synthetic (2.42° rotation/hop): colour
+  fringe **0.193 → 0.032 (6.0×)**. One-command workflow `filter-wheel`
+  (3× SER → stacks → RGB) runs the whole thing: fringe 0.107 → 0.036 (3.0×),
+  with re-centre and times recovered from SER stamps.
+- **Cloud-tracking wind science** (`wind_analysis.py`): shape-discriminated
+  offset fits (uniform advection vs a System-III angular error), jet
+  detection with honest gaps, JUPOS-friendly CSV + PNG profile panels.
+- **GRS System-II drift** (`grs_drift.py`): sigma-clipped rate fits
+  (deg/30 d publishing convention), curvature by F-test only when demanded,
+  implied zonal velocity in m/s, prediction cones. Planted −0.42°/30 d
+  recovered to ±0.10 with 0/360 wrap and outliers handled.
+- **Stack forensics** (`stack_report.py`): interior fill, subpixel dither
+  audit, usage concentration, wander/jump stats — with actionable warnings.
+- **Session planner** (`session_planner.py`): exact smear/span budgets
+  (raw vs derotated — a ~5–10× difference), filter-gap limits.
+- **Limb darkening** (`limb_darkening.py`): band-normalised μ^k from your
+  stack — recovers the renderer's planted k=0.6 as 0.653±0.020.
+- **1.3–1.8× faster APS** with bitwise-identical stacks (prefilter-once LK;
+  `ap_stacker.py`), verified 0.0 max-delta on golden rigs.
+- New CLI commands `rgb-combine`, `filter-wheel`, `wind-analysis`, `drift`,
+  `session-plan`; new desktop tabs **RGB Combine** and **Analysis**; new web
+  endpoints `/api/analysis_session` and `/api/analysis_drift` + Analysis tab.
+
+Full numbers: [`CHANGELOG.md`](CHANGELOG.md) and
+[`docs/OBSERVATORY_PRO_6.9.0.md`](docs/OBSERVATORY_PRO_6.9.0.md).
 
 ---
 

@@ -48,7 +48,7 @@ from planetary_stacker import (
     _per_pixel_lat, _ap_latitudes, _track_ap_planetary,
     _per_ap_expected_dx, _per_ap_expected_dx_lon, _frame_dt,
     select_reference_index, _laplacian_var,
-    fit_dx_vs_latitude, per_row_warp, gate_ap_track,
+    fit_dx_vs_latitude, per_row_warp,
 )
 
 
@@ -151,20 +151,11 @@ def run_planetary_derotate(
             for i, (ax, ay) in enumerate(aps):
                 exp_dx = _per_ap_expected_dx_lon(planet, float(ap_lats[i]), dt_k, deg_to_px * 90.0)
                 tdy, tdx, snr = _track_ap_planetary(ref, frame, (ax, ay), ap_half, expected_dx=exp_dx)
-                # v6.8.x: the same AutoStakkert-style gates as
-                # derotate_frames (limb edge + post-prior residual) —
-                # mis-locked APs fall back to the model prior in their band.
-                if not gate_ap_track(nav, (ax, ay), tdy, tdx, exp_dx):
-                    tdy, tdx, snr = float("nan"), float("nan"), 0.0
                 drifts[i] = (tdy, tdx)
                 snrs[i] = snr
             dx_bins, dy_g = fit_dx_vs_latitude(
                 ap_lats, drifts, snrs, planet, dt_s=dt_k, deg_to_px=deg_to_px,
             )
-            # Rotation is zonal: y-wander is tip/tilt and the fitted dy was
-            # a -0.46 px phantom on bland frames (v6.8.x fiducial audit) —
-            # apply dx-only, matching ap_stacker.derotate_frames.
-            dy_g = 0.0
             if mode == "hybrid":
                 # Regularise low-SNR bins toward the planet-model prior.
                 prior = _prior_dx_per_bin(planet, dt_k, deg_to_px, dx_bins.size)

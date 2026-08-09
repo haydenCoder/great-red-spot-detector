@@ -802,13 +802,12 @@ def run_holy_hybrid(
             # Sub-pixel shift of the rotated grid back to the original
             # grid: actually, since θ is tiny (≪ 1°), we can
             # approximate rotation by a translation at the equator.
-            # We use the Fourier phase-shift approximation.
-            # v6.8.x: spline apply (the Fourier phase-shift approximation
-            # was exact only for integer shifts — sub-pixel Re(ifft) is an
-            # even mixture of ±s shifts, measured 2026-08-07).
-            from scipy.ndimage import shift as _nd_shift
-            derot_frame = _nd_shift(np.asarray(frame, dtype=np.float64),
-                                    shift=(dy, dx), order=3, mode="nearest")
+            # v6.8.x audit: exact spatial-domain spline shift (the Fourier
+            # phase-shift approximation returns the even mixture
+            # (f(x-s)+f(x+s))/2 at non-integer shifts — image_warp).
+            from image_warp import warp_shift2d
+            derot_frame = warp_shift2d(
+                np.asarray(frame, dtype=np.float64), dy, dx, order=3)
         else:
             derot_frame = frame
         derotated.append(derot_frame)

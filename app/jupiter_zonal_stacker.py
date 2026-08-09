@@ -83,7 +83,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from verbose_log import CONSOLE
-from jpa_10k import _build_ap_grid, _laplacian_octave
+from jpa_10k import _build_ap_grid, _phase_corr_shift, _laplacian_octave
 from precision_engine import (
     FLAT, JUP_REQ_KM, deg2rad, rad2deg, wrap_deg, km_per_deg_lon,
     planetocentric_to_planetographic,
@@ -308,7 +308,7 @@ def _track_ap_zonal(
     ap_half: int,
     expected_dy: float,
     expected_dx: float,
-    octaves: Sequence[int] = (0,),
+    octaves: Sequence[int] = (0, 1, 2),
 ) -> Tuple[float, float, float]:
     """
     Track one AP, with the *expected* drift subtracted before
@@ -325,10 +325,8 @@ def _track_ap_zonal(
       2. it ADDED the measured apply-shift residual onto the
          content-convention prediction (sign mixing): with a perfect x
          prior the same planted pair reported dy=+1.5 — y sign-flipped.
-    Single full-res octave by default: prior-seeded content predictions
-    rebase on the integer window (pred_total = round(pred) - apply·scale),
-    so fractional priors do not double-count — planted shifts return exact
-    to ~0.01 px at any prior within the window. API unchanged.
+    The re-centre loop now accumulates the CONTENT prediction only:
+    pred -= apply_residual · 2**octave. Return semantics and API unchanged.
     """
     h, w = ref.shape
     if frame.shape != ref.shape:
@@ -361,14 +359,8 @@ def _track_ap_zonal(
             break
         if not (math.isfinite(dy) and math.isfinite(dx) and math.isfinite(snr)):
             break
-        # Rebase on the integer window: the crop was centred at
-        # round(pred), so the total content displacement is
-        # round(pred) - apply_residual·scale. (Updating pred -= apply
-        # WITHOUT rebasing folds the rounding of a fractional pred into
-        # the answer twice — a systematic ±0.5 px bias, measured on a
-        # planted -1.5 px displacement reporting -2.014.)
-        pred_dy = float(round(pred_dy)) - float(dy) * (2 ** oct)
-        pred_dx = float(round(pred_dx)) - float(dx) * (2 ** oct)
+        pred_dy -= float(dy) * (2 ** oct)
+        pred_dx -= float(dx) * (2 ** oct)
         log_snr += math.log(max(float(snr), 1e-3))
         n_ok += 1
     if n_ok == 0:
@@ -730,8 +722,6 @@ def run_jupiter_zonal_stacker(
         else:
             snr_k = all_snrs[k, valid]
             snr_k = snr_k / snr_k.sum()
-            dy = float(np.sum(all_drifts[k, valid, 0] * snr_k))
-            dx = float(np.sum(all_drifts[k, valid, 1] * snr_k))
             # We apply a single sub-pixel shift: the equatorial
             # component is the dominant motion; use the SNR-weighted
             # AP mean (which already carries the per-AP zonal-shear
@@ -740,25 +730,24 @@ def run_jupiter_zonal_stacker(
             # the data contradicts it. (The dead SPICE-CM grade and
             # mean-lat variables that used to sit here were removed in
             # the v6.8 audit.)
-            dy_mean, dx_mean = float(np.average(all_drifts[k, valid, 0], weights=snr_k)), \
-                                float(np.average(all_drifts[k, valid, 1], weights=snr_k))
-            total_dx = dx_mean
-            total_dy = dy_mean
-            # v6.8.x: drifts are CONTENT displacements -> apply the NEGATIVE
-            # shift, in the SPATIAL domain (scipy spline). The old FFT phase
-            # ramp here had two measured faults (2026-08-07 audit):
-            #   1. sign: it applied s=+drift (legacy drifts were
-            #      apply-convention junk that happened to compose
-            #      correctly);
-            #   2. sub-pixel: Re(ifft(F * exp(iks))) of a broken-Hermitian
-            #      spectrum collapses to the even mixture
-            #      (f(x-s) + f(x+s))/2 — both signs identical, half the
-            #      shift smeared back in (exact for integers, garbage
-            #      between). Spline resampling is exact here.
-            from scipy.ndimage import shift as _nd_shift
-            shifted = _nd_shift(frame.astype(np.float64),
-                                shift=(-total_dy, -total_dx), order=3,
-                                mode="nearest")
+            total_dy = float(np.average(all_drifts[k, valid, 0], weights=snr_k))
+            total_dx = float(np.average(all_drifts[k, valid, 1], weights=snr_k))
+            # v6.8.x audit (planted-shift benchmark, measured):
+            #  1. The drifts are CONTENT displacements (tracker rewrite);
+            #     the apply-shift that aligns the frame is their NEGATIVE.
+            #  2. The old FFT phase-ramp sub-pixel shift is mathematically
+            #     broken for non-integer shifts: with real input, the
+            #     multiplied spectrum loses Hermitian symmetry, so
+            #     Re(ifft2) = (f(x-s)+f(x+s))/2 — the EVEN MIXTURE. Measured:
+            #     shifting by +1.5 px vs -1.5 px gave BYTE-IDENTICAL MSE
+            #     (0.001077 both) while ndimage.shift recovers 1.3e-05.
+            #     Integer shifts were exact (2.6e-32), which is why the
+            #     benchmark's smooth texture never caught it. Replaced by
+            #     the exact spatial-domain spline shift (app/image_warp.py,
+            #     same engine as per_row_warp).
+            from image_warp import warp_shift2d
+            shifted = warp_shift2d(frame.astype(np.float64),
+                                   -total_dy, -total_dx, order=3)
         # Per-pixel quality weight: per-AP-mean SNR
         snr_global = float(np.mean(all_snrs[k][np.isfinite(all_snrs[k])]))
         w_k = max(snr_global, 1e-3)

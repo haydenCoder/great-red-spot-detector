@@ -135,6 +135,17 @@ class Planet:
         r_phi = 1.0 / math.sqrt(c * c + (s / k) ** 2)
         return (math.pi / 180.0) * r_phi * c * float(a_eq_px)
 
+    def surface_parallel_radius_m(self, lat_deg: float) -> float:
+        """Radius (m) of the latitude-φ parallel circle: r(φ)·cosφ·R_eq,
+        the same oblate factor convention as `px_per_deg_lon`, so px→deg→m/s
+        wind conversions are exactly consistent along the whole chain."""
+        flat = self.flattening
+        k = 1.0 - float(flat)
+        la = math.radians(float(lat_deg))
+        c, s = math.cos(la), math.sin(la)
+        r_phi = 1.0 / math.sqrt(c * c + (s / k) ** 2)
+        return r_phi * c * self.req_m
+
     def lon_drift_px(self, lat_deg: float, dt_s: float, a_eq_px: float) -> float:
         """Content x-displacement (px) of a cloud feature at φ over dt_s.
 

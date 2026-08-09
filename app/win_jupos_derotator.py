@@ -116,56 +116,35 @@ def _fit_rigid_rotation(
 def _rotate_about_centre(img: np.ndarray, theta_rad: float,
                         cx: float, cy: float) -> np.ndarray:
     """
-    Rotate the image by `theta_rad` about (cx, cy) via the three-shear
-    decomposition (Unser et al. 1995), resampled in the SPATIAL domain.
+    Rotate the image content by `theta_rad` about (cx, cy) in image
+    coordinates — i.e. the displacement field (dx, dy) =
+    (-theta·(y-cy), +theta·(x-cx)) that `_fit_rigid_rotation` fits —
+    with a single-pass cubic-spline resample.
 
-    v6.8.x: the passes used to be FFT phase ramps, which are exact only for
-    INTEGER shifts — at fractional shifts Re(ifft(F * e^{iks})) breaks
-    Hermitian symmetry and collapses to the even mixture
-    (f(x-s)+f(x+s))/2, so every fractional shear smeared half the shift
-    back in (measured 2026-08-07). Spline resampling is exact; signs and
-    pass order are unchanged, so integer-grid results are bit-near-identical
-    and sub-pixel rotations are finally real.
+    v6.8.x audit: the previous "FFT three-shear" was mathematically wrong
+    TWICE: (1) per-pixel shears were implemented as spectrum multiplications
+    exp(-2πi·s(x)·k/N), but the Fourier shift theorem only supports CONSTANT
+    s — a spatially-varying phase modulation is not a shear; (2) taking the
+    real part of the Hermitian-broken inverse transform returns the even
+    mixture (f(x-s)+f(x+s))/2, not f(x-s) (measured: ±1.5 px shifts gave
+    byte-identical MSE, see app/image_warp.py docstring). A single
+    scipy map_coordinates resample is exact, flux-consistent and edge-safe.
     """
     h, w = img.shape
     if abs(theta_rad) < 1e-7:
         return img.copy()
-    from scipy.ndimage import map_coordinates, shift as _nd_shift
-    tan_half = math.tan(theta_rad / 2.0)
-    sin_th = math.sin(theta_rad)
-    ys = np.arange(h, dtype=np.float64)
-    xs = np.arange(w, dtype=np.float64)
-
-    def _shift_translate(im: np.ndarray, dy: float, dx: float) -> np.ndarray:
-        return _nd_shift(im, shift=(dy, dx), order=3, mode="nearest")
-
-    def _shear_y(im: np.ndarray, a: float) -> np.ndarray:
-        # content of column x moves along y by a*(x - cx)
-        out = np.empty_like(im)
-        for x in range(w):
-            d = a * (x - cx)
-            out[:, x] = map_coordinates(im[:, x], [ys - d], order=3,
-                                        mode="nearest")
-        return out
-
-    def _shear_x(im: np.ndarray, b: float) -> np.ndarray:
-        # content of row y moves along x by b*(y - cy)
-        out = np.empty_like(im)
-        for y in range(h):
-            d = b * (y - cy)
-            out[y] = map_coordinates(im[y], [xs - d], order=3,
-                                     mode="nearest")
-        return out
-
-    # Three-shear decomposition (Unser et al. 1995):
-    #   R(θ) = T(cx, cy) * Sh_y(tan(θ/2)) * T(-cx, -cy)
-    #         * Sh_x(-sin θ) * T(cx, cy) * Sh_y(tan(θ/2)) * T(-cx, -cy)
-    img = _shift_translate(img, -cy, -cx)
-    img = _shear_y(img, tan_half)
-    img = _shear_x(img, -sin_th)
-    img = _shear_y(img, tan_half)
-    img = _shift_translate(img, cy, cx)
-    return img
+    from scipy.ndimage import map_coordinates
+    c, s = math.cos(theta_rad), math.sin(theta_rad)
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    dxr = xx - float(cx)
+    dyr = yy - float(cy)
+    # Inverse-map: out(p) = in(centre + R(-theta)·(p - centre))
+    src_x = float(cx) + c * dxr + s * dyr
+    src_y = float(cy) - s * dxr + c * dyr
+    return map_coordinates(
+        np.asarray(img, dtype=np.float64), [src_y, src_x],
+        order=3, mode="nearest", prefilter=True,
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -227,26 +206,18 @@ def run_win_jupos_derotate(
             if (xi - ap_half < 0 or yi - ap_half < 0
                     or xi + ap_half >= w or yi + ap_half >= h):
                 continue
-            ref_crop = ref[yi - ap_half:yi + ap_half + 1, xi - ap_half:xi + ap_half + 1]
-            frame_crop = frame[yi - ap_half:yi + ap_half + 1,
-                               xi - ap_half:xi + ap_half + 1]
-            # Multi-octave phase correlation
-            dy_t, dx_t, log_snr = 0.0, 0.0, 0.0
-            n_ok = 0
-            for oct in (0, 1, 2):
-                ro = _laplacian_octave(ref_crop, oct)
-                fo = _laplacian_octave(frame_crop, oct)
-                try:
-                    dy_o, dx_o, snr_o = _phase_corr_shift(ro, fo)
-                except Exception:
-                    continue
-                dy_t += dy_o * (2 ** oct)
-                dx_t += dx_o * (2 ** oct)
-                log_snr += math.log(max(snr_o, 1e-3))
-                n_ok += 1
-            if n_ok > 0:
-                per_frame_drift[k, i] = (dy_t, dx_t)
-                per_frame_snr[k, i] = math.exp(log_snr / n_ok)
+            # v6.8.x: proven prior-seeded tracker (content displacement,
+            # _measure_shift engine). The legacy loop measured the FULL
+            # shift independently at EVERY octave without re-centring and
+            # summed dy_o·2^oct — a 1+2+4=7x overcount even before the
+            # parabola row/col bug; planted 1.5/3/4.5 px equatorial drifts
+            # fitted theta=0.15/-0.18/-0.68 deg instead of 0.96/1.91/2.86.
+            from planetary_stacker import _track_ap_planetary
+            tdy, tdx, snr = _track_ap_planetary(
+                ref, frame, (x, y), ap_half, expected_dx=0.0)
+            if math.isfinite(tdx) and math.isfinite(tdy) and snr > 0:
+                per_frame_drift[k, i] = (tdy, tdx)
+                per_frame_snr[k, i] = snr
         rms = float(np.sqrt(np.mean(
             per_frame_drift[k, :, 0] ** 2 + per_frame_drift[k, :, 1] ** 2
         )))
@@ -261,6 +232,53 @@ def run_win_jupos_derotate(
             aps[valid], per_frame_drift[k, valid], (cx, cy)
         )
         rot_per_frame[k] = theta
+    # Whole-disk image-domain polish of every fitted rotation. The AP-box
+    # tracker under-measures rotation by ~20-25% on smooth textures (each
+    # 33 px box sees sheared content; the correlation peak settles at a
+    # compromise — measured 0.96/1.91/2.86 expected -> 0.3/1.32/1.15 fitted
+    # on a gaussian-field rig, v6.8.x). The polish minimises the direct
+    # image objective  MSE(ref, rotate(frame, delta))  with the exact cubic
+    # rotation, initialised at the AP fit so periodic belt texture cannot
+    # pull it to a neighbouring fringe, and NEVER accepted unless it beats
+    # the AP fit on the same objective (guarded, so it cannot regress).
+    disk_px = ref > float(np.percentile(ref, 30.0))
+    ref_med = float(np.median(ref[disk_px])) if disk_px.any() else 1.0
+    polish_notes = 0
+    for k in range(n_frames):
+        if k == 0 or not np.isfinite(rot_per_frame[k]):
+            continue
+        frame_f = frames[k].astype(np.float64, copy=False)
+        if frame_f.shape != ref.shape:
+            fh, fw = frame_f.shape
+            y0 = max(0, (fh - ref.shape[0]) // 2); x0 = max(0, (fw - ref.shape[1]) // 2)
+            frame_f = frame_f[y0:y0 + ref.shape[0], x0:x0 + ref.shape[1]]
+        if frame_f.shape != ref.shape or not disk_px.any():
+            continue
+        f_med = float(np.median(frame_f[disk_px]))
+        frame_g = frame_f * (ref_med / f_med) if f_med > 1e-9 else frame_f
+        theta_ap_deg = math.degrees(rot_per_frame[k])
+        delta0 = -theta_ap_deg                      # derotation angle (deg)
+
+        def _mse_at(delta_deg):
+            der = _rotate_about_centre(
+                frame_g, math.radians(float(delta_deg)), cx, cy)
+            d = (ref - der)[disk_px]
+            return float(np.mean(d * d))
+
+        span = max(0.5, 1.5 * abs(delta0) + 0.25)
+        try:
+            from scipy.optimize import minimize_scalar
+            sol = minimize_scalar(_mse_at, bounds=(delta0 - span, delta0 + span),
+                                  method="bounded",
+                                  options={"xatol": 1e-3})
+            best_delta = float(sol.x) if (sol.success and np.isfinite(sol.x)
+                                          and _mse_at(sol.x) <= _mse_at(delta0)) \
+                else delta0
+        except Exception:
+            best_delta = delta0
+        if abs(best_delta - delta0) > 1e-4:
+            polish_notes += 1
+        rot_per_frame[k] = math.radians(-best_delta)
     # Compute the cumulative rotation and apply inverse derotation
     accumulated = 0.0
     derotated: List[np.ndarray] = []

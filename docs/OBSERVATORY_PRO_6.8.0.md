@@ -147,39 +147,75 @@ What the audit found and fixed:
   ::test_zonal_derotator_physics_on_rotating_video` (all three modes < 0.5 px
   and < 15% of the renderer-truth drift, + a y-phantom regression gate).
 
-## Planted-shift apply audit (2026-08-07, second pass)
+## FFT sub-pixel shift audit v6.8.x (the even-mixture bug)
 
-Follow-up audit after the fiducial work, this time planting KNOWN sub-pixel
-displacements in fine-textured noise pairs and reading back what every
-tracker/shift helper reports:
+Every "FFT phase ramp" sub-pixel shift in the app was mathematically broken
+for non-integer shifts: multiplying the Hermitian spectrum of a real image
+by exp(−2πi·k·s/N) breaks Hermitian symmetry, so `Re(ifft2)` is the EVEN
+MIXTURE (f(x−s)+f(x+s))/2, not f(x−s).
 
-- **Legacy `_track_ap_zonal`**: returned the apply-shift residual ADDED to a
-  content-convention prior (sign mixing) on top of the parabola-buggy
-  `_phase_corr_shift`: planted (dy=−1.5, dx=+3.0) → dy **+4.07** (no prior),
-  dy **+1.5** at a perfect x prior. Rewritten on `_measure_shift`.
-- **`_track_ap_planetary` cross-octave accumulation** folded integer window
-  rounding of fractional predictions into the total twice — planted −1.5 →
-  **−2.014**. Fix: rebase each update on the integer window
-  (`pred = round(pred) − apply·scale`) and default to a single full-res
-  octave (prior seed + whole-window integer search + LK subpixel is the
-  exact regime; coarse octaves remain opt-in). Planted displacements now
-  return exact to ~0.01 px at any prior within the window
-  (worst 0.16 px at ±12.5 px prior offset).
-- **Six `Re(ifft2(F·e^{iks}))` sub-pixel apply sites** collapse to the even
-  mixture (f(x−s)+f(x+s))/2 for fractional s (Hermitian symmetry breaks at
-  the Nyquist wrap; exact for integers, hence invisible to integer-only
-  tests). Fixed with spline resampling in `_global_shift` / jpa_10k /
-  jpa_10d / infinite-tensor / holy-hybrid / and the win_jupos three-shear
-  rotation. WinJUPOS rotation gradient-variance preservation **7.5% →
-  39.5%** (0.9° rotation); the old roundtrip MSE looked fine PRECISELY
-  because blur correlates with blur — sharpness metrics exposed it.
-- **`run_jupiter_zonal_stacker` end-to-end**: content drifts + spline apply
-  — planted rigid shifts (±3.4 px) stack at RMS **0.0023 vs 0.0371** for the
-  naive mean; the zonal benchmark keeps its pinned 0.9978 mean peak with
-  0.00° lag in every belt.
-- **`planetary_derotator` aligned to the audited standard** (same AP gates,
-  dx-only). Its sheared-data benchmark now gates the physical pair
-  (|lag| ≤ 0.05° every belt; peak ≥ naive − 0.01) instead of a strict peak
-  win that only passed on tracker-noise luck — a perfect derotator pays a
-  measured 0.0035-peak (0.46%) sub-pixel resampling penalty per warped
-  frame, so naive-mean ties are the correct expectation.
+Planted measurement (160×160 filtered-noise field, 1.5 px displacement):
+
+  | shift engine            | +1.5 px   | −1.5 px   |
+  |-------------------------|-----------|-----------|
+  | FFT phase ramp (legacy) | 0.001077  | 0.001077  |  ← byte-identical!
+  | spline resample (new)   | 1.3e-05   | 1.3e-05   |
+  | FFT integer 3 px (ctrl) | 2.6e-32 exact              |
+
+Integer shifts were always exact — that is how the bug survived every
+smooth-texture benchmark for years. Six call sites replaced by
+`image_warp.warp_shift2d`: `jpa_10k`, `jpa_10d`,
+`planetary_stacker._global_shift`, `holy_hybrid_stacker`,
+`jupiter_infinite_tensor_engine`, `win_jupos_derotator` (whose "FFT
+three-shear rotation" was doubly wrong — a spatially varying phase ramp is
+not a shear; replaced by an exact single-pass cubic rotation, planted-dot
+placement 0.003 px). Anti-return regression: `tests/test_image_warp.py`
+asserts +1.5 and −1.5 px shifts are DISTINCT and centroid-exact to 0.05 px.
+
+Companion fixes in the same pass:
+
+- `jupiter_zonal_stacker._track_ap_zonal` was re-implemented on the proven
+  prior-seeded `_measure_shift` engine. Legacy measured faults: the
+  parabola `_phase_corr_shift` returned dy=+4.07 on a planted dy=−1.5 field
+  (row/col indexing bug), and the apply-shift residual was ADDED onto the
+  content-convention prior (sign mixing: perfect x-prior, planted dy=−1.5
+  → reported dy=+1.5). Post-rewrite recovery: exact to 0.005 px. Whole-
+  stacker proof at zero declared rotation: three rigid planted-shifted
+  frames stack to gain-matched MSE 0.000002 (raw frames 0.0045).
+  The frame-apply sign was corrected for the content convention and the
+  shift moved to `warp_shift2d` like everywhere else.
+
+## Zonal-wind measurement (the WinJUPOS-science feature)
+
+`derotate_frames` now also returns `info["wind_report"]`: per-track drift
+rates converted to a measured cloud rate per |lat| bin and a residual in
+m/s vs the literature profile, estimated by per-track m/s + iterated
+MAD-rejected median (outliers of hundreds of m/s from fringe aliasing were
+measured — a mean or naive binning is indefensible). The px→deg→m/s chain
+is exactly chord-consistent (`px_per_deg_lon`, `surface_parallel_radius_m`
+share the r(φ)·cosφ convention).
+
+Measured instrument sensitivity (planted +30 m/s uniform wind vs zero-wind
+control, 4 frames over 30 min, synthetic_hq metrology, n_grid=10, exact
+numbers from the pinned test rig):
+
+  | bin |lat| | u30 measured (exp 30−model) | u0 control (exp −model) | differential (planted +30) |
+  |---------|-----------------------------|-------------------------|----------------------------|
+  | 4.1°    | −3.95 (+4.55)               | −33.19 (−25.45)         | **+29.23**                 |
+  | 20.5°   | −7.51 (+13.06)              | −45.26 (−16.94)         | **+37.75**                 |
+
+i.e. the capture-level wind signal is recovered to within ±38 m/s of the
+planted truth at |lat| ≤ 21° — the honest floor for a 30-min amateur span;
+high-lat and sparse bins degrade (measured to ±120 m/s at |61°|, where the
+chord shrinks and limb-gating starves evidence) and bins with no surviving
+evidence are None, never fabricated (prior mode: all None by design).
+Pinned: `tests/test_ap_stacker.py::TestWindMeasurement`. The report rides
+the `video-stack`/`derotate_folder` JSON trail (`derotate.wind_report`,
+compact `wind_evidence_bins` / `wind_max_abs_residual_mps`).
+
+## WinJUPOS–AutoStakkert composition
+
+`video-stack --derotate prior --drizzle 2` on an 8-frame rotating
+video_synth SER (stamps → prior derotate → APS drizzle ×2): 2×-grid stack
+(712×745 from 512×384 inputs), full report trail. Pinned:
+`tests/test_cli_pro.py::TestVideoStackCLI::test_video_stack_derotate_plus_drizzle_glue`.

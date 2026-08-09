@@ -1721,6 +1721,83 @@ def api_transits():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/analysis_session")
+def api_analysis_session():
+    """v6.9 Analysis Pro: physics-derived session budgets (smear spans,
+    filter gaps) composed with tonight's GRS windows.
+
+    Query: a_eq_px (0 = ephemeris only), budget_px, hours, time (UTC).
+    """
+    from planet_models import get_planet
+    from session_planner import session_plan, plan_text
+    t_raw = (request.args.get("time") or "").strip()
+    if _SEC:
+        t_raw = strip_control_chars(t_raw, 40)
+
+    def _f(name, lo, hi, default):
+        try:
+            return max(lo, min(hi, float(request.args.get(name) or default)))
+        except Exception:
+            return default
+    a_eq = _f("a_eq_px", 0.0, 5000.0, 0.0)
+    budget = _f("budget_px", 0.05, 20.0, 1.0)
+    hours = _f("hours", 0.5, 72.0, 8.0)
+    try:
+        t0 = (datetime.fromisoformat(t_raw) if t_raw
+              else datetime.now(timezone.utc).replace(tzinfo=None))
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"bad time: {e}"}), 400
+    try:
+        plan = session_plan(t0, hours, planet=get_planet("jupiter"),
+                            a_eq_px=a_eq, budget_px=budget)
+        return jsonify({"ok": True, "plan": plan, "text": plan_text(plan)})
+    except Exception as e:
+        CONSOLE.warn(f"analysis_session: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/analysis_drift", methods=["POST"])
+def api_analysis_drift():
+    """v6.9 Analysis Pro: GRS System-II drift fit from an uploaded JUPOS CSV."""
+    from planet_models import get_planet
+    from grs_drift import (points_from_jupos_csv, fit_drift, predict,
+                           drift_report_text, render_drift_png)
+    data = request.get_json(force=True, silent=True) or {}
+    path = data.get("path")
+    if not path:
+        return jsonify({"ok": False, "error": "missing path"}), 400
+    try:
+        if _SEC:
+            path = str(assert_safe_process_path(path, *data_roots(APP_DIR)))
+        if not Path(path).is_file():
+            return jsonify({"ok": False, "error": "missing file"}), 400
+        if Path(path).suffix.lower() != ".csv":
+            return jsonify({"ok": False, "error": "needs a .csv (JUPOS format)"}), 400
+    except SecurityError as e:
+        return jsonify({"ok": False, "error": str(e)}), 403
+    try:
+        lat = max(-60.0, min(60.0, float(data.get("lat") or -20.0)))
+    except Exception:
+        lat = -20.0
+    try:
+        planet = get_planet("jupiter")
+        pts = points_from_jupos_csv(path)
+        if len(pts) < 3:
+            return jsonify({"ok": False,
+                            "error": f"only {len(pts)} usable GRS epochs"}), 400
+        fit = fit_drift(pts, lat_ref_deg=lat)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        out_path = UPLOAD / f"{stamp}_{uuid.uuid4().hex[:8]}_drift.png"
+        png = render_drift_png(pts, fit, str(out_path))
+        return jsonify({
+            "ok": True, "fit": fit.to_dict(),
+            "text": drift_report_text(fit, planet=planet),
+            "preview": f"/api/file?path={png}"})
+    except Exception as e:
+        CONSOLE.warn(f"analysis_drift: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/sharpen", methods=["POST"])
 def api_sharpen():
     """Sharpen Lab: wavelet / unsharp / Richardson–Lucy on an uploaded image."""

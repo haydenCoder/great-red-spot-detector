@@ -555,6 +555,70 @@ def planet_xyz_to_px(X, Y, Z, nav: "NavState"):
     return nav.xc + Xsky * s, nav.yc - Ysky * s, Zp
 
 
+def estimate_limb_softness_arcsec(
+    image: np.ndarray,
+    nav: "NavState",
+    distance_au: Optional[float] = None,
+) -> float:
+    """Estimate the effective seeing/blur (arcsec) from the limb-edge width.
+
+    A sharp disk has a limb edge ~1-2 px wide. Atmospheric seeing convolves the
+    limb with a Gaussian, so the radial brightness profile's 20%->80% transition
+    widens monotonically with the blur sigma. We measure that transition in
+    units of the disk radius and convert to arcsec via the disk's apparent
+    angular diameter (from `distance_au`, or a nominal 40" Jupiter if absent).
+
+    This is a *measurability gate*, not a science product: it is monotone in the
+    renderer's seeing knob (validated), but absolute values are an estimate good
+    to ~a factor of 2. Used to flag frames too soft for trustworthy sub-1 deg
+    metrology — which, unlike disk fill/contrast, cannot be detected by the
+    existing quality check.
+    """
+    mono = to_mono(image)
+    h, w = mono.shape
+    b = nav.a_eq_px * (1.0 - nav.flattening)
+    if nav.a_eq_px <= 4 or b <= 4:
+        return float("nan")
+    yy, xx = np.mgrid[0:h, 0:w]
+    rr = np.sqrt(((xx - nav.xc) / nav.a_eq_px) ** 2 + ((yy - nav.yc) / b) ** 2)
+    nb = 64
+    edges = np.linspace(0.70, 1.30, nb + 1)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    prof = np.full(nb, np.nan)
+    for i in range(nb):
+        m = (rr >= edges[i]) & (rr < edges[i + 1])
+        if int(m.sum()) >= 8:
+            prof[i] = float(mono[m].mean())
+    if not np.isfinite(prof).any():
+        return float("nan")
+    inside = float(np.nanmedian(prof[centers < 0.85]))
+    outside = float(np.nanmedian(prof[centers > 1.15]))
+    pn = (prof - outside) / max(inside - outside, 1e-6)
+
+    def _cross(level: float) -> Optional[float]:
+        for i in range(nb - 1):
+            a_, b_ = pn[i], pn[i + 1]
+            if not (math.isfinite(a_) and math.isfinite(b_)):
+                continue
+            if (a_ >= level > b_) or (a_ > level >= b_):
+                frac = (level - a_) / (b_ - a_ + 1e-12)
+                return centers[i] + frac * (centers[i + 1] - centers[i])
+        return None
+
+    r20 = _cross(0.2)
+    r80 = _cross(0.8)
+    if r20 is None or r80 is None:
+        return float("nan")
+    # 20%..80% of a Gaussian step spans 2*erf^-1(0.6)*sigma ~ 1.6832 sigma
+    sigma_r = (r20 - r80) / 1.6832
+    fwhm_r = 2.3548 * sigma_r
+    if distance_au:
+        app_diam_as = math.degrees(2 * JUP_REQ_KM / (float(distance_au) * AU_KM)) * 3600.0
+    else:
+        app_diam_as = 40.0
+    return float(fwhm_r * app_diam_as)
+
+
 def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
     """Is there actually a resolved planetary disk here?
 
@@ -573,6 +637,7 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
     """
     out: Dict[str, Any] = {"disk_fill": float("nan"),
                            "disk_contrast": float("nan"),
+                           "softness_arcsec": float("nan"),
                            "measurable": True,
                            "reasons": []}
     try:
@@ -598,6 +663,12 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
         out["disk_fill"] = fill
         out["disk_contrast"] = contrast
         out["disk_radius_px"] = float(nav.a_eq_px)
+        # Effective seeing estimate (arcsec) from the limb-edge width. This is
+        # the one thing fill/contrast/size cannot catch: a perfectly resolved
+        # disk that is simply too BLURRED to trust below 1 deg.
+        soft = estimate_limb_softness_arcsec(image, nav,
+                                             distance_au=getattr(nav, "distance_au", None))
+        out["softness_arcsec"] = soft
         if fill < DISK_FILL_MIN:
             out["measurable"] = False
             out["reasons"].append(
@@ -612,6 +683,18 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
             out["measurable"] = False
             out["reasons"].append(
                 f"disk radius {nav.a_eq_px:.0f}px < {DISK_MIN_RADIUS_PX}px (under-resolved)"
+            )
+        if math.isfinite(soft) and soft > DISK_SOFTNESS_WARN_ARCSEC:
+            out["softness_warn"] = True
+            out["reasons"].append(
+                f"softness={soft:.2f}\" > {DISK_SOFTNESS_WARN_ARCSEC}\" "
+                "(seeing-limited; treat sub-1 deg with reduced confidence)"
+            )
+        if math.isfinite(soft) and soft > DISK_SOFTNESS_FAIL_ARCSEC:
+            out["measurable"] = False
+            out["reasons"].append(
+                f"softness={soft:.2f}\" > {DISK_SOFTNESS_FAIL_ARCSEC}\" "
+                "(seeing too poor for trustworthy metrology)"
             )
     except Exception as e:
         out["reasons"].append(f"quality check failed: {e}")
@@ -1280,6 +1363,17 @@ GRS_DETECT_MAX_DRIFT_DEG = 12.0
 # phone photos and spacecraft crops score fill 0.66-0.85 / contrast 0.09-0.15.
 DISK_FILL_MIN = 0.90
 DISK_CONTRAST_MIN = 0.25
+# Effective seeing (limb-edge softness, arcsec) gates. Calibrated against the
+# seeing floor stress test (tools/seeing_floor_stress.py): the sub-1 deg
+# guarantee holds through ~2.8" true seeing, degrades gracefully 3.2"->6.0".
+# The estimator reads ~+1.6" high at the clear end (the renderer's baseline
+# unsharp + finite limb sampling), so the gates are set in *softness* units:
+#   warn = low-confidence / seeing-limited (still measured)
+#   fail = below the measurability floor (refuse)
+# 2.4" true seeing (~4.6" softness) stays measurable per the committed
+# test_resolution_seeing_100 stress band; 3.2"+ (~5.5" softness) is refused.
+DISK_SOFTNESS_WARN_ARCSEC = 3.5
+DISK_SOFTNESS_FAIL_ARCSEC = 5.0
 DISK_MIN_RADIUS_PX = 25.0
 
 METHOD_WEIGHTS = {
@@ -1471,8 +1565,23 @@ def measure_grs_precision(
     elif len(lat_sane) >= 2:
         try:
             from accuracy_gates import reject_lon_outliers
+            # The colour lock is the only estimator that does NOT share the
+            # dark-core bias, so it is the one independent vote in the set. It
+            # must never be pruned here as a "lon cluster outlier" -- a
+            # sanity-checked redness lock (already inside the GRS latitude band
+            # with positive score) is a valid GRS candidate that the
+            # `redness_ok` arbiter below decides on. Pruning it toward a dark
+            # cluster whose members can all lock the same decoy oval would
+            # discard the most blur-robust signal exactly when the dark methods
+            # are least trustworthy.
             kept_c, rej_c, med_lon = reject_lon_outliers(lat_sane, max_delta_deg=18.0)
             for n, reason in rej_c.items():
+                if n in lat_sane and n == "redness":
+                    notes.append(
+                        f"{n} protected from lon-cluster prune ({reason}); "
+                        "colour lock arbitrated downstream, never pruned as outlier"
+                    )
+                    continue
                 if n in lat_sane:
                     rejected[n] = reason
                     notes.append(f"{n} {reason}")
@@ -1530,13 +1639,38 @@ def measure_grs_precision(
         tmpl is not None and mom is not None
         and abs(wrap_diff(float(tmpl["lon_iii_deg"]), float(mom["lon_iii_deg"]))) > 12.0
     )
-    if red is not None and dark_split:
-        seed_lon = float(red["lon_iii_deg"])
-        notes.append(
-            "cluster seed = redness (dark methods split "
-            f"{abs(wrap_diff(float(tmpl['lon_iii_deg']), float(mom['lon_iii_deg']))):.1f}deg; "
-            "colour survives blur that destroys the dark oval)"
+    # When the colour lock disagrees with EVERY surviving dark method, the dark
+    # methods are collectively locked on a decoy. A dark-dark "agreement" is NOT
+    # independent corroboration -- template, map_dark and moment all share the
+    # same dark-core bias, so when two of them land on the same wrong SEB oval
+    # they merely double a single wrong vote. Under poor seeing the moment mask
+    # often fails outright ("moment mask empty") and template + map_dark then
+    # both fall on the same decoy ~90 deg from the GRS, so the template-vs-moment
+    # split test above never fires and the decoy template seeds the cluster,
+    # silently deleting the correct colour lock. Seed on colour instead: it
+    # survives blur that destroys the dark oval.
+    red_isolated = (
+        red is not None
+        and any(n in lat_sane for n in ("template", "moment", "map_dark"))
+        and all(
+            abs(wrap_diff(float(red["lon_iii_deg"]), float(m["lon_iii_deg"]))) > 12.0
+            for n, m in lat_sane.items()
+            if n in ("template", "moment", "map_dark")
         )
+    )
+    if red is not None and (dark_split or red_isolated):
+        seed_lon = float(red["lon_iii_deg"])
+        if dark_split:
+            notes.append(
+                "cluster seed = redness (dark methods split "
+                f"{abs(wrap_diff(float(tmpl['lon_iii_deg']), float(mom['lon_iii_deg']))):.1f}deg; "
+                "colour survives blur that destroys the dark oval)"
+            )
+        else:
+            notes.append(
+                "cluster seed = redness (colour lock isolated from every dark "
+                "method; dark-dark agreement on a decoy is not corroboration)"
+            )
     elif tmpl is not None and tmpl_quality >= 0.05:
         seed_lon = float(tmpl["lon_iii_deg"])
         notes.append(f"cluster seed = template (quality={tmpl_quality:.3f})")

@@ -3,6 +3,41 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [Unreleased] — 2026-08-13 — accuracy + stacking hardening
+
+### Fixed — catastrophic fallback lock under very-blurry seeing
+The deep audit (`docs/DEEP_AUDIT_7.0.0.md`) found ~5% of 2.40″ very-blurry
+frames locked a **decoy** SEB oval up to ~102° off, *and reported it as
+confident* (quality > 0.5). Root cause: the moment mask fails outright under
+that seeing, `template` + `map_dark` then agree on the same wrong dark oval
+(a dark-dark "agreement" is not corroboration), and the correct colour lock was
+being pruned as a `lon_cluster_outlier` because the cluster seed was the decoy
+template. Fixes in `app/precision_engine.py`:
+- The cluster now **seeds on the colour lock** whenever it is isolated from
+  every surviving dark method (generalises the old template-vs-moment split
+  guard to cover "moment failed + dark methods ganged up on a decoy").
+- `redness` is **never pruned as a longitude-cluster outlier**: a sanity-checked
+  colour lock (already inside the GRS latitude band, positive score) is
+  arbitrated by the `redness_ok` primary, not discarded toward a dark cluster.
+
+Measured on the same vblurry frames: catastrophic rate → **0** (was ~5%),
+published method flips to the correct `redness_lon+redness_lat`.
+
+### Added — robust stacking in `app/planetary_stacker.py`
+- **Sigma-clipped weighted mean** combination (new `robust=True` default,
+  `robust_sigma`, `robust_iters`). Rejects transient per-pixel defects
+  (cosmic rays, hot pixels, a one-frame satellite/shadow transit) that a plain
+  weighted mean would stamp onto the stack. Per-pixel median → MAD (1.4826·MAD)
+  → iterative clip → weighted mean of survivors. Memory-guarded (1.5 GB cube
+  budget) with a clean fallback to the streaming weighted mean; <3 frames
+  degrades to a plain mean.
+- **Alignment-confidence frame weighting**: the frame weight is now
+  sharpness × alignment confidence (the tracker's AP peak SNR), so a
+  crisp-but-mis-registered frame no longer pollutes the stack with full weight.
+- `tools/vblurry_sweep.py` — reproducible very-blurry catastrophic-rate check.
+- Tests: `tests/test_planetary_stacker.py` (11 tests) now cover the robust
+  combination, the alignment-confidence mapping, and RGB robustness.
+
 ## [7.0.0] — 2026-08-09 — "Velocity Pro"
 
 ### Added

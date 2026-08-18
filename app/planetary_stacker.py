@@ -49,6 +49,14 @@ from flow_warp import fit_dense_apply_field, apply_flow_warp
 from frame_quality import select_best_frames
 
 
+# Upper bound on the warped-frame cube (n × h × w × ch × 8 bytes) the robust
+# sigma-clipped combination will materialise. Above this we fall back to the
+# streaming weighted mean (the clip needs the whole cube in memory; a few
+# hundred 4K RGB frames would not fit, and the clip's value is for transient
+# defects on lucky-imaging stacks of tens of frames anyway).
+_ROBUST_MEMORY_BUDGET_BYTES = 1_500_000_000  # 1.5 GB
+
+
 def _to_hwc(frame: np.ndarray) -> np.ndarray:
     """Normalise an RGB frame to (h, w, 3) float64 (handles CHW / RGBA / HWC).
 
@@ -497,6 +505,67 @@ class PlanetaryStackerResult:
 
 
 # ---------------------------------------------------------------------------
+# Robust combination (sigma-clipped weighted mean)
+# ---------------------------------------------------------------------------
+
+def _align_confidence(snr: float) -> float:
+    """Map a phase-correlation peak SNR onto a [0, 1] alignment-confidence.
+
+    The tracker's SNR is peak / second-peak of the correlation surface: ~1.0
+    means an ambiguous lock (no real feature), ~10-100 means a crisp lock.
+    This is used to *down-weight* frames whose alignment points did not lock,
+    so a sharp-but-mis-registered frame cannot pollute the stack with full
+    weight. log1p() keeps the mapping stable across the wide SNR dynamic range.
+    """
+    if not math.isfinite(snr) or snr <= 0.0:
+        return 0.0
+    return float(np.clip(math.log1p(snr) / math.log(21.0), 0.0, 1.0))
+
+
+def _robust_combine(
+    warped: List[np.ndarray],
+    weights: List[float],
+    sigma: float = 3.0,
+    iters: int = 2,
+) -> np.ndarray:
+    """Sigma-clipped weighted mean across the aligned frames.
+
+    A plain weighted mean lets a transient defect (cosmic-ray hit, hot pixel,
+    a satellite or shadow transit present in ONE frame) leave a permanent mark
+    on the stack. This instead rejects per-pixel outliers before averaging:
+    per-pixel median -> MAD scale (1.4826 · MAD ≈ σ for Gaussian) -> iterative
+    sigma-clip -> weighted mean of the surviving pixels. With fewer than three
+    frames there is no robust scale to estimate, so it degrades to the plain
+    weighted mean.
+    """
+    n = len(warped)
+    if n == 0:
+        raise ValueError("_robust_combine: no frames")
+    first = np.asarray(warped[0], dtype=np.float64)
+    if n < 3:
+        acc = np.zeros_like(first)
+        wsum = 0.0
+        for w_, f in zip(weights, warped):
+            acc += np.asarray(f, dtype=np.float64) * float(w_)
+            wsum += float(w_)
+        return acc / max(wsum, 1e-9)
+
+    stack = np.stack([np.asarray(f, dtype=np.float64) for f in warped], axis=0)
+    w = np.asarray(weights, dtype=np.float64)
+    w = w / max(float(w.sum()), 1e-12)
+    wb = w.reshape((n,) + (1,) * (stack.ndim - 1))
+    med = np.median(stack, axis=0)
+    mad = np.median(np.abs(stack - med), axis=0)
+    sd = np.maximum(1.4826 * mad, 1e-6)
+    for _ in range(max(1, int(iters))):
+        mask = np.abs(stack - med) <= (float(sigma) * sd)
+        num = np.sum(stack * mask * wb, axis=0)
+        den = np.sum(mask * wb, axis=0)
+        med = num / np.maximum(den, 1e-9)
+    return med
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -514,6 +583,9 @@ def run_planetary_stacker(
     warp_mode: str = "per_latitude",   # "per_latitude" | "flow" | "global"
     reference: str = "auto",           # "auto" | "first"
     quality_gate: float = 1.0,         # keep the sharpest fraction (1.0 = keep all)
+    robust: bool = True,               # sigma-clipped combination (rejects transient defects)
+    robust_sigma: float = 3.0,         # clip threshold in MAD units
+    robust_iters: int = 2,             # sigma-clip refinement iterations
     save: bool = True,
 ) -> PlanetaryStackerResult:
     """Stack a list of mono frames of any `Planet` with a per-latitude warp.
@@ -534,6 +606,15 @@ def run_planetary_stacker(
                               (lucky-imaging rejection, AutoStakkert-style).
                               1.0 keeps all; e.g. 0.75 drops the 25% worst-seeing
                               frames. The reference is always retained.
+    robust                    when True, combine the warped frames with a
+                              sigma-clipped weighted mean so a transient defect
+                              (cosmic ray, hot pixel, one-frame shadow/satellite
+                              transit) is rejected instead of stamped onto the
+                              stack. Falls back to a plain weighted mean on very
+                              large frame sets (memory guard) or <3 frames.
+    robust_sigma / robust_iters
+                              sigma-clip threshold (MAD units) and refinement
+                              iterations for the robust combination.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -601,6 +682,8 @@ def run_planetary_stacker(
         ashape = (h, w, nc) if is_rgb else (h, w)
         accumulated = np.zeros(ashape, dtype=np.float64)
         weights = np.zeros((h, w), dtype=np.float64)
+        warped_frames: List[np.ndarray] = [np.asarray(ref_src, dtype=np.float64)]
+        frame_wts: List[float] = []
         rms_pass: List[float] = []
         snr_pass: List[float] = []
         prior_pass = 0
@@ -608,6 +691,7 @@ def run_planetary_stacker(
         ss_sum = s_sum * s_sum
         cnt = 1
         rq = max(_laplacian_var(ref_array, on_disk), 1e-3)
+        frame_wts.append(rq)
         accumulated += ref_src * rq
         weights += np.full((h, w), rq)
         for k, frame in enumerate(mono):
@@ -664,24 +748,47 @@ def run_planetary_stacker(
                 shifted = per_row_warp(src[k], dx_bins, dy_g, on_disk, row_lats)
 
             shifted_mono = shifted if not is_rgb else to_mono(shifted)
-            qk = max(_laplacian_var(frame, on_disk), 1e-3)
+            # Frame weight = sharpness × alignment confidence. Sharpness alone
+            # (Laplacian variance) rewards a crisp-but-mis-registered frame with
+            # full weight; the tracker's AP SNR tells us whether the warp
+            # actually locked. A frame whose alignment points failed (SNR ~1)
+            # contributes little even if its raw pixels are sharp.
+            snr_k = float(np.nanmean(snrs[valid])) if valid.any() else 0.0
+            sharp_k = max(_laplacian_var(frame, on_disk), 1e-3)
+            qk = sharp_k * (0.25 + 0.75 * _align_confidence(snr_k))
+            warped_frames.append(np.asarray(shifted, dtype=np.float64))
+            frame_wts.append(qk)
             accumulated += shifted * qk
             weights += np.full((h, w), qk)
             s_sum += shifted_mono
             ss_sum += shifted_mono * shifted_mono
             cnt += 1
-            snr_pass.append(float(np.nanmean(snrs[valid])) if valid.any() else 0.0)
+            snr_pass.append(snr_k)
             prior_pass += prior_bins
         mean_img = s_sum / cnt
         var_img = np.clip(ss_sum / cnt - mean_img * mean_img, 0.0, None)
         consistency = float(np.sqrt(np.mean(var_img[on_disk]))) if on_disk.any() else 0.0
-        if is_rgb:
-            stacked = accumulated / np.maximum(weights, 1e-9)[..., None]
+        # Robust (sigma-clipped) combination rejects transient pixel defects a
+        # plain weighted mean would stamp onto the stack. Guard the memory: the
+        # clip needs the full frame cube, so on very large frame sets fall back
+        # to the streaming weighted mean (the accuracy gain is for a handful of
+        # outlier pixels, which matter most on lucky-imaging stacks of tens of
+        # frames, not hundreds).
+        cube_bytes = len(warped_frames) * h * w * nc * 8
+        use_robust = robust and cube_bytes <= _ROBUST_MEMORY_BUDGET_BYTES
+        if use_robust:
+            stacked = _robust_combine(
+                warped_frames, frame_wts, sigma=robust_sigma, iters=robust_iters,
+            )
         else:
-            stacked = accumulated / np.maximum(weights, 1e-9)
-        return stacked, rms_pass, snr_pass, prior_pass, consistency
+            if is_rgb:
+                stacked = accumulated / np.maximum(weights, 1e-9)[..., None]
+            else:
+                stacked = accumulated / np.maximum(weights, 1e-9)
+        return stacked, rms_pass, snr_pass, prior_pass, consistency, use_robust
 
-    stacked, per_frame_rms, quality_snrs, prior_bins_total, warp_consistency_std = _pass(ref)
+    (stacked, per_frame_rms, quality_snrs, prior_bins_total,
+     warp_consistency_std, used_robust) = _pass(ref)
     out_path = out_dir / f"stacked_planetary_{planet.name.lower()}.png"
     if save:
         try:
@@ -730,6 +837,10 @@ def run_planetary_stacker(
             "measurement+prior hybrid: empty latitude bins filled from planet model",
             "reference frame = sharpest (lucky-imaging anchor)" if reference == "auto"
             else "reference frame = first",
+            f"combination = {'sigma-clipped weighted mean (robust)' if used_robust else 'plain weighted mean'}"
+            + ("" if used_robust else f" (robust={robust} fell back: memory guard or <3 frames)")
+            + (f" (sigma={robust_sigma}, iters={robust_iters})" if used_robust else ""),
+            "frame weight = sharpness × alignment confidence (AP SNR)",
         ],
         drift_summary={
             "per_frame_rms_px": [float(v) for v in per_frame_rms],

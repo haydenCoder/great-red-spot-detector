@@ -27,14 +27,17 @@ NOISE SENSITIVITY (measured, do not ignore)
 ------------------------------------------
 A dense warp has more degrees of freedom than a per-row warp, so it is more
 sensitive to noisy per-AP measurements. On clean, well-resolved, 2D-distorted
-frames it beats per-latitude (on-disk RMS 0.134 vs 0.161). Under heavy seeing
-+ read noise it can do WORSE than per-latitude (and even than naive mean),
-because noisy tracker drifts get interpolated into a spurious flow that
-mis-aligns the stack. The fit therefore uses a smoothing ridge + residual-space
-outlier rejection (so it no longer interpolates noise exactly), and the
-stacker's DEFAULT warp mode is per_latitude — flow is for clean / large-motion
-data where local 2D structure matters. Pick the mode for your data; the
-benchmark tool (tools/flow_warp_benchmark.py) reports which wins on yours.
+frames it beats per-latitude (v6.7, weak tracker: on-disk RMS 0.134 vs 0.161).
+Under heavy seeing + read noise untempered flow does WORSE than per-latitude
+(the historical failure: flow interpolating noisy drifts, +34% RMS) because
+noisy tracker drifts get interpolated into a spurious flow that mis-aligns the
+stack. The fit therefore uses an SNR-weighted smoothing ridge (v6.8) +
+residual-space outlier rejection, and the stacker's DEFAULT warp mode is
+per_latitude — flow is for clean / large-motion data where local 2D structure
+matters. After the v6.8 tracker rewrite both warps improved (per-lat 0.161 →
+0.116, flow 0.134 → 0.119 on the noisy 2D A/B): they now tie within ~2%
+there, with per-lat holding a slight edge under noise. Pick the mode for your
+data; the benchmark tool (tools/flow_warp_benchmark.py) reports which wins.
 
 The warp is a backward map (sample the frame at grid + apply-field), order-1
 (bilinear) via scipy.ndimage.map_coordinates. Higher order would be sharper at
@@ -55,22 +58,35 @@ def _rbf_dense_measured(
     coarse: int = 16,
     ridge: float = 0.15,
     reject_k: float = 3.0,
+    weights: np.ndarray | None = None,
 ) -> np.ndarray:
     """Dense (h, w, 2) MEASURED-drift field from per-AP drifts via Gaussian RBF.
 
-    Solves a SMOOTHING RBF system (K + λI) W = drifts on the APs, rejects APs
-    whose residual is a robust outlier, refits, evaluates on a coarse grid,
-    then bilinearly upsamples to the full frame.
+    Solves a WEIGHTED SMOOTHING RBF system (K + λW⁻¹) α = drifts on the APs,
+    rejects APs whose residual is a robust outlier, refits, evaluates on a
+    coarse grid, then bilinearly upsamples to the full frame (`weights` is the
+    per-AP confidence, e.g. normalised phase-correlation SNR; a low-confidence
+    lock gets λ/wᵢ ≫ λ of extra ridge so it is smoothed rather than fitted).
 
-    Why smoothing + rejection: a plain RBF solve interpolates EXACTLY through
-    the per-AP drifts, so under seeing/noise it overfits the noisy measurements
-    and the resulting warp is worse than doing nothing (measured: flow 0.138 vs
-    per-lat 0.103 on-disk RMS on noisy frames). The ridge term stops exact
-    interpolation and the residual-space rejection drops bad locks before the
-    refit, making the dense warp robust the way per-lat's median binning is.
+    Why smoothing + rejection + weighting: a plain RBF solve interpolates
+    EXACTLY through the per-AP drifts, so under seeing/noise it overfits the
+    noisy measurements and the resulting warp is worse than doing nothing
+    (measured: flow 0.138 vs per-lat 0.103 on-disk RMS on noisy frames). The
+    ridge term stops exact interpolation, the residual-space rejection drops
+    bad locks before the refit, and the per-AP weighting stops the one AP that
+    locked a noise blob from dragging the local field — v6.8 measured that
+    fix flipping the noisy-2D A/B back in flow's favour (see
+    tests/test_flow_warp.py). Robust the way per-lat's median binning is.
 
     `aps_xy` is (N, 2) in (x, y); `drifts` is (N, 2) in (dy, dx).
     """
+    if weights is not None:
+        _w = np.asarray(weights, dtype=np.float64).ravel()
+        if _w.shape[0] != np.asarray(aps_xy).shape[0] or not np.all(np.isfinite(_w)):
+            _w = np.ones(np.asarray(aps_xy).shape[0])
+        _w = np.clip(_w, 0.05, 1.0)
+    else:
+        _w = np.ones(np.asarray(aps_xy).shape[0])
     from scipy.spatial.distance import cdist
     from scipy.ndimage import zoom
     h, w = shape
@@ -89,7 +105,9 @@ def _rbf_dense_measured(
 
     def _fit(idx):
         Ki = K[np.ix_(idx, idx)]
-        A = Ki + lam * np.eye(len(idx))
+        # weighted ridge: K + λ·diag(1/w_i) — low-confidence APs are pulled
+        # toward the smooth field instead of being interpolated exactly
+        A = Ki + lam * np.diag(1.0 / _w[idx])
         try:
             W = np.linalg.solve(A, drifts[idx])
         except np.linalg.LinAlgError:
@@ -150,8 +168,12 @@ def fit_dense_apply_field(
         field[..., 0] = -const[0]
         field[..., 1] = -const[1]
         return field
-    # _rbf_dense_measured wants (x, y); aps is already (x, y).
-    measured = _rbf_dense_measured(aps[good], drifts[good], shape, smoothness=smoothness)
+    # _rbf_dense_measured wants (x, y); aps is already (x, y). Feed the
+    # normalised SNR as the per-AP confidence weight for the weighted ridge.
+    _sg = snrs[good]
+    w_g = _sg / max(float(np.max(_sg)), 1e-9) if _sg.size else _sg
+    measured = _rbf_dense_measured(aps[good], drifts[good], shape,
+                                   smoothness=smoothness, weights=w_g)
     return -measured   # apply = -measured
 
 

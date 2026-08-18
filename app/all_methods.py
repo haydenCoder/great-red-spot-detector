@@ -945,6 +945,13 @@ def run_all_methods(
     add(m_min_pixel, cyl, nav, lon_iii, lat)
     hits.extend(m_rgb_methods(channels, nav, lambda x: make_cylindrical(x, nav, map_width, map_height)))
     hits.extend(m_edges_extent(cyl, nav, lon_iii, lat))
+    # v6.8 rim-ellipse estimator (uses the redness lock as its seed; the
+    # image-plane call needs the full-res frame, not the map)
+    try:
+        from grs_ellipse import m_ellipse_rim
+        hits.append(m_ellipse_rim(image, nav))
+    except Exception as e:
+        hits.append(_fail("ELLIPSE_RIM", "rim-geometry", str(e)))
 
     # Classical extras (CIV-style, isophotes, FWHM, mean-shift, …)
     try:

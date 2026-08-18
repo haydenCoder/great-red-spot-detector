@@ -18,6 +18,13 @@ app/logs/
 app/ssd_cache/
 app/nasa_cache/
 app/owner_access/
+
+# Compiled C core (rebuilt on demand by app/cspeed.py / tools/build_cspeed.py)
+app/_cspeed.so
+app/_cspeed.dylib
+
+# Local run caches / logs
+runs/
 app/session.json
 app/admin_session.json
 

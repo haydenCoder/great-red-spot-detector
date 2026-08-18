@@ -84,11 +84,22 @@ def run_per_method(case: dict) -> dict:
         nav.north_pa_deg = float(truth.get("north_pa_deg") or 0.0)
 
         methods_run: Dict[str, Dict[str, Any]] = {}
+        redness_cache: Dict[str, Any] = {}
+
+        def _ellipse():
+            red = redness_cache.get("red")
+            if red is None:
+                red = _redness_grs(img, nav)
+                redness_cache["red"] = red
+            import grs_ellipse
+            return grs_ellipse.ellipse_grs(img, nav, seed=red)
+
         for name, fn in (
             ("template", lambda: _template_match_grs(make_cylindrical(img, nav, width=2400, height=1200), nav)),
             ("map_dark", lambda: _map_dark_centroid(make_cylindrical(img, nav, width=2400, height=1200), nav)),
             ("moment", lambda: _moment_mask_grs(img, nav)),
             ("redness", lambda: _redness_grs(img, nav)),
+            ("ellipse", _ellipse),
         ):
             try:
                 m = fn()
@@ -147,7 +158,7 @@ def summarise(rows: List[dict]) -> dict:
     if not ok:
         return out
 
-    method_names = ("template", "map_dark", "moment", "redness", "published_hybrid", "v662")
+    method_names = ("template", "map_dark", "moment", "redness", "ellipse", "published_hybrid", "v662")
     for m in method_names:
         dlons = []
         dlats = []

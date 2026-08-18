@@ -262,6 +262,200 @@ def main(argv=None) -> int:
     ppd.add_argument("--seed", type=int, default=0)
     ppd.add_argument("--out", default="")
 
+    # ------------------------------------------------------------------
+    # v6.8.0 Observatory Pro commands
+    # ------------------------------------------------------------------
+    pvs = sub.add_parser(
+        "video-stack",
+        help="AutoStakkert-class APS stack from a SER/AVI capture: per-alignment-"
+             "point quality maps + drizzle super-resolution + optional sharpen.",
+    )
+    pvs.add_argument("capture", help=".ser or .avi capture file")
+    pvs.add_argument("--best", type=float, default=0.25, help="per-AP lucky fraction (0..1)")
+    pvs.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pvs.add_argument("--pixfrac", type=float, default=1.0)
+    pvs.add_argument("--ap-size", type=int, default=32)
+    pvs.add_argument("--spacing", type=int, default=0)
+    pvs.add_argument("--quality", default="laplacian",
+                     choices=["laplacian", "gradient", "sobel", "contrast"])
+    pvs.add_argument("--step", type=int, default=1)
+    pvs.add_argument("--limit", type=int, default=0)
+    pvs.add_argument("--downsample", type=int, default=1)
+    pvs.add_argument("--align-downsample", type=int, default=1)
+    pvs.add_argument("--derotate", default="none",
+                     choices=["none", "prior", "hybrid", "measurement"],
+                     help="per-latitude rotation derotation before stacking "
+                          "(stamped SER, or --dt-per-frame for uniform cadence)")
+    pvs.add_argument("--dt-per-frame", type=float, default=0.0,
+                     help="seconds between frames when no stamps are available")
+    pvs.add_argument("--sharpen", default="none", choices=["none", "wavelet", "rl", "unsharp"])
+    pvs.add_argument("--out", default="")
+
+    pas = sub.add_parser(
+        "ap-stack",
+        help="APS stack a folder of frames (PNG/JPG/FITS) with per-AP quality + drizzle.",
+    )
+    pas.add_argument("--frames-dir", required=True)
+    pas.add_argument("--best", type=float, default=0.25)
+    pas.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pas.add_argument("--pixfrac", type=float, default=1.0)
+    pas.add_argument("--ap-size", type=int, default=32)
+    pas.add_argument("--spacing", type=int, default=0)
+    pas.add_argument("--quality", default="laplacian",
+                     choices=["laplacian", "gradient", "sobel", "contrast"])
+    pas.add_argument("--step", type=int, default=1)
+    pas.add_argument("--limit", type=int, default=0)
+    pas.add_argument("--derotate", default="none",
+                     choices=["none", "prior", "hybrid", "measurement"])
+    pas.add_argument("--dt-per-frame", type=float, default=0.0)
+    pas.add_argument("--sharpen", default="none", choices=["none", "wavelet", "rl", "unsharp"])
+    pas.add_argument("--out", default="")
+
+    psh = sub.add_parser(
+        "sharpen",
+        help="Sharpen an image (RegiStax-style wavelets, Richardson-Lucy, unsharp).",
+    )
+    psh.add_argument("image")
+    psh.add_argument("--method", default="wavelet", choices=["wavelet", "rl", "unsharp"])
+    psh.add_argument("--gains", default="1.8,1.5,1.25,1.1,1.0")
+    psh.add_argument("--rl-sigma", type=float, default=1.5)
+    psh.add_argument("--rl-iters", type=int, default=14)
+    psh.add_argument("--radius", type=float, default=2.5)
+    psh.add_argument("--amount", type=float, default=1.0)
+    psh.add_argument("--no-denoise", action="store_true")
+    psh.add_argument("--out", default="")
+
+    pt = sub.add_parser(
+        "transits",
+        help="GRS transit & Galilean-moon planner (WinJUPOS-style night sheet).",
+    )
+    pt.add_argument("--time", default="", help="start UTC (default: now)")
+    pt.add_argument("--days", type=float, default=1.0)
+    pt.add_argument("--moons", default="io,europa,ganymede,callisto")
+    pt.add_argument("--json", action="store_true")
+
+    pan = sub.add_parser(
+        "animate",
+        help="Export a blink/animation GIF (WinJUPOS-style derotation QA).",
+    )
+    pan.add_argument("frames", nargs="+", help="image paths (2+ for blink)")
+    pan.add_argument("--out", required=True)
+    pan.add_argument("--fps", type=float, default=4.0)
+    pan.add_argument("--stretch", default="global", choices=["global", "per_frame"])
+    pan.add_argument("--scale", type=int, default=1)
+    pan.add_argument("--stamps", default="", help="comma-separated per-frame text")
+
+    pje = sub.add_parser(
+        "jupos-export",
+        help="Export measurement packages to the JUPOS community CSV format.",
+    )
+    pje.add_argument("packages", nargs="+", help="package JSON files")
+    pje.add_argument("--out", required=True)
+    pje.add_argument("--observer", default="")
+    pje.add_argument("--instrument", default="")
+    pje.add_argument("--seeing", default="")
+
+    pv2a = sub.add_parser(
+        "video-to-answer",
+        help="Production one-shot: SER/AVI capture -> APS drizzle stack -> sharpen "
+             "-> published GRS measurement (SUPERDUPER card).",
+    )
+    pv2a.add_argument("capture")
+    pv2a.add_argument("--time", default="", help="mid-exposure UTC (SER stamps auto-if-empty)")
+    pv2a.add_argument("--best", type=float, default=0.25)
+    pv2a.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pv2a.add_argument("--ap-size", type=int, default=32)
+    pv2a.add_argument("--step", type=int, default=1)
+    pv2a.add_argument("--limit", type=int, default=0)
+    pv2a.add_argument("--downsample", type=int, default=1)
+    pv2a.add_argument("--sharpen", default="wavelet", choices=["none", "wavelet", "rl", "unsharp"])
+    pv2a.add_argument("--derotate", default="none",
+                      choices=["none", "prior", "hybrid", "measurement"],
+                      help="derotate before stacking (needs stamped SER); the "
+                           "measurement epoch becomes the derotation ref frame")
+    pv2a.add_argument("--no-nn", action="store_true", default=True)
+    pv2a.add_argument("--out", default="")
+
+    prgb = sub.add_parser(
+        "rgb-combine",
+        help="Filter-wheel RGB composite with exact ephemeris rotation "
+             "derotation (WinJUPOS RGB-combine parity, AutoStakkert can't).",
+    )
+    prgb.add_argument("--r", required=True, help="red-channel mono stack image")
+    prgb.add_argument("--g", required=True, help="green-channel mono stack image")
+    prgb.add_argument("--b", required=True, help="blue-channel mono stack image")
+    prgb.add_argument("--tr", default="", help="red mid-time UTC ISO")
+    prgb.add_argument("--tg", default="", help="green mid-time UTC ISO")
+    prgb.add_argument("--tb", default="", help="blue mid-time UTC ISO")
+    prgb.add_argument("--dt-r", type=float, default=0.0,
+                      help="red offset from green, seconds (times unknown)")
+    prgb.add_argument("--dt-b", type=float, default=0.0,
+                      help="blue offset from green, seconds")
+    prgb.add_argument("--planet", default="jupiter")
+    prgb.add_argument("--a-eq-px", type=float, default=0.0,
+                      help="equatorial radius px (default: fit from G stack)")
+    prgb.add_argument("--sub-lat", type=float, default=0.0,
+                      help="sub-Earth latitude deg at session")
+    prgb.add_argument("--north-pa", type=float, default=0.0,
+                      help="north pole PA deg E of N at session")
+    prgb.add_argument("--no-winds", action="store_true")
+    prgb.add_argument("--no-polish", action="store_true")
+    prgb.add_argument("--out", default="")
+
+    pfw = sub.add_parser(
+        "filter-wheel",
+        help="Full mono filter workflow: R/G/B SER or AVI -> per-filter APS "
+             "stacks -> rotation-derotated RGB composite + reports.",
+    )
+    pfw.add_argument("--r", required=True)
+    pfw.add_argument("--g", required=True)
+    pfw.add_argument("--b", required=True)
+    pfw.add_argument("--planet", default="jupiter")
+    pfw.add_argument("--sub-lat", type=float, default=0.0)
+    pfw.add_argument("--north-pa", type=float, default=0.0)
+    pfw.add_argument("--derotate", default="hybrid",
+                     choices=["off", "prior", "hybrid", "measurement"])
+    pfw.add_argument("--best", type=float, default=0.35)
+    pfw.add_argument("--limit", type=int, default=0)
+    pfw.add_argument("--out", required=True)
+
+    pwa = sub.add_parser(
+        "wind-analysis",
+        help="Cloud-tracking wind science from a video-stack report: profile "
+             "fit, System-III check, jets, CSV + PNG panel.",
+    )
+    pwa.add_argument("report", help="video-stack report JSON (with wind_report)")
+    pwa.add_argument("--planet", default="jupiter")
+    pwa.add_argument("--png", default="")
+    pwa.add_argument("--csv", default="")
+
+    pdr = sub.add_parser(
+        "drift",
+        help="GRS System-II drift fit from JUPOS CSV epochs: rate, curvature "
+             "F-test, zonal velocity, prediction.",
+    )
+    pdr.add_argument("csv", help="JUPOS-format CSV with L_II epochs")
+    pdr.add_argument("--lat", type=float, default=-20.0,
+                     help="GRS centre latitude (planetocentric)")
+    pdr.add_argument("--planet", default="jupiter")
+    pdr.add_argument("--object", default="GRS")
+    pdr.add_argument("--predict-days", type=float, default=30.0)
+    pdr.add_argument("--png", default="")
+    pdr.add_argument("--csv-out", default="")
+
+    psp = sub.add_parser(
+        "session-plan",
+        help="Physics-derived session budget: smear spans, filter gaps, "
+             "tonight's GRS windows.",
+    )
+    psp.add_argument("--time", default="", help="start UTC (default: now)")
+    psp.add_argument("--hours", type=float, default=8.0)
+    psp.add_argument("--planet", default="jupiter")
+    psp.add_argument("--a-eq-px", type=float, default=0.0)
+    psp.add_argument("--budget-px", type=float, default=1.0)
+    psp.add_argument("--lat", type=float, default=-20.0)
+    psp.add_argument("--png", default="")
+
     args = p.parse_args(argv)
 
     if args.cmd == "version":
@@ -651,6 +845,250 @@ def main(argv=None) -> int:
             reference=args.reference,
         )
         print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    # ------------------------------------------------------------------
+    # v6.8.0 Observatory Pro handlers
+    # ------------------------------------------------------------------
+    if args.cmd == "video-stack":
+        import observatory_pipeline as op
+        rep = op.stack_video(
+            args.capture,
+            out_dir=Path(args.out) if args.out else default_out_root() / "video_stack",
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            spacing=args.spacing, quality=args.quality, pixfrac=args.pixfrac,
+            step=args.step, limit=args.limit, downsample=args.downsample,
+            align_downsample=args.align_downsample, sharpen_method=args.sharpen,
+            derotate=args.derotate,
+            dt_per_frame_s=(args.dt_per_frame or None),
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "ap-stack":
+        import observatory_pipeline as op
+        rep = op.stack_video(
+            None,
+            frames_dir=args.frames_dir,
+            out_dir=Path(args.out) if args.out else default_out_root() / "ap_stack",
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            spacing=args.spacing, quality=args.quality, step=args.step,
+            limit=args.limit, sharpen_method=args.sharpen, pixfrac=args.pixfrac,
+            derotate=args.derotate,
+            dt_per_frame_s=(args.dt_per_frame or None),
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "sharpen":
+        import observatory_pipeline as op
+        gains = tuple(float(x) for x in str(args.gains).split(",") if x.strip())
+        rep = op.sharpen_file(
+            args.image, method=args.method, out=args.out or None,
+            gains=gains, rl_sigma=args.rl_sigma, rl_iters=args.rl_iters,
+            radius=args.radius, amount=args.amount, denoise=not args.no_denoise,
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "transits":
+        import transits as _tr
+        start = args.time or None
+        moons = tuple(m.strip() for m in args.moons.split(",") if m.strip())
+        plan = _tr.night_planner(start or __import__("datetime").datetime.now(), days=args.days, moons=moons)
+        if args.json:
+            print(json.dumps(plan, indent=2, default=str))
+        else:
+            print(_tr.planner_text(plan))
+        return 0
+
+    if args.cmd == "animate":
+        import observatory_pipeline as op
+        stamps = [s.strip() for s in args.stamps.split(",") if s.strip()] or None
+        rep = op.animate_frames(args.frames, args.out, fps=args.fps,
+                                stamps=stamps, stretch=args.stretch, scale=args.scale)
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "jupos-export":
+        import observatory_pipeline as op
+        packages = []
+        for f in args.packages:
+            try:
+                packages.append(json.loads(Path(f).read_text(encoding="utf-8")))
+            except Exception as e:
+                print(f"WARNING: {f}: {e}", file=sys.stderr)
+        rep = op.export_jupos(
+            packages, args.out,
+            observer=args.observer, instrument=args.instrument, seeing=args.seeing,
+        )
+        print(json.dumps(rep, indent=2, default=str))
+        return 0
+
+    if args.cmd == "video-to-answer":
+        import observatory_pipeline as op
+        rep = op.video_to_answer(
+            args.capture,
+            time_utc=args.time or None,
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            step=args.step, limit=args.limit, downsample=args.downsample,
+            sharpen_method=args.sharpen,
+            derotate=args.derotate,
+            out_root=Path(args.out) if args.out else None,
+        )
+        def _slim(d, depth=0):
+            if isinstance(d, dict):
+                return {k: _slim(v, depth + 1) for k, v in d.items()
+                        if k not in ("notes", "all_methods", "debug", "raw")}
+            if isinstance(d, list) and len(d) > 12:
+                return d[:12] + [f"...({len(d) - 12} more)"]
+            return d
+        print(json.dumps(_slim(rep), indent=2, default=str))
+        return 0
+
+    if args.cmd == "rgb-combine":
+        import numpy as _np
+        import rgb_combine as _rc
+        from planet_models import get_planet as _gp
+        from precision_engine import NavState, fit_limb_nav, to_mono
+        from PIL import Image as _Image
+
+        def _load_mono(pth):
+            im = _np.asarray(_Image.open(pth))
+            if im.dtype == _np.uint8:
+                im = im.astype(_np.float64) / 255.0
+            else:
+                im = im.astype(_np.float64)
+            return to_mono(im)
+
+        g_img = _load_mono(args.g)
+        r_img = _load_mono(args.r)
+        b_img = _load_mono(args.b)
+        for name, im in (("R", r_img), ("B", b_img)):
+            if im.shape != g_img.shape:
+                print(f"ERROR: {name} shape {im.shape} != G shape {g_img.shape}",
+                      file=sys.stderr)
+                return 1
+        planet = _gp(args.planet)
+        nav = fit_limb_nav(g_img, cm_iii_deg=0.0,
+                           distance_au=planet.default_distance_au,
+                           north_pa_deg=args.north_pa)
+        nav.flattening = planet.flattening
+        nav.sub_lat_deg = float(args.sub_lat)
+        nav.north_pa_deg = float(args.north_pa)
+        if args.a_eq_px and args.a_eq_px > 0:
+            nav.a_eq_px = float(args.a_eq_px)
+
+        def _tm(s):
+            import datetime as _dt
+            try:
+                return _dt.datetime.fromisoformat(s).timestamp() if s else None
+            except ValueError:
+                return None
+
+        tg = _tm(args.tg)
+        if tg is not None:
+            t_ref = tg
+            tr = _tm(args.tr) if _tm(args.tr) is not None else t_ref + args.dt_r
+            tb = _tm(args.tb) if _tm(args.tb) is not None else t_ref + args.dt_b
+        else:
+            t_ref = 0.0
+            tr, tb = float(args.dt_r), float(args.dt_b)
+            if abs(tr) + abs(tb) < 1e-9:
+                print("NOTE: no times given — combined at dt=0 (no rotation "
+                      "compensation needed if stacks share an epoch)",
+                      file=sys.stderr)
+        cfg = _rc.RGBCombineConfig(include_winds=not args.no_winds,
+                                   band_polish=not args.no_polish)
+        res = _rc.combine_rgb(r_img, g_img, b_img, tr, t_ref, tb,
+                              planet, nav, t_ref_s=t_ref, cfg=cfg)
+        print(_rc.combine_report_text(res))
+        out = Path(args.out) if args.out else default_out_root() / "rgb_combine"
+        out.mkdir(parents=True, exist_ok=True)
+        from observatory_pipeline import _save_png
+        rgb_path = _save_png(out / "rgb.png", res.rgb)
+        (out / "rgb_report.json").write_text(
+            json.dumps(res.report, indent=2, default=str))
+        print(f"rgb: {rgb_path}\nreport: {out / 'rgb_report.json'}")
+        return 0
+
+    if args.cmd == "filter-wheel":
+        from filter_wheel import run_filter_wheel
+        from planet_models import get_planet as _gp
+        from ap_stacker import APStackConfig
+        res = run_filter_wheel(
+            {"R": args.r, "G": args.g, "B": args.b}, args.out,
+            planet=_gp(args.planet), sub_lat_deg=args.sub_lat,
+            north_pa_deg=args.north_pa, derotate_mode=args.derotate,
+            max_frames_per_capture=args.limit,
+            stack_cfg=APStackConfig(ap_size_px=32, keep_frac=args.best))
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0
+
+    if args.cmd == "wind-analysis":
+        from planet_models import get_planet as _gp
+        from wind_analysis import (wind_report_text, render_profile_png,
+                                   export_profile_csv, detect_jets,
+                                   summarize_profile)
+        rep = json.loads(Path(args.report).read_text(encoding="utf-8"))
+        wr = rep.get("wind_report")
+        if not wr:
+            print("ERROR: report has no wind_report block (stack with "
+                  "--derotate measurement/hybrid)", file=sys.stderr)
+            return 1
+        planet = _gp(args.planet)
+        print(wind_report_text(planet, wr))
+        outs = {}
+        if args.png:
+            outs["png"] = render_profile_png(wr, args.png, jets=detect_jets(wr))
+        if args.csv:
+            outs["csv"] = export_profile_csv(
+                wr, args.csv, summary=summarize_profile(planet, wr))
+        if outs:
+            print("artefacts:", json.dumps(outs, indent=2))
+        return 0
+
+    if args.cmd == "drift":
+        from planet_models import get_planet as _gp
+        from grs_drift import (points_from_jupos_csv, fit_drift, predict,
+                               drift_report_text, zonal_velocity_mps,
+                               render_drift_png, export_drift_csv)
+        import datetime as _dt
+        planet = _gp(args.planet)
+        pts = points_from_jupos_csv(args.csv, want_object=(args.object,))
+        if len(pts) < 3:
+            print(f"ERROR: only {len(pts)} usable {args.object} epochs in "
+                  f"{args.csv}", file=sys.stderr)
+            return 1
+        fit = fit_drift(pts, lat_ref_deg=args.lat)
+        print(drift_report_text(fit, planet=planet))
+        if args.predict_days > 0:
+            t_f = pts[-1].t_utc + _dt.timedelta(days=args.predict_days)
+            prd = predict(fit, t_f, points=pts)
+            print(f"prediction +{args.predict_days:.0f}d: L_II "
+                  f"{prd['lon_ii_deg']:.1f} +- {prd['sigma_deg']:.1f} deg "
+                  f"({prd['model']})")
+        outs = {}
+        if args.png:
+            outs["png"] = render_drift_png(pts, fit, args.png)
+        if args.csv_out:
+            outs["csv"] = export_drift_csv(pts, fit, args.csv_out)
+        if outs:
+            print("artefacts:", json.dumps(outs, indent=2))
+        return 0
+
+    if args.cmd == "session-plan":
+        from planet_models import get_planet as _gp
+        from session_planner import session_plan, plan_text, render_plan_png
+        import datetime as _dt
+        start = (_dt.datetime.fromisoformat(args.time) if args.time
+                 else _dt.datetime.utcnow())
+        plan = session_plan(start, args.hours, planet=_gp(args.planet),
+                            a_eq_px=args.a_eq_px, budget_px=args.budget_px,
+                            lat_of_interest_deg=args.lat)
+        print(plan_text(plan))
+        if args.png:
+            print("panel:", render_plan_png(plan, args.png))
         return 0
 
     return 1

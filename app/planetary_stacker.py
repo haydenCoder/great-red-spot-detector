@@ -49,6 +49,14 @@ from flow_warp import fit_dense_apply_field, apply_flow_warp
 from frame_quality import select_best_frames
 
 
+# Upper bound on the warped-frame cube (n × h × w × ch × 8 bytes) the robust
+# sigma-clipped combination will materialise. Above this we fall back to the
+# streaming weighted mean (the clip needs the whole cube in memory; a few
+# hundred 4K RGB frames would not fit, and the clip's value is for transient
+# defects on lucky-imaging stacks of tens of frames anyway).
+_ROBUST_MEMORY_BUDGET_BYTES = 1_500_000_000  # 1.5 GB
+
+
 def _to_hwc(frame: np.ndarray) -> np.ndarray:
     """Normalise an RGB frame to (h, w, 3) float64 (handles CHW / RGBA / HWC).
 
@@ -69,18 +77,25 @@ def _to_hwc(frame: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def _per_ap_expected_dx(planet: Planet, lat_deg: float, dt_s: float, deg_to_px: float) -> float:
-    """Image-x displacement (px) a cloud feature at φ makes over dt_s.
-
-    = -ω_cloud(φ)·dt·(a/90) — the FULL cloud-tracking motion (bulk rotation +
-    zonal wind). Re-centering the AP crop by this before phase correlation
-    keeps the residual small enough to lock even when the bulk rotation has
-    swept the feature many pixels (the raw tracker saturates past ap_half).
-    """
+    """LEGACY scaling — superseded by `_per_ap_expected_dx_lon` (which uses the
+    correct (π/180)r cosφ chord conversion; this one under-shifts by up to
+    1.57× at the equator). Kept for signature compatibility; all in-repo
+    derotation call sites have been switched over."""
     if dt_s == 0.0:
         return 0.0
     # cloud moves +longitude; in image-x that is -deg_to_px per degree (observer
     # convention, matching the synthetic simulator / winjupos_derotator).
     return -planet.cloud_tracking_rate_deg_per_s(lat_deg) * dt_s * deg_to_px
+
+
+def _per_ap_expected_dx_lon(planet: Planet, lat_deg: float, dt_s: float, a_eq_px: float) -> float:
+    """Correctly scaled image-x displacement (px) a cloud feature at φ makes
+    over dt_s: −ω_cloud(φ)·dt·(π/180)·r(φ)cosφ·a_eq_px. Ground-truthed on
+    rotating-video renders (<0.5° left after 350 s drift; test_video_jupiter).
+    Re-centering the AP crop by this before phase correlation keeps the
+    residual small enough to lock even when bulk rotation has swept the
+    feature many pixels (the raw tracker saturates past ap_half)."""
+    return planet.lon_drift_px(lat_deg, dt_s, a_eq_px)
 
 
 def _track_ap_planetary(
@@ -105,11 +120,22 @@ def _track_ap_planetary(
     if xi - ap_half < 0 or yi - ap_half < 0 or xi + ap_half >= w or yi + ap_half >= h:
         return float("nan"), float("nan"), 0.0
     ref_crop = ref[yi - ap_half:yi + ap_half + 1, xi - ap_half:xi + ap_half + 1]
-    total_dy, total_dx, log_snr, n_ok = 0.0, 0.0, 0.0, 0
+    # pred = current best CONTENT DISPLACEMENT (px, full-res) of the frame
+    # relative to the reference, seeded by the model prior. The window is
+    # re-centred by pred; ap_stacker._measure_shift returns the residual
+    # APPLY-shift at the octave scale, so a residual content displacement is
+    # minus that. (The previous implementation accumulated apply-shifts as if
+    # they were displacements AND re-centred the window by (2**oct)x the
+    # prediction; against a known planted 4.2 px displacement it returned
+    # garbage unless the prior was already exact — i.e. it tracked nothing.
+    # Measured and fixed in v6.8.x).
+    from ap_stacker import _measure_shift
+    pred_dy, pred_dx = float(expected_dy), float(expected_dx)
+    log_snr, n_ok = 0.0, 0
     for oct in octaves:
         ref_oct = _laplacian_octave(ref_crop, oct)
-        cx = xi + int(round((expected_dx + total_dx) * (2 ** oct)))
-        cy = yi + int(round((expected_dy + total_dy) * (2 ** oct)))
+        cx = xi + int(round(pred_dx))
+        cy = yi + int(round(pred_dy))
         cx = max(ap_half, min(w - ap_half - 1, cx))
         cy = max(ap_half, min(h - ap_half - 1, cy))
         fr_crop = frame[cy - ap_half:cy + ap_half + 1, cx - ap_half:cx + ap_half + 1]
@@ -117,18 +143,65 @@ def _track_ap_planetary(
         if fr_oct.shape != ref_oct.shape:
             break
         try:
-            dy, dx, snr = _phase_corr_shift(ref_oct, fr_oct)
+            dy, dx, snr = _measure_shift(ref_oct, fr_oct, refine=True)
         except Exception:
             break
         if not (math.isfinite(dy) and math.isfinite(dx) and math.isfinite(snr)):
             break
-        total_dy += dy * (2 ** oct)
-        total_dx += dx * (2 ** oct)
-        log_snr += math.log(max(snr, 1e-3))
+        pred_dy -= float(dy) * (2 ** oct)
+        pred_dx -= float(dx) * (2 ** oct)
+        log_snr += math.log(max(float(snr), 1e-3))
         n_ok += 1
     if n_ok == 0:
         return float("nan"), float("nan"), 0.0
-    return expected_dy + total_dy, expected_dx + total_dx, math.exp(log_snr / n_ok)
+    return pred_dy, pred_dx, math.exp(log_snr / n_ok)
+
+
+def _ap_sky_rr(nav, x: float, y: float) -> float:
+    """Normalised squared sky-plane radius of an image point (1.0 = limb).
+
+    rr is invariant to north-PA rotation (a rotation in the sky plane), so
+    no PA correction is needed; sub-lat tilt maps the *surface* point but the
+    limb ellipse itself is unchanged.
+    """
+    b = nav.a_eq_px * (1.0 - float(nav.flattening))
+    xs = (float(x) - nav.xc) / (nav.a_eq_px + 1e-12)
+    ys = (nav.yc - float(y)) / (b + 1e-12)
+    return xs * xs + ys * ys
+
+
+def gate_ap_track(nav, ap_xy: Tuple[float, float], tdy: float, tdx: float,
+                  expected_dx: float, expected_dy: float = 0.0,
+                  limb_rr_max: float = 0.93,
+                  resid_floor_px: float = 2.0, resid_frac: float = 0.3) -> bool:
+    """Accept/reject one prior-seeded AP track (AutoStakkert-style AP gating).
+
+    Two independent, physically motivated gates — both failure modes were
+    measured directly on rotating-video renders (v6.8.x zonal audit):
+
+      1. LIMB GATE: the AP centre must be inside rr <= limb_rr_max.
+         Nearer the limb the phase correlation locks onto the *geometric*
+         disk edge (which does not move with the clouds) or onto sky noise.
+         Those boxes mis-lock by 2-8 px even with phase-corr SNR 8-9, so
+         SNR alone cannot identify them; geometry can.
+      2. RESIDUAL GATE: after removing the wind-model prior, the leftover
+         must be small: |resid| <= max(resid_floor_px, resid_frac*|prior|+1).
+         Unmodelled zonal shear is far below 1 px at amateur scales
+         (0.05 km/s of shear over 3 min of capture is ~0.01 px at 2 px/deg),
+         so a multi-px residual is a tracker mis-lock, not meteorology.
+
+    Rejected APs become NaN in the drift table: the per-latitude fit then
+    falls back to the model prior for that band instead of warping garbage.
+    """
+    if not (math.isfinite(tdx) and math.isfinite(tdy)):
+        return False
+    if _ap_sky_rr(nav, ap_xy[0], ap_xy[1]) > float(limb_rr_max):
+        return False
+    rx = abs(float(tdx) - float(expected_dx))
+    ry = abs(float(tdy) - float(expected_dy))
+    lim = max(float(resid_floor_px),
+              float(resid_frac) * (abs(float(expected_dx)) + abs(float(expected_dy))) + 1.0)
+    return (rx <= lim) and (ry <= lim)
 
 
 def _frame_dt(planet: Planet, k: int, ref_idx: int,
@@ -279,8 +352,9 @@ def fit_dx_vs_latitude(
     for j in range(n_bins):
         m = good & (abs_lat >= edges[j]) & (abs_lat < edges[j + 1])
         if int(m.sum()) < 1:
-            # prior fallback: planet-model expected drift (negated to align)
-            dx_bin[j] = -planet.expected_drift_dx_px(centres[j], dt_s, deg_to_px)
+            # prior fallback: planet-model expected drift (negated to align),
+            # correctly scaled via the (π/180)r cosφ longitude chord
+            dx_bin[j] = -planet.lon_drift_px(centres[j], dt_s, deg_to_px * 90.0)
             continue
         med = float(np.median(ap_dx[m]))
         mad = float(np.median(np.abs(ap_dx[m] - med))) + 1e-9
@@ -305,14 +379,32 @@ def fit_dx_vs_latitude(
                 neigh.append(dx_bin[j + 1])
             sm[j] = float(np.mean(neigh))
         dx_bin = sm
-    # Fill prior-only bins by blending the model fill with the nearest measured
-    # bin (continuous where data exists, model where it does not).
-    idx = np.where(filled)[0]
-    if idx.size:
-        for j in range(n_bins):
-            if not filled[j]:
-                nb = idx[int(np.argmin(np.abs(idx - j)))]
-                dx_bin[j] = 0.5 * dx_bin[j] + 0.5 * dx_bin[nb]
+    # PHYSICAL BOUND (v6.8.x): no latitude band can legitimately shift by more
+    # than ~2x the cloud-tracked model (Jovian winds are bounded; deltas larger
+    # than that are tracker garbage, and near the poles a single per-row shift
+    # is ill-posed anyway — a polar row spans many latitudes AND longitudes).
+    # The old "blend empty bins toward the nearest measured bin" rule dragged
+    # equatorial ±100 px warps into the polar bands and visibly tore the limb;
+    # the clamp keeps the poles intact while the equator still derotates.
+    a_eq_px = deg_to_px * 90.0
+    meas_mag = np.abs(dx_bin[filled])
+    med_meas = float(np.median(meas_mag)) if meas_mag.size else 0.0
+    for j in range(n_bins):
+        model_lim = 2.0 * abs(planet.lon_drift_px(float(centres[j]), dt_s, a_eq_px)) + 1.5
+        # Unmeasured bins trust the model only; measured bins may exceed the
+        # model when their measured neighbourhood does (bounded wind shear and
+        # model-free unit tests alike), but an isolated tear cannot.
+        if filled[j]:
+            neigh = [abs(dx_bin[j])]
+            if j > 0 and filled[j - 1]:
+                neigh.append(abs(dx_bin[j - 1]))
+            if j < n_bins - 1 and filled[j + 1]:
+                neigh.append(abs(dx_bin[j + 1]))
+            data_lim = 2.0 * float(np.median(neigh)) + 1.5
+        else:
+            data_lim = 2.0 * med_meas + 1.5
+        lim = max(model_lim, min(data_lim, 3.0 * med_meas + 1.5) if filled[j] else model_lim)
+        dx_bin[j] = float(np.clip(dx_bin[j], -lim, lim))
     # dy: single robust value over all APs. Pure zonal rotation barely moves
     # latitude, so the per-lat structure is all in dx; a global dy is enough.
     dy_global = 0.0
@@ -339,8 +431,12 @@ def per_row_warp(
     """Apply a per-row x-shift (from the latitude fit) + a uniform y-shift.
 
     Each row is shifted by the dx at that row's |latitude| (interpolated from
-    the binned fit). Implemented as a per-row FFT phase ramp, matching the
-    proven convention used by win_jupos_derotator / the synthetic simulator.
+    the binned fit). Implemented as spatial-domain quintic-spline resampling
+    (map_coordinates order=5, content moves by +dx per row) — the same shift
+    convention as the original FFT phase ramp but with no circulant wraparound
+    or Gibbs ringing: the FFT version streaked limb bars through the sky on
+    long-rotation stacks and measurably degraded derotated outputs (see the
+    rotating-video benchmark in test_video_jupiter).
 
     Channel-aware: pass an (h,w,3) frame to warp every channel identically.
     """
@@ -350,33 +446,33 @@ def per_row_warp(
             [per_row_warp(arr[..., c], dx_apply_per_bin, dy_global, on_disk, row_lats)
              for c in range(arr.shape[2])], axis=-1,
         )
+    from scipy.ndimage import map_coordinates
     out = arr.copy()
     h, w = out.shape
     n_bins = dx_apply_per_bin.size
     centres = (np.arange(n_bins) + 0.5) * (90.0 / n_bins)
-    # per-row dx: interpolate the |lat| fit at each row's |lat|
     abs_lats = np.abs(row_lats)
     row_dx = np.interp(abs_lats, centres, dx_apply_per_bin)
-    ncol = w
-    idx = np.arange(ncol)
+    idx = np.arange(w, dtype=np.float64)
     for row in range(h):
         if not on_disk[row].any():
             continue
         dx = float(row_dx[row])
         if abs(dx) < 0.02:
             continue
-        # exp(-2πi·dx·k/ncol) — bake dx in directly (NOT (e^{-2πik/n})**dx,
-        # which wraps the phase on the wrong branch for fractional dx).
-        # IMPORTANT: must invert the FFT (real(ifft(fft*phase))); without the
-        # ifft this returns the un-inverted spectrum and blows up to |fft|max.
-        out[row] = np.real(
-            np.fft.ifft(np.fft.fft(out[row]) * np.exp(-2j * np.pi * dx * idx / ncol))
-        )
+        # Spatial-domain resample at (x - dx): content moves by +dx, exactly the
+        # old FFT phase-ramp convention (out(x) = in(x - dx)) — but WITHOUT the
+        # circulant wraparound that smeared limb bars into the sky and the
+        # bar-code striping plainly visible on long-rotation stacks (36-frame,
+        # 3.5-deg video benchmark, fixed in v6.8.x). mode="nearest" keeps the
+        # sky constant.
+        out[row] = map_coordinates(arr[row], [idx - dx], order=5,
+                                   mode="nearest", prefilter=True)
     if abs(dy_global) > 0.02:
-        f = np.fft.fft2(out)
-        yy = np.arange(h)[:, None]
-        phase = np.exp(-2j * np.pi * dy_global * yy / h)
-        out = np.real(np.fft.ifft2(f * phase))
+        yy = np.arange(h, dtype=np.float64)[:, None] - dy_global
+        yy = np.broadcast_to(yy, (h, w))
+        xx = np.broadcast_to(np.arange(w, dtype=np.float64)[None, :], (h, w))
+        out = map_coordinates(out, [yy, xx], order=5, mode="nearest", prefilter=True)
     return out
 
 
@@ -409,6 +505,67 @@ class PlanetaryStackerResult:
 
 
 # ---------------------------------------------------------------------------
+# Robust combination (sigma-clipped weighted mean)
+# ---------------------------------------------------------------------------
+
+def _align_confidence(snr: float) -> float:
+    """Map a phase-correlation peak SNR onto a [0, 1] alignment-confidence.
+
+    The tracker's SNR is peak / second-peak of the correlation surface: ~1.0
+    means an ambiguous lock (no real feature), ~10-100 means a crisp lock.
+    This is used to *down-weight* frames whose alignment points did not lock,
+    so a sharp-but-mis-registered frame cannot pollute the stack with full
+    weight. log1p() keeps the mapping stable across the wide SNR dynamic range.
+    """
+    if not math.isfinite(snr) or snr <= 0.0:
+        return 0.0
+    return float(np.clip(math.log1p(snr) / math.log(21.0), 0.0, 1.0))
+
+
+def _robust_combine(
+    warped: List[np.ndarray],
+    weights: List[float],
+    sigma: float = 3.0,
+    iters: int = 2,
+) -> np.ndarray:
+    """Sigma-clipped weighted mean across the aligned frames.
+
+    A plain weighted mean lets a transient defect (cosmic-ray hit, hot pixel,
+    a satellite or shadow transit present in ONE frame) leave a permanent mark
+    on the stack. This instead rejects per-pixel outliers before averaging:
+    per-pixel median -> MAD scale (1.4826 · MAD ≈ σ for Gaussian) -> iterative
+    sigma-clip -> weighted mean of the surviving pixels. With fewer than three
+    frames there is no robust scale to estimate, so it degrades to the plain
+    weighted mean.
+    """
+    n = len(warped)
+    if n == 0:
+        raise ValueError("_robust_combine: no frames")
+    first = np.asarray(warped[0], dtype=np.float64)
+    if n < 3:
+        acc = np.zeros_like(first)
+        wsum = 0.0
+        for w_, f in zip(weights, warped):
+            acc += np.asarray(f, dtype=np.float64) * float(w_)
+            wsum += float(w_)
+        return acc / max(wsum, 1e-9)
+
+    stack = np.stack([np.asarray(f, dtype=np.float64) for f in warped], axis=0)
+    w = np.asarray(weights, dtype=np.float64)
+    w = w / max(float(w.sum()), 1e-12)
+    wb = w.reshape((n,) + (1,) * (stack.ndim - 1))
+    med = np.median(stack, axis=0)
+    mad = np.median(np.abs(stack - med), axis=0)
+    sd = np.maximum(1.4826 * mad, 1e-6)
+    for _ in range(max(1, int(iters))):
+        mask = np.abs(stack - med) <= (float(sigma) * sd)
+        num = np.sum(stack * mask * wb, axis=0)
+        den = np.sum(mask * wb, axis=0)
+        med = num / np.maximum(den, 1e-9)
+    return med
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -426,6 +583,9 @@ def run_planetary_stacker(
     warp_mode: str = "per_latitude",   # "per_latitude" | "flow" | "global"
     reference: str = "auto",           # "auto" | "first"
     quality_gate: float = 1.0,         # keep the sharpest fraction (1.0 = keep all)
+    robust: bool = True,               # sigma-clipped combination (rejects transient defects)
+    robust_sigma: float = 3.0,         # clip threshold in MAD units
+    robust_iters: int = 2,             # sigma-clip refinement iterations
     save: bool = True,
 ) -> PlanetaryStackerResult:
     """Stack a list of mono frames of any `Planet` with a per-latitude warp.
@@ -446,6 +606,15 @@ def run_planetary_stacker(
                               (lucky-imaging rejection, AutoStakkert-style).
                               1.0 keeps all; e.g. 0.75 drops the 25% worst-seeing
                               frames. The reference is always retained.
+    robust                    when True, combine the warped frames with a
+                              sigma-clipped weighted mean so a transient defect
+                              (cosmic ray, hot pixel, one-frame shadow/satellite
+                              transit) is rejected instead of stamped onto the
+                              stack. Falls back to a plain weighted mean on very
+                              large frame sets (memory guard) or <3 frames.
+    robust_sigma / robust_iters
+                              sigma-clip threshold (MAD units) and refinement
+                              iterations for the robust combination.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -513,6 +682,8 @@ def run_planetary_stacker(
         ashape = (h, w, nc) if is_rgb else (h, w)
         accumulated = np.zeros(ashape, dtype=np.float64)
         weights = np.zeros((h, w), dtype=np.float64)
+        warped_frames: List[np.ndarray] = [np.asarray(ref_src, dtype=np.float64)]
+        frame_wts: List[float] = []
         rms_pass: List[float] = []
         snr_pass: List[float] = []
         prior_pass = 0
@@ -520,6 +691,7 @@ def run_planetary_stacker(
         ss_sum = s_sum * s_sum
         cnt = 1
         rq = max(_laplacian_var(ref_array, on_disk), 1e-3)
+        frame_wts.append(rq)
         accumulated += ref_src * rq
         weights += np.full((h, w), rq)
         for k, frame in enumerate(mono):
@@ -533,10 +705,16 @@ def run_planetary_stacker(
             drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
             snrs = np.zeros(n_aps, dtype=np.float64)
             for i, (ax, ay) in enumerate(aps):
-                exp_dx = _per_ap_expected_dx(planet, float(ap_lats[i]), dt_k, deg_to_px)
+                exp_dx = _per_ap_expected_dx_lon(planet, float(ap_lats[i]), dt_k, deg_to_px * 90.0)
                 tdy, tdx, snr = _track_ap_planetary(
                     ref_array, frame, (ax, ay), ap_half, expected_dx=exp_dx,
                 )
+                # AutoStakkert-style AP outlier gates (limb + post-prior
+                # residual): a mis-locked AP is NaN'd so the per-latitude
+                # fit falls back to the model prior in its band instead of
+                # dragging a wrong warp in (v6.8.x zonal audit).
+                if not gate_ap_track(nav, (ax, ay), tdy, tdx, exp_dx):
+                    tdy, tdx, snr = float("nan"), float("nan"), 0.0
                 drifts[i, 0] = tdy
                 drifts[i, 1] = tdx
                 snrs[i] = snr
@@ -570,24 +748,47 @@ def run_planetary_stacker(
                 shifted = per_row_warp(src[k], dx_bins, dy_g, on_disk, row_lats)
 
             shifted_mono = shifted if not is_rgb else to_mono(shifted)
-            qk = max(_laplacian_var(frame, on_disk), 1e-3)
+            # Frame weight = sharpness × alignment confidence. Sharpness alone
+            # (Laplacian variance) rewards a crisp-but-mis-registered frame with
+            # full weight; the tracker's AP SNR tells us whether the warp
+            # actually locked. A frame whose alignment points failed (SNR ~1)
+            # contributes little even if its raw pixels are sharp.
+            snr_k = float(np.nanmean(snrs[valid])) if valid.any() else 0.0
+            sharp_k = max(_laplacian_var(frame, on_disk), 1e-3)
+            qk = sharp_k * (0.25 + 0.75 * _align_confidence(snr_k))
+            warped_frames.append(np.asarray(shifted, dtype=np.float64))
+            frame_wts.append(qk)
             accumulated += shifted * qk
             weights += np.full((h, w), qk)
             s_sum += shifted_mono
             ss_sum += shifted_mono * shifted_mono
             cnt += 1
-            snr_pass.append(float(np.nanmean(snrs[valid])) if valid.any() else 0.0)
+            snr_pass.append(snr_k)
             prior_pass += prior_bins
         mean_img = s_sum / cnt
         var_img = np.clip(ss_sum / cnt - mean_img * mean_img, 0.0, None)
         consistency = float(np.sqrt(np.mean(var_img[on_disk]))) if on_disk.any() else 0.0
-        if is_rgb:
-            stacked = accumulated / np.maximum(weights, 1e-9)[..., None]
+        # Robust (sigma-clipped) combination rejects transient pixel defects a
+        # plain weighted mean would stamp onto the stack. Guard the memory: the
+        # clip needs the full frame cube, so on very large frame sets fall back
+        # to the streaming weighted mean (the accuracy gain is for a handful of
+        # outlier pixels, which matter most on lucky-imaging stacks of tens of
+        # frames, not hundreds).
+        cube_bytes = len(warped_frames) * h * w * nc * 8
+        use_robust = robust and cube_bytes <= _ROBUST_MEMORY_BUDGET_BYTES
+        if use_robust:
+            stacked = _robust_combine(
+                warped_frames, frame_wts, sigma=robust_sigma, iters=robust_iters,
+            )
         else:
-            stacked = accumulated / np.maximum(weights, 1e-9)
-        return stacked, rms_pass, snr_pass, prior_pass, consistency
+            if is_rgb:
+                stacked = accumulated / np.maximum(weights, 1e-9)[..., None]
+            else:
+                stacked = accumulated / np.maximum(weights, 1e-9)
+        return stacked, rms_pass, snr_pass, prior_pass, consistency, use_robust
 
-    stacked, per_frame_rms, quality_snrs, prior_bins_total, warp_consistency_std = _pass(ref)
+    (stacked, per_frame_rms, quality_snrs, prior_bins_total,
+     warp_consistency_std, used_robust) = _pass(ref)
     out_path = out_dir / f"stacked_planetary_{planet.name.lower()}.png"
     if save:
         try:
@@ -636,6 +837,10 @@ def run_planetary_stacker(
             "measurement+prior hybrid: empty latitude bins filled from planet model",
             "reference frame = sharpest (lucky-imaging anchor)" if reference == "auto"
             else "reference frame = first",
+            f"combination = {'sigma-clipped weighted mean (robust)' if used_robust else 'plain weighted mean'}"
+            + ("" if used_robust else f" (robust={robust} fell back: memory guard or <3 frames)")
+            + (f" (sigma={robust_sigma}, iters={robust_iters})" if used_robust else ""),
+            "frame weight = sharpness × alignment confidence (AP SNR)",
         ],
         drift_summary={
             "per_frame_rms_px": [float(v) for v in per_frame_rms],
@@ -657,11 +862,11 @@ def _global_shift(frame: np.ndarray, dy: float, dx: float) -> np.ndarray:
         return np.stack(
             [_global_shift(out[..., c], dy, dx) for c in range(out.shape[2])], axis=-1
         )
-    h, w = out.shape
-    f = np.fft.fft2(out)
-    yy, xx = np.mgrid[0:h, 0:w]
-    phase = np.exp(-2j * np.pi * (dy * yy / h + dx * xx / w))
-    return np.real(np.fft.ifft2(f * phase))
+    # v6.8.x audit: exact spatial-domain spline shift (the FFT phase ramp
+    # returns the even mixture (f(x-s)+f(x+s))/2 at non-integer shifts —
+    # see app/image_warp.py docstring for the measured numbers).
+    from image_warp import warp_shift2d
+    return warp_shift2d(out, dy, dx, order=3)
 
 
 def stacker_report_text(res: "PlanetaryStackerResult") -> str:
@@ -730,6 +935,7 @@ __all__ = [
     "PlanetaryStackerResult",
     "select_reference_index",
     "fit_dx_vs_latitude",
+    "gate_ap_track",
     "per_row_warp",
     "stacker_report_text",
     "write_stacker_report",

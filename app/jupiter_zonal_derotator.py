@@ -14,18 +14,22 @@ This is the missing piece between WinJUPOS (single rotation) and a
 full optical-flow warp (per-pixel). It is fast (one FFT per latitude
 row) and physically motivated (the zonal-wind residual profile).
 
-ALGORITHM
-=========
-  1) Run the existing `_ap_latitude` and `_zonal_wind_rate_at_lat`
-     from `jupiter_zonal_stacker` to get the per-AP zonal rate.
-  2) For each frame, compute the per-frame expected shift as a
-     *per-row* profile (zonal = image-x, latitudinal = image-y).
-     This is the "what the frame should look like at the
-     reference's epoch" prior.
-  3) Apply a per-row shift: row y is shifted by (Δx(y), Δy(y))
-     where Δx = -rate(avg_lat(y)) · dt and Δy = the latitudinal
-     profile match residual.
-  4) Stack with per-row quality weighting.
+ALGORITHM (v6.8 — consolidated on the tested engine)
+====================================================
+  1) `ap_stacker.derotate_frames` does the physics: limb nav, AP grid,
+     prior-seeded sub-pixel AP tracking (_measure_shift), robust
+     per-latitude fit with a physical bound, spatial-domain per-row
+     resampling with the correct (π/180)r cosφ longitude chord and
+     correct content-shift sign. All regression-pinned in
+     tests/test_video_jupiter.py.
+  2) This wrapper keeps the reporting metric of the original module
+     (1D zonal-profile lat cross-correlation vs the reference frame)
+     and the same public API.
+
+The pre-v6.8 internals (a/90 plate scale → 1.57× under-shift at the
+equator; bare phase-corr tracker that saturated past ap_half; per-row
+FFT phase ramps with circulant wrap + limb ringing) were retired after
+the v6.8 derotation audit — see docs/OBSERVATORY_PRO_6.8.0.md.
 
 WHAT IT IS NOT
 ==============
@@ -37,18 +41,15 @@ WHAT IT IS NOT
 """
 from __future__ import annotations
 
-import math
 import time
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
 from verbose_log import CONSOLE
 from jupiter_zonal_stacker import (
-    _zonal_wind_rate_at_lat_deg_per_s,
-    SYS3_RATE_DEG_PER_S,
     _zonal_profile,
     _zonal_profile_shift,
 )
@@ -78,6 +79,7 @@ def run_jupiter_zonal_derotate(
     north_pa_deg: float = 0.0,
     mode: str = "measurement",  # "measurement" or "prior"
     save: bool = True,
+    ref_index: Optional[int] = None,
 ) -> JupiterZonalDerotatorResult:
     """
     Derotate a list of frames with per-latitude shifts.
@@ -112,132 +114,49 @@ def run_jupiter_zonal_derotate(
     CONSOLE.info(
         f"JUPITER-ZONAL-DEROT: {n_frames} frames {w}x{h}, mode={mode}"
     )
-    # Per-row average latitude
-    from precision_engine import fit_limb_nav, deg2rad
-    from jpa_10k import _build_ap_grid, _phase_corr_shift, _laplacian_octave
-    ref = frames[0].astype(np.float64)
-    nav = fit_limb_nav(ref, cm_iii_deg=cm_iii_per_frame[0], distance_au=5.2)
-    nav.sub_lat_deg = sub_lat_deg
-    nav.north_pa_deg = north_pa_deg
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    Xsky = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
-    Ysky = (nav.yc - yy) / (nav.b_pol_px + 1e-12)
-    pa = deg2rad(north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xp = Xsky * cP + Ysky * sP
-    Yp = -Xsky * sP + Ysky * cP
-    rr = Xp * Xp + Yp * Yp
-    Zp = np.sqrt(np.clip(1.0 - rr, 0.0, 1.0))
-    D = deg2rad(sub_lat_deg)
-    cD, sD = math.cos(D), math.sin(D)
-    Ye = Yp * cD + Zp * sD
-    lat = np.degrees(np.arcsin(np.clip(Ye, -1.0, 1.0)))
-    on_disk = rr <= 0.97
-    row_lats = np.zeros(h, dtype=np.float64)
-    for row in range(h):
-        m = on_disk[row]
-        if m.any():
-            row_lats[row] = float(np.mean(lat[row][m]))
-        else:
-            row_lats[row] = 0.0
-    deg_to_px = nav.a_eq_px / 90.0
-    ref_lat_centres, ref_profile = _zonal_profile(
-        ref, cm_iii_per_frame[0], 5.2,
-        sub_lat_deg=sub_lat_deg, north_pa_deg=north_pa_deg,
-    )
-    per_frame_shifts: List[np.ndarray] = []
-    per_frame_ly_shifts: List[float] = []
-    derotated: List[np.ndarray] = []
-    for k, frame in enumerate(frames):
-        if frame.shape != ref.shape:
+    # ---------------------------------------------------------------
+    # v6.8: delegate the derotation physics to the tested engine
+    # (ap_stacker.derotate_frames): physical (pi/180)r cos(phi) chord
+    # px/deg, correct content-shift signs, prior-seeded AP tracking and
+    # spatial-domain per-row resampling. This module previously rolled its
+    # own: a/90 plate scale (under-shifted 1.57x at the equator — the
+    # measured v6.8 bug), a bare phase-corr AP tracker with NO prior
+    # windowing (saturated past ap_half under rotation), and per-row FFT
+    # phase ramps (circulant wrap + limb Gibbs ringing). Same public API
+    # and result fields; the physics underneath is the verified one now.
+    # ---------------------------------------------------------------
+    from ap_stacker import derotate_frames
+    from planet_models import JUPITER
+
+    frames_fixed: List[np.ndarray] = []
+    for frame in frames:
+        if frame.shape != (h, w):
             fh, fw = frame.shape
             y0 = max(0, (fh - h) // 2); x0 = max(0, (fw - w) // 2)
             frame = frame[y0:y0 + h, x0:x0 + w]
-        if mode == "measurement":
-            # Use AP-grid per-AP measurements, then interpolate to
-            # per-row. The measurement is more accurate than the prior
-            # when the AP tracker succeeds.
-            aps = _build_ap_grid(h, w, n_grid=6, mask=on_disk)
-            ap_drifts = np.full((aps.shape[0], 2), np.nan, dtype=np.float64)
-            for i, (x, y) in enumerate(aps):
-                xi, yi = int(round(x)), int(round(y))
-                ap_half = 16
-                if (xi - ap_half < 0 or yi - ap_half < 0
-                        or xi + ap_half >= w or yi + ap_half >= h):
-                    continue
-                ref_crop = ref[yi - ap_half:yi + ap_half + 1, xi - ap_half:xi + ap_half + 1]
-                frame_crop = frame[yi - ap_half:yi + ap_half + 1,
-                                   xi - ap_half:xi + ap_half + 1]
-                try:
-                    dy_o, dx_o, _ = _phase_corr_shift(ref_crop, frame_crop)
-                    ap_drifts[i] = (dy_o, dx_o)
-                except Exception:
-                    pass
-            # Per-AP lat
-            ap_lats = np.array([
-                _ap_latitude_for_derotator((x, y), nav)
-                for x, y in aps
-            ])
-            # Per-row shift = median dx of APs whose lat is close to
-            # the row's lat (within 5°). The sign of dx is *opposite*
-            # the measured shift (we want to undo the shift).
-            dx_per_row = np.zeros(h, dtype=np.float64)
-            for row in range(h):
-                m = on_disk[row]
-                if not m.any():
-                    continue
-                avg_lat = row_lats[row]
-                # APs within 5° of this row's lat
-                close = np.abs(ap_lats - avg_lat) < 5.0
-                close &= np.isfinite(ap_drifts[:, 0])
-                if close.sum() < 2:
-                    continue
-                dx_per_row[row] = -float(np.median(ap_drifts[close, 1]))
-        else:  # "prior"
-            cm_ref = cm_iii_per_frame[0]
-            cm_k = cm_iii_per_frame[k]
-            dcm_deg = cm_k - cm_ref
-            if dcm_deg > 180.0:
-                dcm_deg -= 360.0
-            elif dcm_deg < -180.0:
-                dcm_deg += 360.0
-            t_dcm = dcm_deg / SYS3_RATE_DEG_PER_S if abs(SYS3_RATE_DEG_PER_S) > 1e-12 else 0.0
-            dx_per_row = np.zeros(h, dtype=np.float64)
-            for row in range(h):
-                if not on_disk[row].any():
-                    continue
-                rate = _zonal_wind_rate_at_lat_deg_per_s(row_lats[row])
-                dx_per_row[row] = -rate * t_dcm * deg_to_px
-        # Zonal-profile latitudinal match (catch any y-bias)
+        frames_fixed.append(np.asarray(frame, dtype=np.float64))
+    dts = [float(dt_s_per_frame[k]) for k in range(n_frames)]
+    der_mode = mode if mode in ("prior", "hybrid", "measurement") else "measurement"
+    derotated, dinfo = derotate_frames(
+        frames_fixed, dt_s_per_frame=dts, mode=der_mode, planet=JUPITER,
+        ref_index=(ref_index if ref_index is not None else -1),
+    )
+    ref = frames_fixed[int(dinfo.get("ref_index") or 0)]
+
+    # Reporting-only metric kept from the original module: median
+    # latitudinal (y) zonal-profile match residual vs the reference frame.
+    ref_lat_centres, ref_profile = _zonal_profile(
+        ref, cm_iii_per_frame[int(dinfo.get("ref_index") or 0)], 5.2,
+        sub_lat_deg=sub_lat_deg, north_pa_deg=north_pa_deg,
+    )
+    per_frame_ly_shifts: List[float] = []
+    for k, frame in enumerate(frames_fixed):
         lat_centres, profile = _zonal_profile(
             np.asarray(frame, dtype=np.float64), cm_iii_per_frame[k], 5.2,
             sub_lat_deg=sub_lat_deg, north_pa_deg=north_pa_deg,
         )
         prof_shift = _zonal_profile_shift(ref_profile, profile)
         per_frame_ly_shifts.append(prof_shift)
-        lat_to_px = nav.a_eq_px / 90.0
-        dy_uniform = prof_shift * lat_to_px
-        # Apply per-row shift
-        derot = np.asarray(frame, dtype=np.float64).copy()
-        for row in range(h):
-            if not on_disk[row].any():
-                continue
-            dx = dx_per_row[row]
-            dy = dy_uniform
-            if abs(dx) < 0.02 and abs(dy) < 0.02:
-                continue
-            row_arr = derot[row]
-            n = row_arr.size
-            f_row = np.fft.fft(row_arr)
-            phase = np.exp(-2j * math.pi * dx * np.arange(n) / n)
-            derot[row] = np.real(np.fft.ifft(f_row * phase))
-        if abs(dy_uniform) > 0.02:
-            f = np.fft.fft2(derot)
-            yy_g, xx_g = np.mgrid[0:h, 0:w]
-            phase = np.exp(-2j * math.pi * dy_uniform * yy_g / h)
-            derot = np.real(np.fft.ifft2(f * phase))
-        per_frame_shifts.append(dx_per_row.copy())
-        derotated.append(derot)
     accumulated = np.zeros((h, w), dtype=np.float64)
     weights = np.zeros((h, w), dtype=np.float64)
     for k, frame in enumerate(derotated):
@@ -256,11 +175,11 @@ def run_jupiter_zonal_derotate(
             out_path = out_dir / f"stacked_derotated_zonal_{mode}.npy"
             np.save(out_path, stacked)
     elapsed = time.time() - t0
-    mean_per_row = float(np.mean([np.mean(np.abs(s)) for s in per_frame_shifts]))
+    mean_per_row = float(dinfo.get("median_per_row_shift_px") or 0.0)
     med_lat_shift = float(np.median(per_frame_ly_shifts)) if per_frame_ly_shifts else 0.0
     CONSOLE.ok(
-        f"JUPITER-ZONAL-DEROT done: {n_frames} frames, mode={mode}, "
-        f"mean per-row |dx| {mean_per_row:.2f}px, "
+        f"JUPITER-ZONAL-DEROT done: {n_frames} frames, mode={der_mode}, "
+        f"median per-row |dx| {mean_per_row:.2f}px, "
         f"profile lat shift med {med_lat_shift:+.2f}°, "
         f"{elapsed:.1f}s"
     )
@@ -271,34 +190,19 @@ def run_jupiter_zonal_derotate(
         elapsed_s=float(elapsed),
         output_path=str(out_path),
         notes=[
-            f"Jupiter-specialized, mode={mode}: "
-            + ("per-row shift from AP-grid measurements" if mode == "measurement"
-               else "per-row shift from zonal-wind-residual prior"),
-            "Zonal-profile match (1D lat cross-corr) catches latitudinal bias",
+            f"Jupiter-specialized, mode={der_mode}: "
+            "per-row derotation via ap_stacker.derotate_frames (v6.8 physics: "
+            "chord px/deg, prior-seeded AP tracking, spatial resample)",
+            "Zonal-profile match (1D lat cross-corr) reports latitudinal bias",
         ],
         drift_summary={
-            "per_frame_median_dx_px": [
-                float(np.median(np.abs(s))) for s in per_frame_shifts
-            ],
+            "derotate_ref_index": int(dinfo.get("ref_index") or 0),
+            "median_per_row_shift_px": float(dinfo.get("median_per_row_shift_px") or 0.0),
+            "max_per_row_shift_px": float(dinfo.get("max_per_row_shift_px") or 0.0),
             "per_frame_zonal_profile_shift_deg": [
                 float(s) for s in per_frame_ly_shifts
             ],
         },
-    )
-
-
-def _ap_latitude_for_derotator(
-    ap_xy: Tuple[float, float], nav,
-) -> float:
-    """
-    Approximate planetocentric latitude of an AP for the
-    measurement-mode derotator. Same logic as in jupiter_zonal_stacker.
-    """
-    from jupiter_zonal_stacker import _ap_latitude
-    return _ap_latitude(
-        ap_xy, (nav.xc, nav.yc), nav.a_eq_px,
-        sub_lat_deg=float(getattr(nav, "sub_lat_deg", 0.0) or 0.0),
-        north_pa_deg=float(getattr(nav, "north_pa_deg", 0.0) or 0.0),
     )
 
 

@@ -106,13 +106,57 @@ class Planet:
     def expected_drift_dx_px(self, lat_deg: float, dt_s: float, deg_to_px: float) -> float:
         """Image-x drift (px) of a cloud feature at φ over dt_s.
 
-        Zonal motion projects almost entirely onto image-x. `deg_to_px` is
-        the equatorial plate scale (a_eq_px / 90). The 1/cos(φ) foreshortening
-        near the limb is absorbed by the per-row latitude binning upstream.
+        LEGACY model — superseded by `lon_drift_px`. This version converts
+        degrees of longitude with `deg_to_px = a_eq_px / 90`, which misses
+        both the π/180 chord geometry (a 1.57× under-shift at the equator)
+        and the cos(φ) latitude chord: at the GRS latitude the prior
+        under-rotates by ~40% (measured on rotating-video benchmarks
+        v6.8.x — see video_synth / test_video_jupiter). Kept for signature
+        compatibility; inside the codebase all derotation call sites now
+        use `lon_drift_px`.
         """
         if dt_s == 0.0:
             return 0.0
         return self.cloud_tracking_rate_deg_per_s(lat_deg) * dt_s * deg_to_px
+
+    def px_per_deg_lon(self, lat_deg: float, a_eq_px: float) -> float:
+        """Image-x px per degree of longitude rotation at planetocentric lat φ.
+
+        Orthographic spheroid: sky X = r(φ) cosφ sinλ · s (s = a_eq_px per
+        R_eq), so dX/dλ = r(φ) cosφ at the central meridian — the per-row
+        model uses exactly this centre-line chord. Degrees → px:
+        (π/180) · r(φ) cosφ · a_eq_px, where r(φ) is the oblate radius
+        factor 1/sqrt(cos²φ + sin²φ/k²).
+        """
+        flat = self.flattening
+        k = 1.0 - float(flat)
+        la = math.radians(float(lat_deg))
+        c, s = math.cos(la), math.sin(la)
+        r_phi = 1.0 / math.sqrt(c * c + (s / k) ** 2)
+        return (math.pi / 180.0) * r_phi * c * float(a_eq_px)
+
+    def surface_parallel_radius_m(self, lat_deg: float) -> float:
+        """Radius (m) of the latitude-φ parallel circle: r(φ)·cosφ·R_eq,
+        the same oblate factor convention as `px_per_deg_lon`, so px→deg→m/s
+        wind conversions are exactly consistent along the whole chain."""
+        flat = self.flattening
+        k = 1.0 - float(flat)
+        la = math.radians(float(lat_deg))
+        c, s = math.cos(la), math.sin(la)
+        r_phi = 1.0 / math.sqrt(c * c + (s / k) ** 2)
+        return r_phi * c * self.req_m
+
+    def lon_drift_px(self, lat_deg: float, dt_s: float, a_eq_px: float) -> float:
+        """Content x-displacement (px) of a cloud feature at φ over dt_s.
+
+        = −ω_cloud(φ)·dt·px_per_deg_lon (content moves −x for CM increasing,
+        the same sign convention as `_per_ap_expected_dx`). Ground-truthed on
+        rotating-video benchmarks: <0.5° error after 350 s of drift at
+        512×384 (test_video_jupiter)."""
+        if dt_s == 0.0:
+            return 0.0
+        return (-self.cloud_tracking_rate_deg_per_s(lat_deg) * float(dt_s)
+                * self.px_per_deg_lon(lat_deg, a_eq_px))
 
 
 # ---------------------------------------------------------------------------

@@ -161,5 +161,36 @@ class TestSotaDoesNotOverwritePolicy(unittest.TestCase):
         self.assertNotEqual(pub["publish_definition"], "SOTA_ROBUST")
 
 
+class TestDerotationWiring(unittest.TestCase):
+    """The v6.8 derotation entry points must exist on every surface that
+    advertises them (no silent fabrication: an unavailable derotate that
+    quietly stacks anyway would be a wrong answer)."""
+
+    def test_derotate_exposed_on_pipeline(self):
+        import inspect
+        import observatory_pipeline
+        self.assertTrue(callable(observatory_pipeline.derotate_folder))
+        for fn in (observatory_pipeline.stack_video,
+                   observatory_pipeline.video_to_answer):
+            self.assertIn("derotate", inspect.signature(fn).parameters,
+                          f"{fn.__name__} lost its derotate parameter")
+
+    def test_derotate_folder_requires_timing(self):
+        """Folders carry no timestamps; without dt_per_frame_s/fps the call
+        must REFUSE (loudly) rather than guess a cadence."""
+        import tempfile
+        import numpy as np
+        from PIL import Image
+        import observatory_pipeline
+        with tempfile.TemporaryDirectory() as d:
+            rng = np.random.default_rng(0)
+            for k in range(2):
+                Image.fromarray(
+                    (rng.random((32, 32)) * 255).astype(np.uint8)).save(
+                    Path(d) / f"f{k}.png")
+            with self.assertRaises(ValueError):
+                observatory_pipeline.derotate_folder(d)
+
+
 if __name__ == "__main__":
     unittest.main()

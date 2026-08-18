@@ -24,7 +24,7 @@ from typing import Any, Deque, Dict, List, Optional, Sequence, Set, Tuple
 # --- Allowed upload extensions (science / image only) ---
 ALLOWED_UPLOAD_EXT: Set[str] = {
     ".fit", ".fits", ".fts",
-    ".ser",
+    ".ser", ".avi",  # planetary video captures (SER preferred; uncompressed AVI)
     ".png", ".jpg", ".jpeg", ".tif", ".tiff",
     ".csv", ".json", ".txt",  # WinJUPOS tables
 }

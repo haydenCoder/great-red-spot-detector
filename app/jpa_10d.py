@@ -304,10 +304,10 @@ def run_jpa_10d(
     weights = np.zeros((h, w), dtype=np.float64)
     for k, frame in enumerate(frames):
         dy, dx = per_frame_shift[k]
-        f = np.fft.fft2(frame.astype(np.float64))
-        yy, xx = np.mgrid[0:h, 0:w]
-        phase = np.exp(-2j * np.pi * (dy * yy / h + dx * xx / w))
-        shifted = np.real(np.fft.ifft2(f * phase))
+        # Exact spatial-domain sub-pixel shift (v6.8.x audit: the FFT phase
+        # ramp returns the even mixture at non-integer shifts — image_warp).
+        from image_warp import warp_shift2d
+        shifted = warp_shift2d(frame.astype(np.float64), dy, dx, order=3)
         # Per-frame quality from the C_n² mean
         cn2_k = float(np.nanmean(cn2_diags[k * n_aps:(k + 1) * n_aps])) if cn2_diags else 1.0
         w_k = 1.0 / (1.0 + max(cn2_k, 0.0))

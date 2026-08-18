@@ -216,5 +216,70 @@ class TestPerLatitudeWarpBeatsGlobal(unittest.TestCase):
         )
 
 
+class TestRobustCombine(unittest.TestCase):
+    """The robust (sigma-clipped) combination rejects transient pixel defects
+    that a plain weighted mean would stamp onto the stack."""
+
+    def test_rejects_transient_cosmic_ray(self):
+        from planetary_stacker import _robust_combine
+        rng = np.random.default_rng(0)
+        base = rng.normal(0.5, 0.02, (48, 48))
+        frames = [base + rng.normal(0.0, 0.01, base.shape) for _ in range(9)]
+        # a cosmic-ray / hot-pixel / one-frame shadow at a single pixel
+        frames[3] = frames[3].copy()
+        frames[3][24, 24] = 12.0
+
+        robust = _robust_combine(frames, [1.0] * len(frames), sigma=3.0)
+        plain = np.mean(np.stack(frames), axis=0)
+
+        # robust value at the defect is pulled back to the consensus level;
+        # the plain mean is dragged up by the 12.0 outlier.
+        self.assertLess(float(robust[24, 24]), 1.0,
+                        f"robust stack kept the outlier ({robust[24, 24]:.2f})")
+        self.assertGreater(float(plain[24, 24]), 1.0,
+                           f"plain mean did not register the planted outlier")
+        # away from the defect both agree (robust ≈ plain)
+        self.assertAlmostEqual(float(robust[10, 10]), float(plain[10, 10]), delta=0.05)
+
+    def test_fewer_than_three_frames_degrades_to_mean(self):
+        from planetary_stacker import _robust_combine
+        frames = [np.full((8, 8), 0.5), np.full((8, 8), 1.5)]
+        out = _robust_combine(frames, [1.0, 1.0])
+        self.assertAlmostEqual(float(out[0, 0]), 1.0, places=6)
+
+    def test_align_confidence_is_monotone(self):
+        from planetary_stacker import _align_confidence as ac
+        self.assertEqual(ac(0.0), 0.0)
+        self.assertEqual(ac(float("nan")), 0.0)
+        lo, mid, hi = ac(1.0), ac(10.0), ac(100.0)
+        self.assertLess(lo, mid)
+        self.assertLess(mid, hi)
+        self.assertLessEqual(hi, 1.0 + 1e-9)
+
+    def test_robust_stack_runs_on_rgb(self):
+        from synthetic_hq import SynthSpec, generate
+        from planetary_stacker import run_planetary_stacker
+        with tempfile.TemporaryDirectory(prefix="grs_rob_rgb_") as d0:
+            rgb_frames, cm_list = [], []
+            for k in range(6):
+                png, _fit, truth = generate(
+                    SynthSpec(region="global", resolution_preset="540p", random_time=True,
+                              seed=3100 + k, mode="metrology", write_grs_crop=False),
+                    Path(d0),
+                )
+                rgb_frames.append(np.asarray(Image.open(png), dtype=np.float64) / 255.0)
+                cm_list.append(float(truth["cm_iii_deg"]))
+        with tempfile.TemporaryDirectory(prefix="grs_rob_rgb_out_") as d:
+            res = run_planetary_stacker(
+                rgb_frames, Path(d), n_grid=6, ap_half=16,
+                cm_iii_per_frame=cm_list, reference="first", robust=True,
+            )
+            stack = np.asarray(Image.open(res.output_path), dtype=np.float64) / 255.0
+        self.assertEqual(stack.shape, rgb_frames[0].shape)
+        self.assertTrue(np.isfinite(stack).all())
+        # the report must state which combination was used
+        self.assertIn("sigma-clipped", "\n".join(res.notes))
+
+
 if __name__ == "__main__":
     unittest.main()

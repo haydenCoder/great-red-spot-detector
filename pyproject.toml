@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "great-red-spot-detector"
-version = "6.7.6"
+version = "7.0.0"
 description = "Jupiter Great Red Spot Detector — measure GRS System III longitude & latitude from stacked Jupiter images with SPICE geometry and calibrated error bars"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,6 +43,7 @@ dependencies = [
 [project.optional-dependencies]
 desktop = []
 dev = ["pytest>=7.0"]
+moons = ["pyephem>=4.1"]  # Galilean transit fallback backend (SPICE jup365 preferred)
 
 [project.scripts]
 grs-observatory = "cli:main"
@@ -67,6 +68,27 @@ py-modules = [
   "planetary_derotator",
   "flow_warp",
   "frame_quality",
+  # v6.8 "Observatory Pro"
+  "ser_io",
+  "ap_stacker",
+  "sharpen_lab",
+  "transits",
+  "grs_ellipse",
+  "animation",
+  "jupos_io",
+  "observatory_pipeline",
+  "video_synth",
+  "image_warp",
+  # v6.9 "Analysis Pro"
+  "rgb_combine",
+  "wind_analysis",
+  "grs_drift",
+  "stack_report",
+  "filter_wheel",
+  "session_planner",
+  "limb_darkening",
+  # v7.0 "Velocity Pro"
+  "cspeed",
 ]
 
 [tool.pytest.ini_options]

@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 6.7.6 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG  
+**Version:** 7.0.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -91,6 +91,97 @@ On per-latitude-sheared synthetic frames the per-latitude warp beats the legacy
 global translation (+0.037 mean per-belt correlation) and the new measurement
 derotator beats naive stacking (+0.106). Full write-up:
 [`docs/PLANETARY_STACKING_6.7.0.md`](docs/PLANETARY_STACKING_6.7.0.md).
+
+### v6.8.0 — Observatory Pro: from video to published answer (2026-08-07)
+
+The whole pre-processing chain AutoStakkert/RegiStax/WinJUPOS users hop between
+now lives here:
+
+- **SER/AVI video import** (`ser_io.py`) and an **APS stacker** (`ap_stacker.py`):
+  per-alignment-point quality maps + lucky imaging + **true drizzle ×2/×3**
+  super-resolution, with a rotation-aware search window so the planet can turn
+  during the capture.
+- **Sharpen Lab** (`sharpen_lab.py`): à-trous wavelets (RegiStax-style), RL
+  deconvolution, unsharp — noise-gated so sharpening doesn't amplify grain.
+- **Transit planner** (`transits.py`): GRS crossings, visibility windows,
+  Galilean moon events — checked against published 2026 tables.
+- **JUPOS export** (`jupos_io.py`) and **blink GIFs** (`animation.py`).
+- Fifth measurement definition: **rim-ellipse fit** (`grs_ellipse.py`) — the
+  tightest latitude of any estimator (12-case audit: |dlat| median 0.107°).
+- One command for the full chain:
+
+```bash
+grs-observatory video-to-answer capture.ser --drizzle 2 --sharpen wavelet
+```
+
+Measured end-to-end proof on a tilted-geometry synthetic capture (real
+2026-08-02 sub-lat + pole PA): published relative longitude error **0.173°**,
+latitude **0.347°**. Three more measured production fixes (moon-mask colour
+gate, pole-PA-aware limb fit, derotation scale/sign) — all in
+[`CHANGELOG.md`](CHANGELOG.md) and [`docs/OBSERVATORY_PRO_6.8.0.md`](docs/OBSERVATORY_PRO_6.8.0.md).
+Desktop/web got **Video Import**, **Sharpen Lab** and **Transits** tabs.
+
+### v7.0.0 — Velocity Pro: the C core (2026-08-09)
+
+Hand-written C99 kernels (`app/cspeed.c`, ctypes, zero dependencies, builds
+on demand via cc/gcc/clang) around the two proven hot spots: profiling
+showed **91% of stack time** was cubic-spline sampling inside the
+Lucas–Kanade refinement — five separate scipy evaluations per iteration.
+One fused compiled pass now produces value + gradients + the Gauss–Newton
+normal equations from a shared 6×6 tap neighbourhood, and warps batch-sample
+spline coefficients in compiled code.
+
+Measured on the validation box (`tools/cspeed_benchmark.py` — claims are
+measured, not argued):
+
+| workload | numpy/scipy | C core | speedup |
+|---|---:|---:|---:|
+| `stack_ap` end-to-end (12 f, full AP grid) | 197.1 ms | 56.0 ms | **3.52×** |
+| `_lk_refine` (32×32 crop, 4 iters) | 1.525 ms | 0.608 ms | 2.51× |
+| `warp_field2d` 300×400 order 3 | 17.0 ms | 9.9 ms | 1.73× |
+| `warp_shift2d` 400×300 order 3 | 10.7 ms | 7.4 ms | 1.45× |
+
+Speed that changes the answer is a bug, not an optimisation: the C path is
+pinned to scipy at **1.3e-15** kernel parity, `stack_ap` with vs without C
+differs by **3.5e-16** with byte-identical frame-usage decisions
+(`tests/test_cspeed.py`). Strict IEEE doubles — no `-ffast-math`, ever. No
+compiler → the identical scipy fallback keeps running (status via
+`cspeed.status_note()`); `CSPEED=0` forces the fallback.
+
+Full dossier: [`docs/PERFORMANCE_7.0.0.md`](docs/PERFORMANCE_7.0.0.md).
+
+### v6.9.0 — Analysis Pro: from stacks to science (2026-08-08)
+
+The layer AutoStakkert doesn't have and WinJUPOS does by hand:
+
+- **Filter-wheel RGB combine** (`rgb_combine.py`): derotate mono R/G/B stacks
+  to a common epoch with the *exact* spheroid ephemeris (north-PA and
+  sub-Earth-lat safe) + measured band-residual polish. AutoStakkert cannot do
+  this at all. On a tilted-geometry synthetic (2.42° rotation/hop): colour
+  fringe **0.193 → 0.032 (6.0×)**. One-command workflow `filter-wheel`
+  (3× SER → stacks → RGB) runs the whole thing: fringe 0.107 → 0.036 (3.0×),
+  with re-centre and times recovered from SER stamps.
+- **Cloud-tracking wind science** (`wind_analysis.py`): shape-discriminated
+  offset fits (uniform advection vs a System-III angular error), jet
+  detection with honest gaps, JUPOS-friendly CSV + PNG profile panels.
+- **GRS System-II drift** (`grs_drift.py`): sigma-clipped rate fits
+  (deg/30 d publishing convention), curvature by F-test only when demanded,
+  implied zonal velocity in m/s, prediction cones. Planted −0.42°/30 d
+  recovered to ±0.10 with 0/360 wrap and outliers handled.
+- **Stack forensics** (`stack_report.py`): interior fill, subpixel dither
+  audit, usage concentration, wander/jump stats — with actionable warnings.
+- **Session planner** (`session_planner.py`): exact smear/span budgets
+  (raw vs derotated — a ~5–10× difference), filter-gap limits.
+- **Limb darkening** (`limb_darkening.py`): band-normalised μ^k from your
+  stack — recovers the renderer's planted k=0.6 as 0.653±0.020.
+- **1.3–1.8× faster APS** with bitwise-identical stacks (prefilter-once LK;
+  `ap_stacker.py`), verified 0.0 max-delta on golden rigs.
+- New CLI commands `rgb-combine`, `filter-wheel`, `wind-analysis`, `drift`,
+  `session-plan`; new desktop tabs **RGB Combine** and **Analysis**; new web
+  endpoints `/api/analysis_session` and `/api/analysis_drift` + Analysis tab.
+
+Full numbers: [`CHANGELOG.md`](CHANGELOG.md) and
+[`docs/OBSERVATORY_PRO_6.9.0.md`](docs/OBSERVATORY_PRO_6.9.0.md).
 
 ---
 

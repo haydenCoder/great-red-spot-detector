@@ -799,6 +799,7 @@
           renderResult(j.result);
           if (wasRunning) {
             if (j.result.kind === "factory_night") showTab("dashboard", true);
+            else if (j.result.kind === "video_stack") showTab("video", true);
             else if (j.result.calibration_grade) showTab("hard", true);
             else if (j.result.series || (j.result.headline && j.result.headline.drift_lon_deg_per_day != null))
               showTab("multi", true);
@@ -868,6 +869,118 @@
   }
   wireDrop("dropZone", "fileInput", uploadFile);
   wireDrop("winjuposDrop", "winjuposInput", uploadWinjupos);
+
+  // ── v6.8 Observatory Pro: Video Import (APS stack) + Transit planner ──
+  let videoPath = null;
+  async function uploadVideo(file) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const j = await (await fetch("/api/upload", { method: "POST", body: fd })).json();
+    if (!j.ok) return alert(j.error || "video upload failed");
+    videoPath = j.path;
+    $("videoInfo").textContent = `Capture loaded: ${j.original}`;
+    $("btnVideoStack").disabled = false;
+    setText("videoBox", "Capture ready — Run APS stack.");
+  }
+  wireDrop("videoDrop", "videoInput", uploadVideo);
+
+  $("btnVideoStack")?.addEventListener("click", async () => {
+    if (!videoPath) { alert("Load a .ser / .avi capture first"); return; }
+    showTab("video", true);
+    setText("videoBox", "APS stacking… watch the live console for progress.");
+    const body = {
+      path: videoPath,
+      keep_frac: parseFloat(($("vidKeep") && $("vidKeep").value) || "0.25"),
+      drizzle: parseInt(($("vidDrizzle") && $("vidDrizzle").value) || "1", 10),
+      ap_size: parseInt(($("vidAp") && $("vidAp").value) || "32", 10),
+      quality: ($("vidQuality") && $("vidQuality").value) || "laplacian",
+      derotate: ($("vidDerotate") && $("vidDerotate").value) || "none",
+      full_pipeline: !!($("vidFull") && $("vidFull").checked),
+      time_utc: ($("userTime") && $("userTime").value.trim()) || "",
+    };
+    try {
+      const j = await (await fetch("/api/video_stack", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })).json();
+      if (!j.ok) { setText("videoBox", "Error: " + (j.error || "failed")); return; }
+    } catch (e) { setText("videoBox", "Error: " + String(e)); return; }
+    // Poll the shared job slot until this stack completes
+    const t0 = Date.now();
+    while (Date.now() - t0 < 3600000) {
+      await new Promise((r) => setTimeout(r, 1500));
+      let s;
+      try { s = await (await fetch("/api/job")).json(); } catch (_) { continue; }
+      if (s.running) continue;
+      if (s.error) { setText("videoBox", "Error:\n" + s.error); return; }
+      if (s.result && s.result.kind === "video_stack") {
+        setText("videoBox", s.result.text || JSON.stringify(s.result, null, 2));
+        if (s.result.preview) $("videoImg").src = s.result.preview;
+        return;
+      }
+      return; // a different job took the slot — leave its UI alone
+    }
+  });
+
+  $("btnTransits")?.addEventListener("click", async () => {
+    showTab("transits", true);
+    setText("transitsBox", "Planning…");
+    const q = new URLSearchParams({
+      time: ($("trTime") && $("trTime").value.trim()) || "",
+      days: ($("trDays") && $("trDays").value) || "1",
+      moons: ($("trMoons") && $("trMoons").value) || "",
+    });
+    try {
+      const j = await (await fetch("/api/transits?" + q.toString())).json();
+      if (!j.ok) { setText("transitsBox", "Error: " + (j.error || "failed")); return; }
+      setText("transitsBox", j.text || JSON.stringify(j.plan, null, 2));
+    } catch (e) {
+      setText("transitsBox", "Error: " + String(e));
+    }
+  });
+
+  // v6.9 Analysis Pro panels
+  $("btnSessionPlan")?.addEventListener("click", async () => {
+    showTab("analysis", true);
+    setText("analysisBox", "Planning…");
+    const q = new URLSearchParams({
+      a_eq_px: ($("anScale") && $("anScale").value) || "0",
+      budget_px: ($("anBudget") && $("anBudget").value) || "1",
+      hours: "8",
+    });
+    try {
+      const j = await (await fetch("/api/analysis_session?" + q.toString())).json();
+      if (!j.ok) { setText("analysisBox", "Error: " + (j.error || "failed")); return; }
+      setText("analysisBox", j.text || JSON.stringify(j.plan, null, 2));
+    } catch (e) {
+      setText("analysisBox", "Error: " + String(e));
+    }
+  });
+
+  $("btnDrift")?.addEventListener("click", async () => {
+    showTab("analysis", true);
+    const inp = $("driftInput");
+    if (!inp || !inp.files || !inp.files[0]) {
+      setText("driftBox", "Choose a JUPOS CSV first."); return;
+    }
+    setText("driftBox", "Uploading…");
+    try {
+      const fd = new FormData();
+      fd.append("file", inp.files[0]);
+      const up = await (await fetch("/api/upload", { method: "POST", body: fd })).json();
+      if (!up.ok) { setText("driftBox", "Upload error: " + (up.error || "failed")); return; }
+      setText("driftBox", "Fitting…");
+      const j = await (await fetch("/api/analysis_drift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: up.path }),
+      })).json();
+      if (!j.ok) { setText("driftBox", "Error: " + (j.error || "failed")); return; }
+      setText("driftBox", j.text || JSON.stringify(j.fit, null, 2));
+    } catch (e) {
+      setText("driftBox", "Error: " + String(e));
+    }
+  });
 
   // Time bar wiring
   $("timeBar")?.addEventListener("input", applyTimeBarToUserTime);

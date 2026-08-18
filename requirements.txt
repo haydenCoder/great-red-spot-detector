@@ -5,5 +5,4 @@ scipy>=1.9
 astropy>=5.0
 certifi>=2023.0.0
 spiceypy>=6.0
-# Desktop packaging (optional; used by build_mac_app.sh)
-# pyinstaller>=6.0
+pyephem>=4.1   # Galilean moon transit fallbacks (validated vs published 2026 tables)

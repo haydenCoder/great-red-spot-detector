@@ -71,7 +71,11 @@ class SynthSpec:
     seeing_fwhm_arcsec: float = 0.35  # overridden by mode presets (~0.55–0.65")
     noise_rms: float = 0.004
     write_grs_crop: bool = True
-    # Extreme geometry injection for "every atom" training (sub_lat ±18, north_pa ±75, limb placements)
+    # True sky orientation of the rendered disk: sub-observer planetocentric
+    # latitude D and north-polar-axis position angle P (deg, E of N). Sets the
+    # ACTUAL projection geometry since v6.8 (previously only logged); the
+    # inverse is precision_engine.px_to_lonlat with the same D/P. Realistic
+    # Jupiter ranges: |D| <= ~3.4 deg, P in ~343..17 deg over a Jovian year.
     sub_lat_deg: float = 0.0
     north_pa_deg: float = 0.0
     grs_limb_rel_deg: Optional[float] = None  # relative to CM for GRS placement e.g. 35..95
@@ -710,17 +714,51 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
     # k = 1-f, so Z = sqrt(1 - X^2 - Y^2/k^2). The visible disk is where that
     # radicand is non-negative, which reproduces the correct limb ellipse
     # (semi-minor axis b = a(1-f)) without ever dividing Y by b.
-    X = (xx - xc) / (a + 1e-6)
-    Ys = (yc - yy) / (a + 1e-6)          # NOTE: equatorial scale on BOTH axes
+    Xsky = (xx - xc) / (a + 1e-6)
+    Ysky = (yc - yy) / (a + 1e-6)        # NOTE: equatorial scale on BOTH axes
     k = 1.0 - FLAT
-    radicand = 1.0 - X * X - (Ys / k) ** 2
-    disk = radicand >= 0.0
-    Z = np.sqrt(np.clip(radicand, 0.0, None)).astype(dtype)
-    # mu = cos(emission angle) for limb darkening: the outward normal of an
-    # oblate spheroid is not radial, so use the true gradient normal.
-    nx, ny, nz = X, Ys / (k * k), Z
-    nlen = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
-    mu = np.clip(nz / nlen, 0.0, 1.0).astype(dtype)
+    # TRUE SKY GEOMETRY (v6.8): sub-observer latitude + north-polar-axis PA.
+    # The real Jupiter presents sub-lat ~ +/-3 deg and axis PA up to ~ +/-17 deg
+    # (verified against SPICE: 2026-08-02 -> sub-lat +0.67 deg, PA 343.4 deg).
+    # This block is the EXACT forward model whose inverse is
+    # precision_engine.px_to_lonlat (same rotation order: tilt by sub-lat about
+    # the sky x-axis, then rotate in the sky plane by PA, isotropic plate scale
+    # last), so a frame rendered with (D, P) is measured consistently by a nav
+    # carrying the same (D, P) — just like the real sky. With D=P=0 it is
+    # algebraically identical to the original axis-aligned code, and we branch
+    # so the arithmetic is *bitwise* identical too (campaign reproducibility).
+    sub_D = math.radians(float(getattr(spec, "sub_lat_deg", 0.0) or 0.0))
+    north_P = math.radians(float(getattr(spec, "north_pa_deg", 0.0) or 0.0))
+    if abs(sub_D) < 1e-15 and abs(north_P) < 1e-15:
+        X = Xsky
+        Ys = Ysky
+        radicand = 1.0 - X * X - (Ys / k) ** 2
+        disk = radicand >= 0.0
+        Z = np.sqrt(np.clip(radicand, 0.0, None)).astype(dtype)
+        nx, ny, nz = X, Ys / (k * k), Z
+        nlen = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
+        mu = np.clip(nz / nlen, 0.0, 1.0).astype(dtype)
+    else:
+        cP, sP = math.cos(north_P), math.sin(north_P)
+        cD, sD = math.cos(sub_D), math.sin(sub_D)
+        # undo the sky-plane PA rotation (inverse of planet_xyz_to_px step 2)
+        Xp = (Xsky * cP + Ysky * sP).astype(dtype)
+        Yp = (-Xsky * sP + Ysky * cP).astype(dtype)
+        # spheroid LOS intersection after the sub-lat tilt (px_to_lonlat inverses)
+        inv_k2 = 1.0 / (k * k)
+        Aq = cD * cD + sD * sD * inv_k2
+        Bq = 2.0 * Yp * sD * cD * (inv_k2 - 1.0)
+        Cq = Xp * Xp + Yp * Yp * (cD * cD * inv_k2 + sD * sD) - 1.0
+        disc = Bq * Bq - 4.0 * Aq * Cq
+        disk = disc >= 0.0
+        T = (-Bq + np.sqrt(np.clip(disc, 0.0, None))) / (2.0 * Aq)
+        X = Xp
+        Ys = (Yp * cD + T * sD).astype(dtype)
+        Z = (-Yp * sD + T * cD).astype(dtype)
+        # emission: LOS in body frame is (0, sin D, cos D)
+        nx, ny, nz = X, Ys / (k * k), Z
+        nlen = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
+        mu = np.clip((ny * sD + nz * cD) / nlen, 0.0, 1.0).astype(dtype)
     lon_rel = np.arctan2(X, np.maximum(Z, 1e-6))
     # planetocentric latitude from the body-frame point (X, Ys, Z)
     rad = np.sqrt(X * X + Ys * Ys + Z * Z) + 1e-9
@@ -864,6 +902,8 @@ def generate(spec: SynthSpec, out_dir: Path) -> Tuple[Path, Path, Dict[str, Any]
         "disk_xc": float(xc),
         "disk_yc": float(yc),
         "disk_a_eq_px": float(a),
+        "sub_obs_lat_deg": float(math.degrees(sub_D)),
+        "north_pa_deg": float(math.degrees(north_P)),
         "distance_au": float(dist),
         "apparent_diameter_arcsec": float(app_diam),
         "png": str(png),

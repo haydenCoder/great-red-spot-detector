@@ -46,7 +46,8 @@ from precision_engine import fit_limb_nav, to_mono
 from jpa_10k import _build_ap_grid
 from planetary_stacker import (
     _per_pixel_lat, _ap_latitudes, _track_ap_planetary,
-    _per_ap_expected_dx, _frame_dt, select_reference_index, _laplacian_var,
+    _per_ap_expected_dx, _per_ap_expected_dx_lon, _frame_dt,
+    select_reference_index, _laplacian_var,
     fit_dx_vs_latitude, per_row_warp,
 )
 
@@ -69,10 +70,11 @@ class PlanetaryDerotatorResult:
 
 def _prior_dx_per_bin(planet: Planet, dt_s: float, deg_to_px: float, n_bins: int = 11) -> np.ndarray:
     """Pure-model dx(|lat|) curve (the 'prior' mode). Returns the apply-shift
-    (already negated) per |lat| bin."""
+    (already negated) per |lat| bin, correctly scaled by the (π/180)r cosφ
+    longitude chord (`lon_drift_px`)."""
     centres = (np.arange(n_bins) + 0.5) * (90.0 / n_bins)
     return np.array([
-        _per_ap_expected_dx(planet, float(c), dt_s, deg_to_px) for c in centres
+        -_per_ap_expected_dx_lon(planet, float(c), dt_s, deg_to_px * 90.0) for c in centres
     ])
 
 
@@ -147,7 +149,7 @@ def run_planetary_derotate(
             drifts = np.full((n_aps, 2), np.nan, dtype=np.float64)
             snrs = np.zeros(n_aps, dtype=np.float64)
             for i, (ax, ay) in enumerate(aps):
-                exp_dx = _per_ap_expected_dx(planet, float(ap_lats[i]), dt_k, deg_to_px)
+                exp_dx = _per_ap_expected_dx_lon(planet, float(ap_lats[i]), dt_k, deg_to_px * 90.0)
                 tdy, tdx, snr = _track_ap_planetary(ref, frame, (ax, ay), ap_half, expected_dx=exp_dx)
                 drifts[i] = (tdy, tdx)
                 snrs[i] = snr

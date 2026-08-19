@@ -191,9 +191,20 @@ def _run_real(fits_path: Path, time_str: Optional[str],
         out = Path(tmp) / "real_job"
         out.mkdir(parents=True, exist_ok=True)
         try:
+            if not (time_str and str(time_str).strip()):
+                return {
+                    "mode": "real_photo",
+                    "input": str(fits_path),
+                    "error": "no_observation_utc",
+                    "hint": (
+                        "Absolute System III needs a mid-exposure UTC. "
+                        "Pass --time 'YYYY-MM-DD HH:MM:SS' or put DATE-OBS "
+                        "in the FITS header / filename. Refusing 1970-01-01."
+                    ),
+                }
             pkg = process_image(
                 str(fits_path),
-                time_str or "1970-01-01 00:00:00",
+                time_str,
                 out_root=out,
             )
         except Exception as e:

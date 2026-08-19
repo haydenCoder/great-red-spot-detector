@@ -3,7 +3,7 @@
 **User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
 **Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
 **Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
-**Version:** see `VERSION` (**7.0.0**)
+**Version:** see `VERSION` (**7.0.1**)
 
 ```
 great-red-spot-detector/   (or GRS_Observatory/)
@@ -54,7 +54,9 @@ great-red-spot-detector/   (or GRS_Observatory/)
 │   ├── flow_warp_benchmark.py       ← reproducible warp-mode A/B (v6.7.1)
 │   ├── build_cspeed.py              ← build the optional C core (v7.0)
 │   ├── cspeed_benchmark.py          ← C-vs-numpy measured speed table (v7.0)
-│   └── real_photo_stack.py          ← all-modes run on real frames + report (v6.7.5)
+│   ├── real_photo_stack.py          ← all-modes run on real frames + report (v6.7.5)
+│   ├── real_photo_validate.py       ← Process + optional WinJUPOS Δsky
+│   └── real_photo_audit.py          ← real Hubble/amateur disk/band/split audit (v7.0.1)
 └── tests/
 ```
 

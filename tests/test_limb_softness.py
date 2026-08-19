@@ -55,18 +55,29 @@ class TestLimbSoftness(unittest.TestCase):
             self.assertLess(a, b, f"softness not monotone: {softs}")
 
     def test_gate_thresholds_match_floor(self):
-        """blurry (1.6") warns but is measurable; vblurry (2.4") is still
-        measurable; extreme (4.0") refuses."""
+        """A resolved disk stays disk_present through the 4″ stress band.
+
+        Softness is a *warning*, not a substitute for fill/contrast/size.
+        The old fail gate (softness>5″ → not measurable) refused every
+        Hubble OPAL frame after a 2× units bug + PA-blind histogram.
+        Extreme seeing still raises softness_fail; it must not invent a
+        'no disk' refusal on a clearly resolved planet.
+        """
         from precision_engine import fit_limb_nav, assess_disk_quality
-        for seeing, expect_measurable in ((1.60, True), (2.40, True), (4.00, False)):
+        prev = None
+        for seeing in (1.60, 2.40, 4.00):
             img, truth = _render(12345, seeing)
             nav = fit_limb_nav(img, cm_iii_deg=truth["cm_iii_deg"],
                                distance_au=truth["distance_au"])
             nav.distance_au = truth["distance_au"]
             dq = assess_disk_quality(img, nav)
-            self.assertEqual(dq["measurable"], expect_measurable,
-                             f"seeing={seeing}\" measurable={dq['measurable']} "
-                             f"softness={dq['softness_arcsec']:.2f}")
+            self.assertTrue(dq.get("disk_present"),
+                            f"seeing={seeing}\" lost the disk {dq}")
+            soft = float(dq.get("softness_arcsec") or 0.0)
+            if prev is not None:
+                self.assertGreater(soft, prev, f"softness not rising: {prev} → {soft}")
+            prev = soft
+        self.assertGreater(prev, 1.0)
 
     def test_softness_reported_in_result(self):
         """The softness estimate surfaces on the measurement result so callers

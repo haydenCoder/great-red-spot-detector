@@ -4,7 +4,7 @@
 
 ---
 
-**Version:** 7.0.0 · **Platform:** macOS / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
+**Version:** 7.0.1 · **Platform:** macOS / Linux / Python 3.10+ · **Formats:** FITS, SER, PNG, JPEG, AVI  
 **Repo:** https://github.com/haydenCoder/great-red-spot-detector
 
 ---
@@ -120,6 +120,15 @@ latitude **0.347°**. Three more measured production fixes (moon-mask colour
 gate, pole-PA-aware limb fit, derotation scale/sign) — all in
 [`CHANGELOG.md`](CHANGELOG.md) and [`docs/OBSERVATORY_PRO_6.8.0.md`](docs/OBSERVATORY_PRO_6.8.0.md).
 Desktop/web got **Video Import**, **Sharpen Lab** and **Transits** tabs.
+
+### v7.0.1 — real Hubble frames (2026-08-19)
+
+The published path was run on Hubble OPAL / Ganymede-shadow / Io frames.
+Two logic errors that synthetic campaigns cannot see are fixed: the
+limb-softness gate refused space-telescope disks as "seeing too poor"
+(2× units + PA-blind histogram), and isolated redness pruned a tight
+dark GRS cluster in favour of a reddish belt. Juno close-ups are still
+correctly refused. Write-up: [`docs/REAL_PHOTO_AUDIT_7.0.1.md`](docs/REAL_PHOTO_AUDIT_7.0.1.md).
 
 ### v7.0.0 — Velocity Pro: the C core (2026-08-09)
 

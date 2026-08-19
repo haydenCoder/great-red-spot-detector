@@ -375,7 +375,11 @@ def fit_limb_nav(
     m = rough_disk_mask(im)
     ys, xs = np.where(m)
     if len(xs) < 50:
-        return NavState(xc=w / 2, yc=h / 2, a_eq_px=min(h, w) * 0.4, cm_iii_deg=cm_iii_deg, distance_au=distance_au)
+        return NavState(
+            xc=w / 2, yc=h / 2, a_eq_px=min(h, w) * 0.4,
+            cm_iii_deg=cm_iii_deg, distance_au=distance_au,
+            north_pa_deg=float(north_pa_deg or 0.0),
+        )
     # geometric seed from bounding box (less polar-hood bias than intensity mean)
     cx0 = 0.5 * (float(xs.min()) + float(xs.max()))
     cy0 = 0.5 * (float(ys.min()) + float(ys.max()))
@@ -496,8 +500,11 @@ def fit_limb_nav(
         else:
             xc, yc, a = xc_n, yc_n, a_n
 
-    CONSOLE.debug(f"Limb nav: xc={xc:.2f} yc={yc:.2f} a={a:.2f}px")
-    return NavState(xc=xc, yc=yc, a_eq_px=a, cm_iii_deg=cm_iii_deg, distance_au=distance_au)
+    CONSOLE.debug(f"Limb nav: xc={xc:.2f} yc={yc:.2f} a={a:.2f}px pa={float(north_pa_deg or 0.0):.2f}")
+    return NavState(
+        xc=xc, yc=yc, a_eq_px=a, cm_iii_deg=cm_iii_deg, distance_au=distance_au,
+        north_pa_deg=float(north_pa_deg or 0.0),
+    )
 
 
 def lonlat_to_planet_xyz(lon_rel_deg, lat_c_deg, flattening: float = FLAT):
@@ -576,11 +583,16 @@ def estimate_limb_softness_arcsec(
     """
     mono = to_mono(image)
     h, w = mono.shape
-    b = nav.a_eq_px * (1.0 - nav.flattening)
-    if nav.a_eq_px <= 4 or b <= 4:
+    a = float(nav.a_eq_px)
+    if a <= 4:
         return float("nan")
+    # Circular radial histogram (rotation-invariant). An axis-aligned
+    # (x/a)²+(y/b)² histogram mixed interior and sky on rotated Hubble
+    # disks and reported 6–9″ of "seeing" on space-telescope frames.
+    # Per-ray 20–80 % crossings are equally unsafe: belts make the
+    # profile non-monotonic, so the "limb" can land 50 px wide.
     yy, xx = np.mgrid[0:h, 0:w]
-    rr = np.sqrt(((xx - nav.xc) / nav.a_eq_px) ** 2 + ((yy - nav.yc) / b) ** 2)
+    rr = np.sqrt((xx - nav.xc) ** 2 + (yy - nav.yc) ** 2) / (a + 1e-12)
     nb = 64
     edges = np.linspace(0.70, 1.30, nb + 1)
     centers = 0.5 * (edges[:-1] + edges[1:])
@@ -612,11 +624,13 @@ def estimate_limb_softness_arcsec(
     # 20%..80% of a Gaussian step spans 2*erf^-1(0.6)*sigma ~ 1.6832 sigma
     sigma_r = (r20 - r80) / 1.6832
     fwhm_r = 2.3548 * sigma_r
+    # fwhm_r is in units of equatorial *radius*. Convert with the apparent
+    # radius, not the diameter (the old 2× bug refused every Hubble frame).
     if distance_au:
-        app_diam_as = math.degrees(2 * JUP_REQ_KM / (float(distance_au) * AU_KM)) * 3600.0
+        app_rad_as = math.degrees(JUP_REQ_KM / (float(distance_au) * AU_KM)) * 3600.0
     else:
-        app_diam_as = 40.0
-    return float(fwhm_r * app_diam_as)
+        app_rad_as = 20.0
+    return float(fwhm_r * app_rad_as)
 
 
 def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
@@ -639,6 +653,7 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
                            "disk_contrast": float("nan"),
                            "softness_arcsec": float("nan"),
                            "measurable": True,
+                           "disk_present": True,
                            "reasons": []}
     try:
         mono = to_mono(image)
@@ -646,6 +661,7 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
         b = nav.a_eq_px * (1.0 - nav.flattening)
         if nav.a_eq_px <= 4 or b <= 4:
             out["measurable"] = False
+            out["disk_present"] = False
             out["reasons"].append("degenerate limb fit")
             return out
         yy, xx = np.mgrid[0:h, 0:w]
@@ -653,6 +669,7 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
         n_in = int(inside.sum())
         if n_in < 64:
             out["measurable"] = False
+            out["disk_present"] = False
             out["reasons"].append("fitted disk too small to measure")
             return out
         m = rough_disk_mask(mono)
@@ -669,21 +686,26 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
         soft = estimate_limb_softness_arcsec(image, nav,
                                              distance_au=getattr(nav, "distance_au", None))
         out["softness_arcsec"] = soft
+        disk_present = True
         if fill < DISK_FILL_MIN:
+            disk_present = False
             out["measurable"] = False
             out["reasons"].append(
                 f"disk_fill={fill:.2f} < {DISK_FILL_MIN} (bright region is not disk-shaped)"
             )
         if contrast < DISK_CONTRAST_MIN:
+            disk_present = False
             out["measurable"] = False
             out["reasons"].append(
                 f"disk_contrast={contrast:.2f} < {DISK_CONTRAST_MIN} (no resolved disk against sky)"
             )
         if nav.a_eq_px < DISK_MIN_RADIUS_PX:
+            disk_present = False
             out["measurable"] = False
             out["reasons"].append(
                 f"disk radius {nav.a_eq_px:.0f}px < {DISK_MIN_RADIUS_PX}px (under-resolved)"
             )
+        out["disk_present"] = bool(disk_present)
         if math.isfinite(soft) and soft > DISK_SOFTNESS_WARN_ARCSEC:
             out["softness_warn"] = True
             out["reasons"].append(
@@ -691,6 +713,10 @@ def assess_disk_quality(image: np.ndarray, nav: "NavState") -> Dict[str, Any]:
                 "(seeing-limited; treat sub-1 deg with reduced confidence)"
             )
         if math.isfinite(soft) and soft > DISK_SOFTNESS_FAIL_ARCSEC:
+            out["softness_fail"] = True
+            # Extreme seeing still refuses a *published* number, but a resolved
+            # disk remains `disk_present` so colour lock is not vetoed by a
+            # softness estimator that used to false-fail every Hubble frame.
             out["measurable"] = False
             out["reasons"].append(
                 f"softness={soft:.2f}\" > {DISK_SOFTNESS_FAIL_ARCSEC}\" "
@@ -764,6 +790,47 @@ def px_to_lonlat(y: float, x: float, nav: NavState) -> Tuple[float, float]:
     rad = math.sqrt(Xb * Xb + Yb * Yb + Zb * Zb)
     lat = rad2deg(math.asin(max(-1.0, min(1.0, Yb / (rad + 1e-15)))))
     return wrap_deg(nav.cm_iii_deg + lon_rel), lat
+
+
+def px_to_lonlat_vec(y: np.ndarray, x: np.ndarray, nav: NavState) -> Tuple[np.ndarray, np.ndarray]:
+    """Vectorised px_to_lonlat. Same spheroid + PA + sub-lat contract."""
+    y = np.asarray(y, dtype=np.float64)
+    x = np.asarray(x, dtype=np.float64)
+    s = nav.a_eq_px + 1e-12
+    Xsky = (x - nav.xc) / s
+    Ysky = (nav.yc - y) / s
+    pa = deg2rad(float(getattr(nav, "north_pa_deg", 0.0) or 0.0))
+    cP, sP = math.cos(pa), math.sin(pa)
+    Xp = Xsky * cP + Ysky * sP
+    Yp = -Xsky * sP + Ysky * cP
+    D = deg2rad(float(getattr(nav, "sub_lat_deg", 0.0) or 0.0))
+    cD, sD = math.cos(D), math.sin(D)
+    k = max(1.0 - float(nav.flattening), 1e-9)
+    inv_k2 = 1.0 / (k * k)
+    A = cD * cD + (sD * sD) * inv_k2
+    B = 2.0 * Yp * sD * cD * (inv_k2 - 1.0)
+    C = Xp * Xp + (Yp * Yp) * (cD * cD * inv_k2 + sD * sD) - 1.0
+    disc = B * B - 4.0 * A * C
+    off = disc < 0.0
+    if np.any(off):
+        n = np.hypot(Xp, Yp)
+        shrink = np.ones_like(n)
+        nsafe = np.maximum(n, 1e-12)
+        shrink = np.where(off, 0.999999 / nsafe, 1.0)
+        Xp = Xp * shrink
+        Yp = Yp * shrink
+        C = Xp * Xp + (Yp * Yp) * (cD * cD * inv_k2 + sD * sD) - 1.0
+        B = 2.0 * Yp * sD * cD * (inv_k2 - 1.0)
+        disc = np.maximum(B * B - 4.0 * A * C, 0.0)
+    t = (-B + np.sqrt(np.maximum(disc, 0.0))) / (2.0 * A)
+    Xb = Xp
+    Yb = Yp * cD + t * sD
+    Zb = -Yp * sD + t * cD
+    lon_rel = np.degrees(np.arctan2(Xb, Zb))
+    rad = np.sqrt(Xb * Xb + Yb * Yb + Zb * Zb)
+    lat = np.degrees(np.arcsin(np.clip(Yb / (rad + 1e-15), -1.0, 1.0)))
+    lon = np.mod(float(nav.cm_iii_deg) + lon_rel, 360.0)
+    return lon, lat
 
 
 @lru_cache(maxsize=8)
@@ -987,23 +1054,17 @@ def _moment_mask_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
         im_r = arr[0]
     elif arr.ndim == 3 and arr.shape[-1] >= 3:
         im_r = arr[..., 0]
-    # SEB band in *oriented* planetocentric lat (same contract as px_to_lonlat)
+    # SEB band in genuine planetocentric lat (same spheroid contract as px_to_lonlat).
+    # The previous path scaled y by b_pol then took asin — that is parametric
+    # latitude on an axis-aligned ellipse, not the engine's planetocentric lat.
     yy, xx = np.mgrid[0:h, 0:w]
-    Xsky = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
-    Ysky = (nav.yc - yy) / (nav.b_pol_px + 1e-12)
-    pa = deg2rad(float(getattr(nav, "north_pa_deg", 0.0) or 0.0))
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xp = Xsky * cP + Ysky * sP
-    Yp = -Xsky * sP + Ysky * cP
-    rr = Xp * Xp + Yp * Yp
-    Zp = np.sqrt(np.clip(1.0 - rr, 0.0, 1.0))
-    D = deg2rad(float(getattr(nav, "sub_lat_deg", 0.0) or 0.0))
-    cD, sD = math.cos(D), math.sin(D)
-    Ye = Yp * cD + Zp * sD
-    lat = np.degrees(np.arcsin(np.clip(Ye, -1.0, 1.0)))
-    band = (rr <= 0.98) & (lat > GRS_LAT_BAND_TIGHT[0]) & (lat < GRS_LAT_BAND_TIGHT[1])
-    if band.sum() < 30:
-        band = rr <= 0.95
+    on = ((xx - nav.xc) / (nav.a_eq_px + 1e-12)) ** 2 + (
+        (nav.yc - yy) / (nav.a_eq_px + 1e-12)
+    ) ** 2 <= 0.98 ** 2
+    _, lat = px_to_lonlat_vec(yy, xx, nav)
+    band = on & (lat > GRS_LAT_BAND_TIGHT[0]) & (lat < GRS_LAT_BAND_TIGHT[1])
+    if int(band.sum()) < 30:
+        band = on
     # Blend mono highpass with red darkness (GRS is redder/darker)
     hp = im - _gauss(im, max(2.0, nav.a_eq_px * 0.03))
     if im_r is not None:
@@ -1200,34 +1261,36 @@ def _redness_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
     """
     arr = np.asarray(image, dtype=np.float64)
     if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[0] < min(arr.shape[1], arr.shape[2]):
-        R, B = arr[0], arr[2]
+        R, G, B = arr[0], arr[1], arr[2]
     elif arr.ndim == 3 and arr.shape[-1] >= 3:
-        R, B = arr[..., 0], arr[..., 2]
+        R, G, B = arr[..., 0], arr[..., 1], arr[..., 2]
     else:
         raise RuntimeError("redness needs an RGB image")
 
     h, w = R.shape
-    b_pol = nav.a_eq_px * (1.0 - nav.flattening)
-    if nav.a_eq_px <= 4 or b_pol <= 4:
+    if nav.a_eq_px <= 4:
         raise RuntimeError("redness: degenerate limb")
     yy, xx = np.mgrid[0:h, 0:w]
-    on = (((xx - nav.xc) / nav.a_eq_px) ** 2 + ((yy - nav.yc) / b_pol) ** 2) <= 0.85
+    on = ((xx - nav.xc) / (nav.a_eq_px + 1e-12)) ** 2 + (
+        (nav.yc - yy) / (nav.a_eq_px + 1e-12)
+    ) ** 2 <= 0.85 ** 2
     if int(on.sum()) < 64:
         raise RuntimeError("redness: disk too small")
 
-    red = np.where(on, R - B, 0.0)
+    # Orange oval score: (R−G)×(R−B). Brown SEB belts are R≈G so they drop
+    # out; the GRS is the compact orange feature. R−B alone locked the whole
+    # reddish belt on Hubble OPAL frames and then pruned the correct dark lock.
+    rb = np.clip(R - B, 0.0, None)
+    orange = np.clip(R - G, 0.0, None) * rb
+    use_orange = float(np.where(on, orange, 0.0).max()) > 1e-6
+    raw = orange if use_orange else rb
+    red = np.where(on, raw, 0.0)
     red = _gauss(red, max(3.0, nav.a_eq_px * 0.02))
     red = np.where(on, red, -9.0)
     if float(red.max()) <= 0.0:
         raise RuntimeError("redness: no red excess on disk")
 
-    # Restrict to the GRS latitude band so a red polar haze cannot win.
-    lat_map = np.full((h, w), 99.0)
-    step = max(1, int(min(h, w) / 160))
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if on[y, x]:
-                lat_map[y:y + step, x:x + step] = px_to_lonlat(float(y), float(x), nav)[1]
+    _, lat_map = px_to_lonlat_vec(yy, xx, nav)
     in_band = (lat_map >= GRS_LAT_BAND_WIDE[0]) & (lat_map <= GRS_LAT_BAND_WIDE[1])
     search = np.where(on & in_band, red, -9.0)
     if float(search.max()) <= 0.0:
@@ -1235,7 +1298,16 @@ def _redness_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
 
     j = np.unravel_index(int(np.argmax(search)), search.shape)
     py, px = int(j[0]), int(j[1])
-    # centroid refine on the red peak
+    # Belt gate: a compact oval's peak is well above the same-latitude median.
+    # A lock on the SEB colour ridge is not.
+    row0 = max(0, py - max(2, int(nav.a_eq_px * 0.03)))
+    row1 = min(h, py + max(2, int(nav.a_eq_px * 0.03)) + 1)
+    strip = search[row0:row1, :]
+    pos = strip[strip > 0]
+    peak = float(search[py, px])
+    if pos.size >= 16 and peak < 1.35 * float(np.median(pos)):
+        raise RuntimeError("redness: peak is a belt ridge, not a compact oval")
+
     rad = max(4, int(nav.a_eq_px * 0.06))
     y0, y1 = max(0, py - rad), min(h, py + rad + 1)
     x0, x1 = max(0, px - rad), min(w, px + rad + 1)
@@ -1256,9 +1328,10 @@ def _redness_grs(image: np.ndarray, nav: NavState) -> Dict[str, float]:
         "lat_deg": float(lat),
         "length_deg": float("nan"),
         "width_deg": float("nan"),
-        "score": float(search[py, px]),
+        "score": peak,
         "method": "redness",
         "size_definition": "unmeasured",
+        "colour": "orange" if use_orange else "r-b",
     }
 
 
@@ -1430,8 +1503,11 @@ def verify_grs_detection(
             if min(h, w) < 48:
                 continue
             small = im[: h * k : k, : w * k : k] if im.ndim == 2 else im[: h * k : k, : w * k : k, :]
-            nav_s = fit_limb_nav(small, cm_iii_deg=nav.cm_iii_deg,
-                                 distance_au=nav.distance_au)
+            nav_s = fit_limb_nav(
+                small, cm_iii_deg=nav.cm_iii_deg,
+                distance_au=nav.distance_au,
+                north_pa_deg=float(getattr(nav, "north_pa_deg", 0.0) or 0.0),
+            )
             nav_s.cm_iii_deg = nav.cm_iii_deg
             nav_s.sub_lat_deg = nav.sub_lat_deg
             nav_s.north_pa_deg = nav.north_pa_deg
@@ -1440,6 +1516,7 @@ def verify_grs_detection(
             cyl_s = make_cylindrical(small, nav_s, width=1200, height=600)
             cands: List[float] = []
             for fn in (lambda: _template_match_grs(cyl_s, nav_s),
+       h_grs(cyl_s, nav_s),
                        lambda: _moment_mask_grs(small, nav_s),
                        lambda: _redness_grs(small, nav_s)):
                 try:
@@ -1481,6 +1558,7 @@ def measure_grs_precision(
     map_width: int = 2400,
     map_height: int = 1200,
     lean: bool = False,
+    rgb: Optional[np.ndarray] = None,
 ) -> GRSPrecisionResult:
     """
     The main multi-method GRS measurement — this is what everything else calls.
@@ -1525,7 +1603,7 @@ def measure_grs_precision(
     except Exception as e:
         notes.append(f"moment failed: {e}")
     try:
-        raw_methods["redness"] = _redness_grs(image, nav)
+        raw_methods["redness"] = _redness_grs(rgb if rgb is not None else image, nav)
     except Exception as e:
         notes.append(f"redness unavailable: {e}")
 
@@ -1602,6 +1680,8 @@ def measure_grs_precision(
         else:
             raise RuntimeError("All GRS methods failed or rejected")
 
+    dark_tight = False
+    dark_cluster_lon: Optional[float] = None
     # Pass 2: quality-aware lon cluster
     # High dark_contrast template is the most reliable dark-oval lock on Jupiter.
     # Do NOT let a thin wrong moment/map barge veto a good template.
@@ -1649,8 +1729,44 @@ def measure_grs_precision(
     # split test above never fires and the decoy template seeds the cluster,
     # silently deleting the correct colour lock. Seed on colour instead: it
     # survives blur that destroys the dark oval.
-    red_isolated = (
+    dark_sane = [lat_sane[n] for n in ("template", "moment", "map_dark") if n in lat_sane]
+    dark_tight = False
+    dark_cluster_lon: Optional[float] = None
+    if len(dark_sane) >= 2:
+        # Majority cluster, not unanimity: one decoy moment must not dissolve
+        # a template+map_dark pair sitting on the GRS (seen on Hubble OPAL
+        # at 1000 px: two methods at 87°, one at 346°).
+        best_n = 0
+        best_core: List[float] = []
+        for m in dark_sane:
+            la = float(m["lat_deg"])
+            if not (GRS_LAT_BAND_TIGHT[0] <= la <= GRS_LAT_BAND_TIGHT[1]):
+                continue
+            core = [
+                float(o["lon_iii_deg"]) for o in dark_sane
+                if GRS_LAT_BAND_TIGHT[0] <= float(o["lat_deg"]) <= GRS_LAT_BAND_TIGHT[1]
+                and abs(wrap_diff(float(m["lon_iii_deg"]), float(o["lon_iii_deg"]))) <= 12.0
+            ]
+            if len(core) > best_n:
+                best_n = len(core)
+                best_core = core
+        dark_tight = best_n >= 2
+        if dark_tight and best_core:
+            dark_cluster_lon = _circular_weighted_mean(
+                np.asarray(best_core, dtype=np.float64),
+                np.ones(len(best_core), dtype=np.float64),
+            )
+    # Isolated colour is a decoy-breaker only when the dark methods do NOT
+    # already form a tight core-band cluster. On Hubble OPAL the dark trio
+    # agreed on the GRS (~80°) and redness had locked a central SEB belt;
+    # seeding on colour then pruned the correct lock.
+    red_in_tight = (
         red is not None
+        and GRS_LAT_BAND_TIGHT[0] <= float(red["lat_deg"]) <= GRS_LAT_BAND_TIGHT[1]
+    )
+    red_isolated = (
+        red_in_tight
+        and not dark_tight
         and any(n in lat_sane for n in ("template", "moment", "map_dark"))
         and all(
             abs(wrap_diff(float(red["lon_iii_deg"]), float(m["lon_iii_deg"]))) > 12.0
@@ -1658,7 +1774,12 @@ def measure_grs_precision(
             if n in ("template", "moment", "map_dark")
         )
     )
-    if red is not None and (dark_split or red_isolated):
+    if dark_tight and dark_cluster_lon is not None:
+        seed_lon = float(dark_cluster_lon)
+        notes.append(
+            f"cluster seed = majority dark core-band cluster ({seed_lon:.2f}°)"
+        )
+    elif red is not None and not dark_tight and (dark_split or red_isolated):
         seed_lon = float(red["lon_iii_deg"])
         if dark_split:
             notes.append(
@@ -1691,7 +1812,7 @@ def measure_grs_precision(
     # lone disagreeing peer alive and let the corroboration test below decide
     # on evidence. (Observed: template 31 deg off truth deleted a moment method
     # that was accurate to 0.03 deg.)
-    if len(names) == 2 and int(keep.sum()) == 1:
+    if len(names) == 2 and int(keep.sum()) == 1 and not dark_tight:
         keep[:] = True
         notes.append(
             "2-method split kept intact for corroboration (no majority to arbitrate)"
@@ -1705,7 +1826,7 @@ def measure_grs_precision(
                 keep[mi] = False
                 keep[ti] = True
                 notes.append("dropped low-quality moment (thin/wrong); kept template")
-            elif mom_quality >= 1.0 and tmpl_quality < 0.03:
+            elif mom_quality >= 1.0 and tmpl_quality < 0.03 and not dark_tight:
                 keep[ti] = False
                 keep[mi] = True
                 notes.append("dropped weak template; kept size-sane moment")
@@ -1746,7 +1867,7 @@ def measure_grs_precision(
     # trusted on this frame, so the colour lock takes the position outright
     # rather than being averaged with whichever dark method survived. Measured
     # at 2.6" seeing: template -97.7 deg, moment -28.5 deg, redness -0.21 deg.
-    if red is not None and dark_split and "redness" in usable:
+    if red is not None and dark_split and not dark_tight and "redness" in usable:
         lon = float(red["lon_iii_deg"])
         lat = float(red["lat_deg"])
         pos_tag_override = "redness_dark_split"
@@ -1931,11 +2052,23 @@ def measure_grs_precision(
     # audit's consensus was already the answer.
     # =====================================================================
     redness_ok = (
-        disk_q.get("measurable", True)
+        bool(disk_q.get("disk_present", disk_q.get("measurable", True)))
         and "redness" in usable
         and usable["redness"].get("score", 0) > 0
-        and (GRS_LAT_BAND_WIDE[0] <= float(usable["redness"]["lat_deg"]) <= GRS_LAT_BAND_WIDE[1])
+        and (GRS_LAT_BAND_TIGHT[0] <= float(usable["redness"]["lat_deg"]) <= GRS_LAT_BAND_TIGHT[1])
     )
+    if redness_ok and dark_tight and "redness" in usable:
+        dlon_vs_dark = [
+            abs(wrap_diff(float(usable["redness"]["lon_iii_deg"]), float(m["lon_iii_deg"])))
+            for n, m in lat_sane.items()
+            if n in ("template", "moment", "map_dark")
+        ]
+        if dlon_vs_dark and min(dlon_vs_dark) > 12.0:
+            redness_ok = False
+            notes.append(
+                "redness-primary withheld: isolated from a tight dark core-band cluster "
+                f"(min Δ={min(dlon_vs_dark):.1f}°)"
+            )
     if redness_ok:
         red_m = usable["redness"]
         lon = float(red_m["lon_iii_deg"])
@@ -1951,6 +2084,11 @@ def measure_grs_precision(
             "method": "redness",
             "score": float(red_m.get("score", float("nan"))),
         }
+    methods["publish_path"] = {
+        "redness_ok": bool(redness_ok),
+        "dark_tight": bool(dark_tight),
+        "fallback_dark": not bool(redness_ok),
+    }
 
     if len(lons_k) >= 2:
         dlon = np.array([wrap_diff(x, lon) for x in lons_k])

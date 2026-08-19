@@ -71,4 +71,5 @@ app/outputs/wj_derotate/
 # Accuracy campaign outputs (regenerated; can be large)
 runs/
 image-search/
+real_photos/
 app/native/*.so

@@ -76,6 +76,10 @@ from precision_engine import (
     METHOD_WEIGHTS,
     measure_grs_precision,
     monte_carlo_precision,
+    lonlat_to_planet_xyz,
+    planet_xyz_to_px,
+    GRS_LAT0,
+    _redness_grs,
 )
 
 # ---------------------------------------------------------------------------
@@ -519,28 +523,12 @@ def make_cylindrical_oriented(
     lons = np.linspace(-90.0, 90.0, width)
     lats = np.linspace(90.0, -90.0, height)
     lon_g, lat_g = np.meshgrid(lons, lats)
-    lon_r = np.deg2rad(lon_g)
-    lat_r = np.deg2rad(lat_g)
-    # planetocentric unit vector in body frame (x toward CM, y north, z out)
-    # With sub-obs latitude D: rotate about x by -D
-    D = deg2rad(nav.sub_lat_deg)
-    # Standard: X_e = cos(lat)sin(lon), Y_e = sin(lat), Z_e = cos(lat)cos(lon)  (μ)
-    Xe = np.cos(lat_r) * np.sin(lon_r)
-    Ye = np.sin(lat_r)
-    Ze = np.cos(lat_r) * np.cos(lon_r)
-    # rotate sub-lat: Y' = Ye cos D - Ze sin D; Z' = Ye sin D + Ze cos D
-    cD, sD = math.cos(D), math.sin(D)
-    Yp = Ye * cD - Ze * sD
-    Zp = Ye * sD + Ze * cD
-    Xp = Xe
-    mu = Zp
-    # optional NP PA: rotate (X,Y) in the sky plane
-    pa = deg2rad(nav.north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xsky = Xp * cP - Yp * sP
-    Ysky = Xp * sP + Yp * cP
-    xs = nav.xc + Xsky * nav.a_eq_px
-    ys = nav.yc - Ysky * nav.b_pol_px
+    nav_s = nav.to_nav_state() if hasattr(nav, "to_nav_state") else nav
+    # True spheroid + isotropic plate scale (precision_engine contract).
+    # The previous path sampled a unit sphere then scaled y by b_pol AFTER
+    # the PA rotation — the v6.5.1 shear bug, still alive in this module.
+    Xe, Ye, Ze = lonlat_to_planet_xyz(lon_g, lat_g, float(getattr(nav_s, "flattening", FLAT)))
+    xs, ys, mu = planet_xyz_to_px(Xe, Ye, Ze, nav_s)
     h, w = im.shape
     x0 = np.floor(xs).astype(np.int64)
     y0 = np.floor(ys).astype(np.int64)
@@ -565,11 +553,13 @@ def make_cylindrical_oriented(
 
 def px_to_lonlat_oriented(y: float, x: float, nav: AdvancedNav) -> Tuple[float, float]:
     """Inverse of oriented orthographic (planetocentric)."""
+    nav_s = nav.to_nav_state() if hasattr(nav, "to_nav_state") else nav
+    return px_to_lonlat(float(y), float(x), nav_s)
+    # unreachable legacy sphere inverse kept below as documentation only
     Xsky = (x - nav.xc) / (nav.a_eq_px + 1e-12)
     Ysky = (nav.yc - y) / (nav.b_pol_px + 1e-12)
     pa = deg2rad(nav.north_pa_deg)
     cP, sP = math.cos(pa), math.sin(pa)
-    # undo PA
     Xp = Xsky * cP + Ysky * sP
     Yp = -Xsky * sP + Ysky * cP
     rr = Xp * Xp + Yp * Yp
@@ -657,7 +647,7 @@ def _ncc_peak(band: np.ndarray, tmpl: np.ndarray) -> Tuple[float, float, float]:
 def multiscale_template_match(
     cyl: np.ndarray,
     nav: Any,
-    lat0: float = -22.0,
+    lat0: Optional[float] = None,
     lengths: Sequence[float] = (9.5, 11.0, 12.0, 13.5, 15.0),
     widths: Sequence[float] = (6.5, 7.5, 8.0, 9.0, 10.0),
 ) -> Dict[str, float]:
@@ -667,6 +657,8 @@ def multiscale_template_match(
 
     Accepts AdvancedNav or precision_engine.NavState (all_methods uses NavState).
     """
+    if lat0 is None:
+        lat0 = float(GRS_LAT0)
     h, w = cyl.shape
     if hasattr(nav, "to_nav_state"):
         nav_s = nav.to_nav_state()
@@ -857,6 +849,10 @@ def measure_grs_vlbi(
             notes.append("moment rejected (pathological)")
     except Exception as e:
         notes.append(f"moment: {e}")
+    try:
+        methods["redness"] = _redness_grs(image, nav_s)
+    except Exception as e:
+        notes.append(f"redness: {e}")
 
     primary = methods.get("multiscale_ncc") or methods.get("template")
     if primary is None:
@@ -886,6 +882,7 @@ def measure_grs_vlbi(
         "template": 3.0,
         "map_dark": 1.5,
         "moment": 1.0,
+        "redness": 3.5,
     }
     for name, m in methods.items():
         if abs(wrap_diff(m["lon_iii_deg"], lon)) > 6 or abs(m["lat_deg"] - lat) > 4:

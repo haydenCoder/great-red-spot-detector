@@ -835,8 +835,19 @@ def run_process_full(
 
     mc = cap_mc_iterations(mc_iter, megapixels=float(meas.size) / 1e6)
     measure_grs_precision._use_nn = use_nn
+    # Keep colour for redness / GS-ENGINE. Prep returns an orange-darkened
+    # mono `meas` for dark-core estimators; stacking R/G/B (post-flip/mask)
+    # lets the colour lock actually run on real RGB photos.
+    rg_image = meas
+    if channels and all(k in channels for k in ("R", "G", "B")):
+        try:
+            rg_image = np.stack(
+                [channels["R"], channels["G"], channels["B"]], axis=-1
+            )
+        except Exception:
+            rg_image = meas
     rg = run_research_grade(
-        meas,
+        rg_image,
         nav=nav,
         cm_iii_deg=pe.cm_iii_deg,
         distance_au=pe.distance_au,

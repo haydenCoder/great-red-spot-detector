@@ -3,6 +3,60 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [7.0.1] — 2026-08-19 — real-photo measurement audit
+
+Ran the published path on Hubble OPAL / Ganymede-shadow / Io frames and a
+Juno close-up. Synthetic campaigns could not see these bugs. Full write-up:
+[`docs/REAL_PHOTO_AUDIT_7.0.1.md`](docs/REAL_PHOTO_AUDIT_7.0.1.md).
+
+### Fixed — Hubble frames were refused as "seeing too poor"
+`estimate_limb_softness_arcsec` multiplied a *radius*-normalised FWHM by the
+apparent *diameter* (2×) and histogrammed an axis-aligned (x/a)²+(y/b)²
+ellipse. On a rotated Hubble disk that mixed interior and sky into the same
+radial bin and reported 6–9″ of "seeing" on space-telescope frames, which
+then set `measurable=False` and vetoed redness-primary. Softness is now a
+circular (PA-invariant) profile converted with the apparent radius, and it
+is a **warning**, not a "no disk" refusal. `disk_present` (fill / contrast /
+size) is the only hard refuse.
+
+### Fixed — isolated redness pruned the correct GRS lock
+On Hubble 2024-01-06 + Io the dark methods agreed on the GRS (~87°) and
+redness locked a central SEB belt (~10° / ~360°). `red_isolated` +
+`dark_split` seeded the belt and deleted the oval. A **majority dark
+core-band cluster** now owns the seed; redness-primary is withheld when it
+is isolated from that cluster; redness must sit in the *tight* GRS lat
+band; a belt-ridge gate rejects colour locks that are not compact ovals.
+`_redness_grs` uses the orange (R−G)×(R−B) score and a vectorised
+spheroid lat map (no more Python pixel loop, no more parametric-lat
+moment band).
+
+### Fixed — production colour path and VLBI geometry
+- `fit_limb_nav` now stores the `north_pa_deg` it fitted with.
+- `desktop_pipeline` passes post-prep RGB into research-grade so redness
+  actually sees colour (prep's orange-darkened mono is still used for
+  dark-core estimators).
+- `gold_standard.measure_gs_engine` no longer `to_mono`s before the engine.
+- `vlbi_metrology.make_cylindrical_oriented` / `px_to_lonlat_oriented` use
+  the v6.5.1 spheroid + isotropic plate scale (the PA-shear bug was still
+  alive in the VLBI map).
+- `tools/real_photo_validate.py` refuses a silent 1970-01-01 UTC.
+
+### Added
+- `tools/real_photo_audit.py` — disk / softness / band / RGB-vs-mono /
+  redness-vs-dark split on untimed real frames (no invented System III
+  truth).
+- `tests/test_real_photo_audit.py` — Hubble 2019, Hubble+Io, Juno crop,
+  PA persistence, vectorised lon/lat, no-1970 guard.
+
+Measured on the same Hubble files (900–1000 px):
+
+| Frame | Before | After |
+|---|---|---|
+| Hubble 2019-06-27 | refused (softness 8.6″); redness belt lat=−14 | **measurable**, template lock lat=**−19.4°** |
+| Hubble 2024-01-06 + Io | redness belt ~10°; dark GRS ~83° pruned | **template_pos lat=−21.5°** (GRS on the right) |
+| Hubble + Ganymede shadow | refused; methods already agreed ~0° | **redness-primary**, all methods within ~5° |
+| Juno GRS close-up | number with quality 0 | still **not a disk** (contrast 0.13) |
+
 ## [Unreleased] — 2026-08-13 — accuracy + stacking hardening
 
 ### Fixed — catastrophic fallback lock under very-blurry seeing

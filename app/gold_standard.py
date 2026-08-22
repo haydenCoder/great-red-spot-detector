@@ -178,7 +178,10 @@ def _cyl_axes(cyl: np.ndarray, nav: NavState) -> Tuple[np.ndarray, np.ndarray]:
     return lon_iii, lat
 
 
-def _grs_band_mask_cyl(cyl: np.ndarray, lat: np.ndarray, lat0: float = -22.0, half: float = 6.0) -> np.ndarray:
+def _grs_band_mask_cyl(cyl: np.ndarray, lat: np.ndarray, lat0: Optional[float] = None, half: float = 6.0) -> np.ndarray:
+    from precision_engine import GRS_LAT0
+    if lat0 is None:
+        lat0 = float(GRS_LAT0)
     yy = ((lat >= (lat0 - half)) & (lat <= (lat0 + half)))
     return np.broadcast_to(yy[:, None], cyl.shape[:2])
 
@@ -224,7 +227,7 @@ def measure_gs_tmpl(cyl: np.ndarray, nav: NavState) -> GoldMeasure:
 
 def measure_gs_engine(image: np.ndarray, nav: NavState) -> GoldMeasure:
     p = measure_grs_precision(
-        to_mono(image),
+        image,
         cm_iii_deg=nav.cm_iii_deg,
         distance_au=nav.distance_au,
         nav=nav,
@@ -241,13 +244,16 @@ def measure_gs_engine(image: np.ndarray, nav: NavState) -> GoldMeasure:
     )
 
 
-def _dark_mask_cyl(cyl: np.ndarray, lat: np.ndarray, lat0: float = -22.0) -> np.ndarray:
+def _dark_mask_cyl(cyl: np.ndarray, lat: np.ndarray, lat0: Optional[float] = None) -> np.ndarray:
     """
     Binary dark mask in GRS band on cylindrical map.
 
     Uses band-local darkness (not a loose global percentile) so SEB waves
     and flat residuals do not inflate EW size to tens of degrees.
     """
+    from precision_engine import GRS_LAT0
+    if lat0 is None:
+        lat0 = float(GRS_LAT0)
     im = np.asarray(cyl, dtype=np.float64)
     if im.ndim == 3:
         im = im.mean(axis=2)

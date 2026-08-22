@@ -466,7 +466,7 @@ def _run_estimators(
         best_sc = -1.0
         for L, W in ((11.0, 7.5), (12.5, 8.0), (14.0, 8.5)):
             try:
-                t = dict(_template_match_grs(cyl, nav, lat0=-22.0, length_deg=L, width_deg=W))
+                t = dict(_template_match_grs(cyl, nav, length_deg=L, width_deg=W))
                 sc = float(t.get("dark_contrast") or t.get("score") or 0.0)
                 if sc > best_sc:
                     best_sc = sc
@@ -486,7 +486,7 @@ def _run_estimators(
     except Exception as e:
         out["map_dark"] = {"error": str(e)}
     try:
-        out["template"] = dict(_template_match_grs(cyl_raw, nav, lat0=-22.0, length_deg=12.5, width_deg=8.0))
+        out["template"] = dict(_template_match_grs(cyl_raw, nav, length_deg=12.5, width_deg=8.0))
     except Exception as e:
         out["template"] = {"error": str(e)}
     try:

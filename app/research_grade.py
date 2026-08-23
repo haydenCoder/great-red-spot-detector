@@ -54,9 +54,11 @@ from precision_engine import (
     fit_limb_nav,
     km_per_deg_lat,
     km_per_deg_lon,
+    lonlat_to_planet_xyz,
     make_cylindrical,
     measure_grs_precision,
     monte_carlo_precision,
+    planet_xyz_to_px,
     px_to_lonlat,
     sky_error_arcsec,
     to_mono,
@@ -153,17 +155,23 @@ def inject_dark_oval(
     im = to_mono(image).astype(np.float64).copy()
     h, w = im.shape
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    # Project lon/lat to pixel via inverse of orthographic-like model
+    # Project lon/lat to pixels through the SAME oblate-spheroid + sub-lat + PA
+    # geometry the recovery uses (precision_engine.lonlat_to_planet_xyz and
+    # planet_xyz_to_px). The previous hand-rolled orthographic placed the oval
+    # on a unit sphere then scaled y by b_pol AFTER the rotation -- the v6.5.1
+    # anisotropic/PA-shear bug -- which at sub_lat=2 deg / PA=15 deg put a
+    # GRS-latitude oval ~4-5 px (~1.2 deg lat) away from where the engine
+    # measures the same lon/lat. Because blind_injection_calibration subtracts
+    # the recovery error as "pipeline bias", that placement error was being
+    # baked into the published bias correction instead of measuring real bias.
     lon_rel = wrap_diff(lon_iii, nav.cm_iii_deg)
-    lon_r = math.radians(lon_rel)
-    lat_r = math.radians(lat_deg)
-    X = math.cos(lat_r) * math.sin(lon_r)
-    Y = math.sin(lat_r)
-    if X * X + Y * Y > 0.92:
-        # too near limb — skip by returning original (caller should choose safer lon)
+    Xs, Ys, Zs = lonlat_to_planet_xyz(lon_rel, lat_deg, nav.flattening)
+    cx, cy, z_los = planet_xyz_to_px(Xs, Ys, Zs, nav)
+    # Same near-limb guard as before, but in BODY coordinates on the spheroid
+    # (the old X*X + Y*Y test), and require the point to be on the near side.
+    if not (z_los > 0.15) or (Xs * Xs + Ys * Ys) > 0.92:
+        # too near limb / back side -- caller should choose a safer lon
         return im
-    cx = nav.xc + X * nav.a_eq_px
-    cy = nav.yc - Y * nav.b_pol_px
     # local px size of oval
     km_per_px = (2 * JUP_REQ_KM) / (2 * nav.a_eq_px + 1e-12)
     ax = 0.5 * length_deg * km_per_deg_lon(lat_deg) / km_per_px
@@ -172,7 +180,7 @@ def inject_dark_oval(
     by = max(by, 2.0)
     ell = ((xx - cx) / ax) ** 2 + ((yy - cy) / by) ** 2
     alpha = np.exp(-0.5 * ell * 2.2)
-    # only on disk
+    # only on disk -- match the rendered limb ellipse (semi-minor b_pol).
     Xn = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
     Yn = (nav.yc - yy) / (nav.b_pol_px + 1e-12)
     disk = Xn * Xn + Yn * Yn <= 1.0

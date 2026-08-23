@@ -97,7 +97,9 @@ def _apply_zonal_shift(
     A smeared stack has lower peaks (and a non-zero lag if the
     smear is biased).
     """
-    from precision_engine import fit_limb_nav, deg2rad, FLAT as FLAT_CONST
+    from precision_engine import (
+        fit_limb_nav, deg2rad, FLAT as FLAT_CONST, px_to_lonlat_vec,
+    )
     from jupiter_zonal_stacker import (
         _zonal_wind_rate_at_lat_deg_per_s, SYS3_RATE_DEG_PER_S,
     )
@@ -107,21 +109,18 @@ def _apply_zonal_shift(
     nav.distance_au = distance_au
     nav.sub_lat_deg = sub_lat_deg
     nav.north_pa_deg = north_pa_deg
-    # Per-pixel planetocentric latitude (vectorised)
+    # Per-pixel planetocentric latitude via the EXACT oblate-spheroid LOS
+    # intersection (same geometry used for measurement and for the derotator's
+    # AP latitudes). The previous sphere+anisotropic-y approximation differed
+    # from the true spheroid latitude by ~1.3 deg (up to ~1.9 at the GRS band
+    # even at D=P=0), so the planted shear was evaluated at the wrong latitude.
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    Xsky = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
-    Ysky = (nav.yc - yy) / (nav.b_pol_px + 1e-12)
-    pa = deg2rad(north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xp = Xsky * cP + Ysky * sP
-    Yp = -Xsky * sP + Ysky * cP
-    rr = Xp * Xp + Yp * Yp
-    Zp = np.sqrt(np.clip(1.0 - rr, 0.0, 1.0))
-    D = deg2rad(sub_lat_deg)
-    cD, sD = math.cos(D), math.sin(D)
-    Ye = Yp * cD + Zp * sD
-    lat = np.degrees(np.arcsin(np.clip(Ye, -1.0, 1.0)))
-    on_disk = rr <= 0.97
+    _, lat = px_to_lonlat_vec(yy.ravel(), xx.ravel(), nav)
+    lat = lat.reshape(h, w)
+    on_disk = (
+        ((xx - nav.xc) / (nav.a_eq_px + 1e-12)) ** 2
+        + ((nav.yc - yy) / (nav.b_pol_px + 1e-12)) ** 2
+    ) <= 0.97 ** 2
     # CM III rotation in degrees (wrapped to [-180, 180])
     dcm_deg = cm_iii_frame - cm_iii_ref
     if dcm_deg > 180.0:

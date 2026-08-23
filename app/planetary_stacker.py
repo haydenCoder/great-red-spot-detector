@@ -44,7 +44,7 @@ import numpy as np
 from verbose_log import CONSOLE
 from planet_models import Planet, JUPITER
 from jpa_10k import _build_ap_grid, _phase_corr_shift, _laplacian_octave
-from precision_engine import fit_limb_nav, deg2rad, to_mono, wrap_diff
+from precision_engine import fit_limb_nav, to_mono, wrap_diff, px_to_lonlat_vec, FLAT as _ENGINE_FLAT
 from flow_warp import fit_dense_apply_field, apply_flow_warp
 from frame_quality import select_best_frames
 
@@ -268,48 +268,53 @@ def _per_pixel_lat(nav, h: int, w: int, sub_lat_deg: float, north_pa_deg: float
                    ) -> Tuple[np.ndarray, np.ndarray]:
     """Planetocentric latitude map + on-disk mask for the fitted nav.
 
-    Uses the nav's own flattening so it is correct for any oblate body, not
-    just Jupiter. Same body-frame construction as precision_engine.
+    Uses precision_engine.px_to_lonlat_vec, i.e. the EXACT oblate-spheroid
+    line-of-sight intersection (the same quadratic solved for measurement), so
+    the latitude assigned to each alignment point is the latitude the engine
+    would publish. The previous implementation treated the planet as a unit
+    sphere after an anisotropic y-scale; that is only exact for a sphere and
+    differed from the spheroid latitude by up to ~2.8 deg on Jupiter in the
+    GRS band, which mis-binned the per-latitude shear warp.
     """
+    # Build a NavState carrying the orientation this stacker was asked to use.
+    # nav may be a plain object (fit_limb_nav result) or already a NavState.
+    from precision_engine import NavState as _NS
+    ns = _NS(
+        xc=float(nav.xc), yc=float(nav.yc), a_eq_px=float(nav.a_eq_px),
+        flattening=float(getattr(nav, "flattening", _ENGINE_FLAT) or _ENGINE_FLAT),
+        cm_iii_deg=float(getattr(nav, "cm_iii_deg", 0.0) or 0.0),
+        distance_au=float(getattr(nav, "distance_au", 5.2) or 5.2),
+        sub_lat_deg=float(sub_lat_deg or 0.0),
+        north_pa_deg=float(north_pa_deg or 0.0),
+    )
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
-    b_pol = nav.a_eq_px * (1.0 - nav.flattening)
-    Xsky = (xx - nav.xc) / (nav.a_eq_px + 1e-12)
-    Ysky = (nav.yc - yy) / (b_pol + 1e-12)
-    pa = deg2rad(north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xp = Xsky * cP + Ysky * sP
-    Yp = -Xsky * sP + Ysky * cP
-    rr = Xp * Xp + Yp * Yp
-    Zp = np.sqrt(np.clip(1.0 - rr, 0.0, 1.0))
-    D = deg2rad(sub_lat_deg)
-    cD, sD = math.cos(D), math.sin(D)
-    Ye = Yp * cD + Zp * sD
-    lat = np.degrees(np.arcsin(np.clip(Ye, -1.0, 1.0)))
-    return lat, (rr <= 0.97)
+    _, lat = px_to_lonlat_vec(yy.ravel(), xx.ravel(), ns)
+    lat = lat.reshape(h, w)
+    # on-disk mask in SKY coordinates (the projected limb ellipse), independent
+    # of the latitude solve. 0.97 keeps the warp away from the very limb.
+    b_pol = ns.a_eq_px * (1.0 - ns.flattening)
+    Xn = (xx - ns.xc) / (ns.a_eq_px + 1e-12)
+    Yn = (ns.yc - yy) / (b_pol + 1e-12)
+    on = (Xn * Xn + Yn * Yn) <= 0.97 ** 2
+    return lat, on
 
 
 def _ap_latitudes(aps: np.ndarray, nav, sub_lat_deg: float, north_pa_deg: float
                   ) -> np.ndarray:
     """Planetocentric latitude of each AP (vectorised sample of the lat map)."""
-    h, w = int(nav.yc * 2), int(nav.xc * 2)
-    # nav does not store h,w; rebuild from the image shape the caller passed.
-    # We avoid needing h,w here by computing lat directly per AP.
-    b_pol = nav.a_eq_px * (1.0 - nav.flattening)
-    pa = deg2rad(north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    D = deg2rad(sub_lat_deg)
-    cD, sD = math.cos(D), math.sin(D)
-    out = np.zeros(aps.shape[0], dtype=np.float64)
-    for i, (x, y) in enumerate(aps):
-        Xsky = (x - nav.xc) / (nav.a_eq_px + 1e-12)
-        Ysky = (nav.yc - y) / (b_pol + 1e-12)
-        Xp = Xsky * cP + Ysky * sP
-        Yp = -Xsky * sP + Ysky * cP
-        rr = Xp * Xp + Yp * Yp
-        Zp = math.sqrt(max(1.0 - rr, 0.0))
-        Ye = Yp * cD + Zp * sD
-        out[i] = math.degrees(math.asin(max(-1.0, min(1.0, Ye))))
-    return out
+    from precision_engine import NavState as _NS
+    ns = _NS(
+        xc=float(nav.xc), yc=float(nav.yc), a_eq_px=float(nav.a_eq_px),
+        flattening=float(getattr(nav, "flattening", _ENGINE_FLAT) or _ENGINE_FLAT),
+        cm_iii_deg=float(getattr(nav, "cm_iii_deg", 0.0) or 0.0),
+        distance_au=float(getattr(nav, "distance_au", 5.2) or 5.2),
+        sub_lat_deg=float(sub_lat_deg or 0.0),
+        north_pa_deg=float(north_pa_deg or 0.0),
+    )
+    ys = aps[:, 1].astype(np.float64)
+    xs = aps[:, 0].astype(np.float64)
+    _, lat = px_to_lonlat_vec(ys, xs, ns)
+    return lat
 
 
 # ---------------------------------------------------------------------------

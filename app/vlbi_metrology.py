@@ -1003,24 +1003,18 @@ def inject_dark_oval_image(
     im = to_mono(image).astype(np.float64).copy()
     h, w = im.shape
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    # Project through the SAME spheroid + sub-lat + PA geometry the recovery
+    # uses. The previous hand-rolled orthographic scaled y by b_pol AFTER the
+    # PA rotation (the v6.5.1 anisotropic/PA-shear bug), which placed a
+    # GRS-latitude oval ~4-5 px away from the engine's location at non-zero
+    # sub-lat/PA and corrupted the phase-reference bias estimate.
+    nav_s = nav.to_nav_state() if hasattr(nav, "to_nav_state") else nav
     lon_rel = wrap_diff(lon_iii, nav.cm_iii_deg)
-    lon_r = math.radians(lon_rel)
-    lat_r = math.radians(lat_deg)
-    D = deg2rad(nav.sub_lat_deg)
-    Xe = math.cos(lat_r) * math.sin(lon_r)
-    Ye = math.sin(lat_r)
-    Ze = math.cos(lat_r) * math.cos(lon_r)
-    cD, sD = math.cos(D), math.sin(D)
-    Yp = Ye * cD - Ze * sD
-    Zp = Ye * sD + Ze * cD
-    if Zp < 0.15 or Xe * Xe + Yp * Yp > 0.90:
+    Xs, Ys, Zs = lonlat_to_planet_xyz(lon_rel, lat_deg,
+                                      float(getattr(nav_s, "flattening", FLAT)))
+    cx, cy, z_los = planet_xyz_to_px(Xs, Ys, Zs, nav_s)
+    if not (z_los > 0.15) or (Xs * Xs + Ys * Ys) > 0.90:
         return im  # near limb / back side — skip
-    pa = deg2rad(nav.north_pa_deg)
-    cP, sP = math.cos(pa), math.sin(pa)
-    Xsky = Xe * cP - Yp * sP
-    Ysky = Xe * sP + Yp * cP
-    cx = nav.xc + Xsky * nav.a_eq_px
-    cy = nav.yc - Ysky * nav.b_pol_px
     km_per_px = (2 * JUP_REQ_KM) / (2 * nav.a_eq_px + 1e-12)
     ax = 0.5 * length_deg * km_per_deg_lon(lat_deg) / km_per_px
     by = 0.5 * width_deg * km_per_deg_lat(lat_deg) / km_per_px

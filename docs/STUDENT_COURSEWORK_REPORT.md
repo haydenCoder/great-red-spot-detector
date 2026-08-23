@@ -3,8 +3,8 @@
 **Author:** Hayden Coder (undergraduate, astrophysics)
 **Course:** Observational Astronomy / Planetary Imaging
 **Project:** Great Red Spot Detector (GRS Observatory)
-**Version referenced:** 6.6.1
-**Date:** 2026-07-30
+**Version referenced:** 7.0.1 (+ deterioration audit, 2026-08-22)
+**Date:** 2026-08-22
 
 ---
 
@@ -165,6 +165,32 @@ Total: **340 cases, 100% within 1°, every clear/mild frame under
 fine-tuning to a tiered sub-0.2° on clear data is in
 `docs/DEEP_AUDIT_6.6.1.md`.
 
+### Deterioration sweep (added 2026-08-22)
+
+I added a `Deterioration Lab` that sweeps resolution, seeing and noise
+across synthetic Jupiter frames and measures the engine on each cell
+(`app/deterioration_lab.py`, new browser tab). A Quick sweep (2
+resolutions x 8 seeing tiers x 2 seeds, ~80 s) gives a real error floor:
+
+| Disk | sub-1° breaks at | sub-0.5° holds to |
+|---|---:|---:|
+| 540p | ~1.2 arcsec seeing | ~0.8 arcsec |
+| 720p | ~4.0 arcsec seeing | ~2.4 arcsec |
+
+i.e. plate scale matters more than I had assumed — a 720p disk keeps a
+usable lock through seeing that completely breaks a 540p disk. The
+per-method breakdown on the same sweep (median |dLon|) was moment 0.09°,
+redness 0.29°, template 0.43°, map-dark 80.8°, which is a concrete
+demonstration of why the publish path leans on the colour/moment vote
+and rejects isolated dark locks. While chasing that result I found and
+fixed six defects the default D=P=0 synthetic campaigns could not see
+(dead feature-verification gate, RGB frame scoring, RGB disk masks,
+wrong-projection injection bias, a 2.8° sphere-vs-spheroid latitude error
+in the per-latitude stacker, and an unregularised derotator that stacked
+*worse* than the naive mean); the before/after numbers are in
+`docs/DETERIORATION_AUDIT_2026-08-22.md`. All six are pinned by
+regression tests.
+
 **Important honest framing:** the real-ephemeris campaign uses
 *synthetic pixels* planted at the *real* published GRS longitude for
 each epoch. The GRS lon model is the cited Hubble GO17275 / Simon+2018
@@ -223,6 +249,17 @@ In building this project I learned:
 - The value of multiple independent estimators with explicit
   consensus logic, and the dangers of over-trusting any single
   estimator under poor seeing.
+- Writing a deterioration sweep instead of trusting a single
+  "it works on my frame" result: plotting accuracy against seeing
+  and plate scale showed the sub-1° guarantee breaks at ~1.2″ on a
+  540p disk but holds to ~4″ on 720p, which I would never have
+  seen from one test image.
+- That "the tests pass" is not enough — six real defects (a dead
+  feature-verification gate, RGB frame scoring, projection bias in
+  the injection calibration, a latitude error in the stacker, and an
+  unregularised derotator) only showed up when I ran the code on
+  colour frames and oriented/sheared data rather than the default
+  synthetic.
 
 ## 10. References
 

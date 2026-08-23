@@ -1516,7 +1516,7 @@ def verify_grs_detection(
             cyl_s = make_cylindrical(small, nav_s, width=1200, height=600)
             cands: List[float] = []
             for fn in (lambda: _template_match_grs(cyl_s, nav_s),
-       h_grs(cyl_s, nav_s),
+                       lambda: _map_dark_centroid(cyl_s, nav_s),
                        lambda: _moment_mask_grs(small, nav_s),
                        lambda: _redness_grs(small, nav_s)):
                 try:

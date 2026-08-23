@@ -3,6 +3,42 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [Unreleased] — deterioration audit + Deterioration Lab
+
+Full write-up: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md).
+
+### Added — Deterioration Lab (web UI)
+New `app/deterioration_lab.py` + orange **Deterioration Lab** tab: sweeps
+resolution x seeing x noise, measures each cell with the published engine, and
+plots median |dLon| and the within-1-degree rate with the measured seeing
+floor per resolution. An "analyse your image" panel grades a real FITS/PNG/JPG
+(disk/softness/method votes) entirely offline. New endpoints
+`/api/deterioration`, `/api/deterioration/real`, `/api/deterioration/tips`.
+
+### Fixed — six bugs the default campaigns could not see
+- `verify_grs_detection` had a bare `h_grs(...)` (typo for a lambda); the
+  scale-drift feature check raised NameError and was a silent no-op on every
+  non-lean measurement. Now calls `_map_dark_centroid`.
+- `frame_quality._on_disk_mask` averaged HWC RGB over (H,W) -> shape (3,), so
+  every RGB video frame scored sharpness 0 and lucky imaging kept the first
+  N frames. Now NTSC luma for HWC and CHW.
+- `grs_complete_system.rough_disk_mask` / `disk_mask_for_quality` returned an
+  empty / 3-D mask on RGB and crashed on small RGB frames.
+- Blind-injection ovals (research_grade + vlbi_metrology) were planted through
+  the old anisotropic sphere projection, ~1.2 deg of lat off from where the
+  engine measures that lon/lat; the error was being subtracted as bias. Now
+  uses `lonlat_to_planet_xyz` + `planet_xyz_to_px`.
+- `planetary_stacker._per_pixel_lat` / `_ap_latitudes` used an asin(Y) sphere
+  approximation wrong by up to 2.8 deg in the GRS band; both now use
+  `px_to_lonlat_vec`. The zonal benchmark's planted shear uses the same.
+- `planetary_derotator` measurement mode was unregularised and could stack
+  *worse* than the naive mean on long captures (0.68 vs 0.76 correlation);
+  it now blends 75% measured / 25% planet-model prior.
+
+### Tests
+10 new regressions in `tests/test_deterioration_regressions.py` and 3 in
+`tests/test_deterioration_lab.py`. Non-slow suite: 239 passed, 5 skipped.
+
 ## [7.0.1] — 2026-08-19 — real-photo measurement audit
 
 Ran the published path on Hubble OPAL / Ganymede-shadow / Io frames and a

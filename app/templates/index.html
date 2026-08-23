@@ -190,6 +190,7 @@
           <button type="button" class="tab" data-tab="video" role="tab">Video</button>
           <button type="button" class="tab" data-tab="transits" role="tab">Transits</button>
           <button type="button" class="tab" data-tab="analysis" role="tab">Analysis</button>
+          <button type="button" class="tab hot" data-tab="deterioration" role="tab">☄ Deterioration Lab</button>
         </div>
 
         <div id="tab-preview" class="tabpane active" role="tabpanel">
@@ -348,6 +349,88 @@
             <button type="button" id="btnDrift" class="btn primary">Fit drift</button>
           </div>
           <pre id="driftBox" class="codeblock">Upload a JUPOS CSV and fit.</pre>
+        </div>
+
+        <div id="tab-deterioration" class="tabpane" role="tabpanel">
+          <p class="muted small results-hint">
+            <strong>Deterioration Lab</strong> — measure how GRS accuracy falls
+            off as <em>resolution</em>, <em>seeing</em> and <em>noise</em>
+            degrade. Sweeps the published precision engine on synthetic Jupiter
+            and reports the measured error floor, per-method survival and the
+            seeing at which the sub-1° guarantee breaks. <span class="accent">No
+            ML training</span> — this is metrology, the same way AutoStakkert /
+            WinJUPOS practice grades a night.
+          </p>
+          <div class="det-controls">
+            <div class="det-field">
+              <label for="detPreset">Sweep depth</label>
+              <select id="detPreset">
+                <option value="quick" selected>Quick (2 res × 8 seeing, ~15 s)</option>
+                <option value="standard">Standard (3 res × 8 seeing × 2 noise, ~60 s)</option>
+                <option value="full">Full (4 res × 8 seeing × 4 noise, minutes)</option>
+              </select>
+            </div>
+            <div class="det-field">
+              <label>Orientation (optional)</label>
+              <div class="row2">
+                <input type="number" id="detSubLat" value="0" step="0.1" placeholder="sub-lat °" inputmode="decimal" />
+                <input type="number" id="detPa" value="0" step="0.1" placeholder="NPA °" inputmode="decimal" />
+              </div>
+            </div>
+            <div class="det-field det-actions">
+              <button type="button" id="btnDetRun" class="btn primary">▶ Run deterioration sweep</button>
+              <button type="button" id="btnDetStop" class="btn ghost" disabled>Poll</button>
+            </div>
+          </div>
+          <div id="detProgress" class="det-progress" hidden>
+            <div class="det-bar"><div id="detBar" class="det-bar-fill"></div></div>
+            <div id="detProgText" class="muted small mono">starting…</div>
+          </div>
+
+          <div id="detSummary" class="det-summary" hidden></div>
+
+          <div class="det-charts">
+            <div class="det-chart-card">
+              <h3>Median |Δlon| vs seeing <span class="muted small">(per resolution)</span></h3>
+              <canvas id="detChartLon" width="560" height="240"></canvas>
+            </div>
+            <div class="det-chart-card">
+              <h3>Within 1° rate <span class="muted small">(higher = better)</span></h3>
+              <canvas id="detChartHit" width="560" height="240"></canvas>
+            </div>
+          </div>
+
+          <div class="det-charts">
+            <div class="det-chart-card">
+              <h3>Method survival <span class="muted small">(median |Δlon| by estimator)</span></h3>
+              <div id="detMethods" class="det-methods"></div>
+            </div>
+            <div class="det-chart-card">
+              <h3>Stacking tips <span class="muted small">(real-data discipline)</span></h3>
+              <ul id="detTips" class="det-tips"></ul>
+            </div>
+          </div>
+
+          <hr class="soft" />
+          <h3 class="det-real-h3">Analyse <strong>your</strong> real image <span class="muted small">(offline — no upload)</span></h3>
+          <p class="muted small results-hint">
+            Drop a Jupiter FITS/PNG/JPG. It is analysed entirely in your browser
+            session: disk/softness gate, per-method GRS votes and whether the
+            frame is measurable. Use this to grade a real stack against the
+            synthetic deterioration curves above.
+          </p>
+          <div class="drop small-drop" id="detRealDrop" role="button" tabindex="0">
+            <p>Drop a real Jupiter image or click to choose</p>
+            <input type="file" id="detRealInput" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.fit,.fits" hidden />
+          </div>
+          <div id="detRealInfo" class="file-info muted">No image loaded</div>
+          <div id="detRealSummary" class="det-summary" hidden></div>
+          <pre id="detRealBox" class="codeblock">Load a real image — its diagnostics appear here.</pre>
+
+          <details class="soft">
+            <summary class="muted small">Raw matrix (JSON)</summary>
+            <pre id="detRaw" class="codeblock">Run a sweep — the full cell matrix appears here.</pre>
+          </details>
         </div>
       </section>
 

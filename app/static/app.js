@@ -1260,3 +1260,278 @@
     pollNn();
   })();
 })();
+
+/* ── Deterioration Lab ────────────────────────────────────────────── */
+(function () {
+  const runBtn = document.getElementById("btnDetRun");
+  const pollBtn = document.getElementById("btnDetStop");
+  const presetSel = document.getElementById("detPreset");
+  const progress = document.getElementById("detProgress");
+  const bar = document.getElementById("detBar");
+  const progText = document.getElementById("detProgText");
+  const summary = document.getElementById("detSummary");
+  const rawBox = document.getElementById("detRaw");
+  const methodsBox = document.getElementById("detMethods");
+  const tipsBox = document.getElementById("detTips");
+  if (!runBtn) return;
+
+  const RES_COLORS = {
+    "480p": "#ff6b6b", "540p": "#ff9d4d", "720p": "#4dd0ff", "1080p": "#7dffb3"
+  };
+
+  function num(id, dflt) {
+    const el = document.getElementById(id);
+    const v = parseFloat(el && el.value);
+    return Number.isFinite(v) ? v : dflt;
+  }
+
+  function fmt(v, d = 2) {
+    return Number.isFinite(v) ? v.toFixed(d) : "—";
+  }
+
+  async function loadTips() {
+    try {
+      const j = await (await fetch("/api/deterioration/tips")).json();
+      if (j.ok && Array.isArray(j.tips) && tipsBox) {
+        tipsBox.innerHTML = j.tips.map(t => `<li>${esc(t)}</li>`).join("");
+      }
+    } catch (_) {}
+  }
+
+  function drawLineChart(canvas, rows, valueFn, yMax, yLabel) {
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 560, cssH = 240;
+    canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const pad = { l: 42, r: 12, t: 12, b: 28 };
+    const W = cssW - pad.l - pad.r, H = cssH - pad.t - pad.b;
+    // axes
+    ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t + H);
+    ctx.lineTo(pad.l + W, pad.t + H); ctx.stroke();
+    const seeingVals = [...new Set(rows.map(r => r.seeing))].sort((a, b) => a - b);
+    const xMin = seeingVals[0], xMax = seeingVals[seeingVals.length - 1];
+    const xOf = s => pad.l + W * (s - xMin) / Math.max(1e-6, xMax - xMin);
+    const yOf = v => pad.t + H * (1 - Math.min(1, Math.max(0, v / yMax)));
+    ctx.fillStyle = "#8a98a8"; ctx.font = "10px monospace";
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (let i = 0; i <= 4; i++) {
+      const yv = yMax * i / 4; const yy = yOf(yv);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(pad.l + W, yy); ctx.stroke();
+      ctx.fillText(yv.toFixed(i ? 2 : 0), pad.l - 6, yy);
+    }
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    seeingVals.forEach(s => ctx.fillText(s.toFixed(1), xOf(s), pad.t + H + 6));
+    ctx.fillStyle = "#8a98a8";
+    ctx.fillText("seeing (arcsec FWHM)", pad.l + W / 2, cssH - 12);
+
+    const byRes = {};
+    rows.forEach(r => { (byRes[r.resolution] = byRes[r.resolution] || []).push(r); });
+    Object.entries(byRes).forEach(([res, items]) => {
+      items.sort((a, b) => a.seeing - b.seeing);
+      ctx.strokeStyle = RES_COLORS[res] || "#ffffff"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      items.forEach((r, i) => {
+        const v = valueFn(r); if (!Number.isFinite(v)) return;
+        const x = xOf(r.seeing), y = yOf(v);
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+      items.forEach(r => {
+        const v = valueFn(r); if (!Number.isFinite(v)) return;
+        ctx.fillStyle = RES_COLORS[res] || "#ffffff";
+        ctx.beginPath(); ctx.arc(xOf(r.seeing), yOf(v), 2.5, 0, Math.PI * 2); ctx.fill();
+      });
+    });
+    // legend
+    let lx = pad.l + 8;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "11px sans-serif";
+    Object.keys(byRes).forEach(res => {
+      ctx.fillStyle = RES_COLORS[res] || "#fff";
+      ctx.fillRect(lx, pad.t + 4, 10, 3);
+      ctx.fillStyle = "#d7dee6"; ctx.fillText(res, lx + 14, pad.t + 6);
+      lx += 60;
+    });
+  }
+
+  function render(rep) {
+    const rows = rep.rows || [];
+    const floor = rep.floor || {};
+    const withErr = rows.filter(r => Number.isFinite(r.median_abs_dlon));
+    const best = withErr.reduce((a, b) =>
+      (a.median_abs_dlon <= b.median_abs_dlon ? a : b), withErr[0] || {});
+    const worst = withErr.reduce((a, b) =>
+      (a.p90_abs_dlon >= b.p90_abs_dlon ? a : b), withErr[0] || {});
+    const sumWithin = withErr.length
+      ? withErr.reduce((s, r) => s + (r.within_1deg || 0), 0) / withErr.length : 0;
+
+    summary.hidden = false;
+    const floor1 = Object.entries(floor).map(([res, f]) => {
+      const v = f.floor_1deg_seeing;
+      return `<div class="det-stat"><div class="k">${res} floor @1°</div>
+        <div class="v ${Number.isFinite(v) ? "ok" : "bad"}">${Number.isFinite(v) ? v.toFixed(1) + '"' : "none"}</div></div>`;
+    }).join("");
+    summary.innerHTML = `
+      <div class="det-stat"><div class="k">cells</div><div class="v">${rep.n_cells}</div></div>
+      <div class="det-stat"><div class="k">best med |Δlon|</div><div class="v ok">${fmt(best.median_abs_dlon, 3)}°</div></div>
+      <div class="det-stat"><div class="k">within 1° (avg)</div><div class="v">${(sumWithin * 100).toFixed(0)}%</div></div>
+      <div class="det-stat"><div class="k">worst p90 |Δlon|</div><div class="v bad">${fmt(worst.p90_abs_dlon, 2)}°</div></div>
+      ${floor1}`;
+
+    drawLineChart(document.getElementById("detChartLon"), rows,
+      r => r.median_abs_dlon,
+      Math.max(1.2, ...withErr.map(r => r.p90_abs_dlon || 0).filter(Number.isFinite)),
+      "median |Δlon| °");
+    drawLineChart(document.getElementById("detChartHit"), rows,
+      r => r.within_1deg || 0, 1.05, "within 1°");
+
+    const mb = rep.method_breakdown || {};
+    const mMax = Math.max(1e-6, ...Object.values(mb).map(m => m.p90_abs_dlon || 0));
+    methodsBox.innerHTML = Object.entries(mb)
+      .sort((a, b) => (a[1].median_abs_dlon || 9) - (b[1].median_abs_dlon || 9))
+      .map(([name, m]) => {
+        const w = 100 * Math.min(1, (m.p90_abs_dlon || 0) / mMax);
+        return `<div class="det-method-row">
+          <span>${esc(name)}</span>
+          <span class="det-method-bar"><i style="width:${w}%"></i></span>
+          <span class="mono">${fmt(m.median_abs_dlon, 2)}°</span></div>`;
+      }).join("") || '<span class="muted small">no per-method data</span>';
+
+    if (rawBox) rawBox.textContent = JSON.stringify(rep, null, 2);
+  }
+
+  let pollTimer = null;
+  async function poll() {
+    try {
+      const j = await (await fetch("/api/deterioration")).json();
+      if (j.running && j.progress) {
+        const p = j.progress;
+        const pct = Math.round(100 * p.done / Math.max(1, p.total));
+        bar.style.width = pct + "%";
+        progText.textContent = `${p.done}/${p.total} · ${p.resolution || ""} · ${p.seeing || ""}" seeing`;
+      }
+      if (!j.running) {
+        clearInterval(pollTimer); pollTimer = null;
+        runBtn.disabled = false; pollBtn.disabled = true;
+        progress.hidden = true;
+        if (j.result) render(j.result);
+        if (j.error) {
+          summary.hidden = false;
+          summary.innerHTML = `<div class="det-stat"><div class="k">error</div><div class="v bad">${esc(j.error)}</div></div>`;
+        }
+      }
+    } catch (e) {
+      clearInterval(pollTimer); pollTimer = null;
+      runBtn.disabled = false;
+    }
+  }
+
+  runBtn.addEventListener("click", async () => {
+    runBtn.disabled = true; pollBtn.disabled = false;
+    summary.hidden = true; progress.hidden = false;
+    bar.style.width = "5%"; progText.textContent = "queued…";
+    const body = {
+      preset: presetSel ? presetSel.value : "quick",
+      sub_lat_deg: num("detSubLat", 0),
+      north_pa_deg: num("detPa", 0),
+    };
+    try {
+      const r = await fetch("/api/deterioration", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const j = await r.json();
+      if (!j.ok) { throw new Error(j.error || "failed"); }
+      pollTimer = setInterval(poll, 1500);
+    } catch (e) {
+      runBtn.disabled = false; progress.hidden = true;
+      summary.hidden = false;
+      summary.innerHTML = `<div class="det-stat"><div class="k">error</div><div class="v bad">${esc(e.message)}</div></div>`;
+    }
+  });
+  pollBtn.addEventListener("click", () => poll());
+
+  loadTips();
+
+  /* Real-image analysis (offline, uses /api/upload + /api/deterioration/real) */
+  const realDrop = document.getElementById("detRealDrop");
+  const realInput = document.getElementById("detRealInput");
+  const realInfo = document.getElementById("detRealInfo");
+  const realSummary = document.getElementById("detRealSummary");
+  const realBox = document.getElementById("detRealBox");
+  if (realDrop && realInput) {
+    function setRealInfo(t) { if (realInfo) realInfo.textContent = t; }
+    function fmt(v, d = 2) { return Number.isFinite(v) ? v.toFixed(d) : "—"; }
+    async function analyseReal(path, name) {
+      setRealInfo("Analysing " + name + "…");
+      try {
+        const r = await fetch("/api/deterioration/real", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path })
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "analyse failed");
+        if (realSummary) {
+          realSummary.hidden = false;
+          const soft = Number.isFinite(j.softness_arcsec) ? j.softness_arcsec.toFixed(2) + '"' : "—";
+          const grade = j.measurable ? "ok" : "bad";
+          const cards = [
+            ["disk", j.disk_present ? "yes" : "no", j.disk_present ? "ok" : "bad"],
+            ["measurable", j.measurable ? "yes" : "no", grade],
+            ["softness", soft],
+            ["fill", (j.disk_fill * 100 || 0).toFixed(0) + "%"],
+            ["contrast", fmt(j.disk_contrast, 3)],
+            ["quality", fmt(j.quality, 3)],
+          ].map(([k, v, c]) => `<div class="det-stat"><div class="k">${k}</div>
+             <div class="v ${c || ""}">${v}</div></div>`).join("");
+          realSummary.innerHTML = cards;
+        }
+        const pm = j.per_method || {};
+        const pmTxt = Object.entries(pm).map(([k, m]) =>
+          `  ${k.padEnd(9)} lon=${(m.lon_iii_deg || 0).toFixed(2).padStart(7)}  ` +
+          `lat=${(m.lat_deg || 0).toFixed(2).padStart(6)}  ` +
+          `score=${fmt(m.score, 2)}  ${m.rejected ? "REJECTED" : ""}`).join("\n");
+        if (realBox) realBox.textContent =
+          `file: ${name}  (${j.width}x${j.height})\n` +
+          `verdict:\n  ${(j.verdict || []).join("\n  ")}\n\n` +
+          `published method: ${j.method || "—"}\n` +
+          `lon III = ${j.lon_iii_deg != null ? Number(j.lon_iii_deg).toFixed(3) : "—"}   ` +
+          `lat = ${j.lat_deg != null ? Number(j.lat_deg).toFixed(3) : "—"}\n\n` +
+          `per-method votes:\n${pmTxt || "  (none)"}` +
+          (j.measurement_error ? `\n\nmeasurement error: ${j.measurement_error}` : "");
+        setRealInfo("Analysed " + name);
+      } catch (e) {
+        setRealInfo("Failed: " + e.message);
+        if (realBox) realBox.textContent = "Error: " + e.message;
+      }
+    }
+    async function uploadAndAnalyse(file) {
+      setRealInfo("Uploading " + file.name + "…");
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "upload failed");
+        setRealInfo(file.name + " uploaded");
+        await analyseReal(j.path, j.original || file.name);
+      } catch (e) { setRealInfo("Failed: " + e.message); }
+    }
+    realDrop.addEventListener("click", () => realInput.click());
+    realDrop.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") realInput.click();
+    });
+    realInput.addEventListener("change", () => {
+      if (realInput.files && realInput.files[0]) uploadAndAnalyse(realInput.files[0]);
+    });
+    realDrop.addEventListener("dragover", (e) => { e.preventDefault(); realDrop.classList.add("drag"); });
+    realDrop.addEventListener("dragleave", () => realDrop.classList.remove("drag"));
+    realDrop.addEventListener("drop", (e) => {
+      e.preventDefault(); realDrop.classList.remove("drag");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) uploadAndAnalyse(e.dataTransfer.files[0]);
+    });
+  }
+})();

@@ -43,7 +43,19 @@ def _on_disk_mask(img: np.ndarray, fill_frac: float = 0.30) -> np.ndarray:
     so it does not need the precision of a full limb fit."""
     a = np.asarray(img, dtype=np.float64)
     if a.ndim == 3:
-        a = a.mean(axis=tuple(range(a.ndim - 1))) if a.shape[-1] == 3 else a[..., 0]
+        # Collapse to a single-plane luma regardless of HWC vs CHW layout.
+        # The previous expression `a.mean(axis=tuple(range(a.ndim - 1)))`
+        # averaged over (H, W) for an HWC image, returning one value per
+        # channel (shape (3,)); the subsequent percentile/threshold compare
+        # then broadcast to a (3,) mask, which made _laplacian_var return 0
+        # for every RGB frame and silently disabled lucky-imaging rejection
+        # on all colour video. Use the same NTSC weights as to_mono().
+        if a.shape[-1] in (3, 4):
+            # HWC (the usual SER/AVI/PNG layout)
+            a = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+        else:
+            # CHW
+            a = 0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]
     thr = float(np.percentile(a, int((1.0 - fill_frac) * 100)))
     return a >= thr
 
@@ -63,6 +75,14 @@ def assess_frames(frames: Sequence[np.ndarray]) -> List[FrameQuality]:
     for f in frames:
         a = np.asarray(f, dtype=np.float64)
         try:
+            # Collapse colour frames to a single luma plane once, up front. The
+            # Laplacian operator indexes a 2-D array; a CHW/HWC colour frame
+            # would otherwise produce a 3-D lap and a mismatched 2-D mask.
+            if a.ndim == 3:
+                if a.shape[-1] in (3, 4):
+                    a = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+                else:
+                    a = 0.299 * a[0] + 0.587 * a[1] + 0.114 * a[2]
             mask = _on_disk_mask(a)
             sharp.append(_laplacian_var(a, mask))
         except Exception:

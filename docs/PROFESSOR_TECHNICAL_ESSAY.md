@@ -9860,3 +9860,167 @@ VERSION.
 ------------------------------------------------------------------------
 End of essay. Core narrative revised for software version 6.5.0.
 Bug-fix addendum: 2026-07-28.
+------------------------------------------------------------------------
+
+# Addendum (v7.0.1 + Deterioration Lab, 2026-08-22) — real-image path,
+# measured deterioration, and six defects the default campaigns could not see
+
+Software version for this addendum: 7.0.1. New modules:
+`deterioration_lab.py` (370 lines), the Deterioration Lab browser tab,
+endpoints `/api/deterioration`, `/api/deterioration/real`,
+`/api/deterioration/tips`. Regression tests in
+`tests/test_deterioration_regressions.py` and
+`tests/test_deterioration_lab.py`. Full before/after numbers in
+`docs/DETERIORATION_AUDIT_2026-08-22.md`.
+
+This addendum exists because the v6.5 essay describes the measurement path
+as if every input were a single mono frame with sub-lat = north-PA = 0.
+That was the assumption behind the synthetic certification campaigns, and
+it was wrong in two ways that only showed up when I ran the code on colour
+frames and on oriented, sheared captures. I am documenting the new method
+honestly rather than retconning the old sections.
+
+## A.1 The new method: a measured deterioration floor
+
+The earlier campaigns reported a single headline ("100 % within 1°") across
+resolution and seeing. That number is true for the seeded frames it was
+computed on, but it hides the question the number is supposed to answer:
+*where does the guarantee actually break?* I added a sweep engine
+(`deterioration_lab.run_sweep`) that renders a synthetic Jupiter+GRS per
+cell of a (resolution x seeing x noise) grid, measures it with the same
+published precision engine the report path uses (`lean=True`, identical to
+the batch campaigns), and records |dLon|, |dLat|, the published method,
+the disk-softness gate and the per-estimator votes. It then fits the
+seeing at which median |dLon| crosses 0.5° and 1.0° for each resolution
+by linear interpolation between the two bracketing tiers.
+
+A Quick sweep (540p and 720p, eight seeing tiers 0.4"–6.0", two seeds,
+~80 s) gives:
+
+| Disk radius | sub-1° breaks at | sub-0.5° holds to |
+|---|---:|---:|
+| 540p | ~1.2 arcsec seeing | ~0.8 arcsec |
+| 720p | ~4.0 arcsec seeing | ~2.4 arcsec |
+
+The plate-scale dependence is stronger than I had assumed. A 720p disk
+keeps a usable colour/moment lock through seeing that completely breaks
+the same pipeline at 540p, because at 540p the limb and the oval are only
+a few hundred pixels across and the per-bin tracker noise dominates the
+fit. The per-method breakdown on the same sweep (median |dLon|) was
+moment 0.09°, redness 0.29°, template 0.43°, map-dark 80.8° — the last
+number is not a typo, the map-dark estimator locks onto SEB barges once
+the oval softens, and it is exactly why the publish path requires a
+majority dark core-band cluster and rejects isolated locks rather than
+averaging every vote.
+
+The same module exposes `analyse_real_image`, which grades one uploaded
+FITS/PNG/JPG the way the sweep grades a synthetic cell: disk-present,
+measurability, fill, contrast, limb softness, and the four estimator votes.
+The browser "analyse your image" panel calls it through
+`/api/deterioration/real`; the analysis runs entirely locally (in this
+sandbox NASA/Wikimedia endpoints are SNI-blocked, so there was no honest
+way to fetch Hubble/Juno frames, and I did not want to claim otherwise).
+On a reachable 2048x1024 Jupiter texture projected to a disk it returns
+`disk_present=True, measurable=True, softness=0.24", quality=0.979`,
+with the template vote in the GRS band.
+
+## A.2 Six defects found by running the code, not reading it
+
+I found all six by executing the path; `pyflakes` caught one, the rest
+needed a real RGB or sheared input. Each is pinned by a regression test.
+
+1. **The scale-drift feature check was dead.** `verify_grs_detection`
+   built a tuple of zero-argument callables and one entry was a bare
+   `h_grs(cyl_s, nav_s)` instead of a lambda. `h_grs` does not exist (the
+   map-dark estimator is `_map_dark_centroid`), so tuple construction
+   raised `NameError`, the outer `except` converted it to
+   `detected=True`, and the "real feature or belt mottling?" gate ran on
+   zero scales for every non-lean measurement. `drift_deg` was always
+   NaN. Fixed by replacing it with the missing lambda; the gate now
+   reports `n_scales=2` on a metrology frame.
+
+2. **Lucky-imaging scoring returned 0.0 on every RGB frame.**
+   `frame_quality._on_disk_mask` averaged an HWC array over `(H, W)` and
+   got a `(3,)` mask; `_laplacian_var` then indexed a 3-D Laplacian with
+   a 2-D mask and returned zero. All colour frames tied at zero and the
+   stable sort kept input order — i.e. `select_best_frames` was keeping
+   the *first* N frames of a colour SER/AVI, not the sharpest. Mono was
+   unaffected because `ap_stacker` converts to luma first. Fixed with an
+   NTSC luma collapse for both HWC and CHW in `_on_disk_mask` and again
+   in `assess_frames`.
+
+3. **RGB disk masks were empty or crashed.** `rough_disk_mask` in
+   `grs_complete_system` did `img > scalar_threshold` on an HxWx3 array
+   and handed a 3-D boolean to the morphology/largest-component helpers,
+   which returned all-False on a bright RGB disk; `disk_mask_for_quality`
+   then fell into its small-mask branch and did `h, w = image.shape`,
+   raising `ValueError` on RGB. Both now collapse to luma first, matching
+   `precision_engine.rough_disk_mask`.
+
+4. **Blind-injection ovals were planted in the wrong place.** The classic
+   `research_grade.inject_dark_oval` and the VLBI
+   `inject_dark_oval_image` used a hand-rolled orthographic on a unit
+   sphere whose y-axis was then scaled by `b_pol`, with sub-lat/PA
+   applied manually — the v6.5.1 anisotropic/PA-shear geometry. At
+   sub-lat 2° / PA 15° a GRS-latitude oval was planted ~4–5 px (~1.2°
+   lat, ~0.4° lon) from where the engine measures that same lon/lat.
+   Because blind-injection calibration *subtracts* the recovery error as
+   "pipeline bias", that placement error was being baked into the
+   published bias correction. Both injectors now project through
+   `lonlat_to_planet_xyz` + `planet_xyz_to_px`, which round-trip to
+   0.000°; the planted oval is now within ~0.15° of target.
+
+5. **Per-pixel latitude was a sphere approximation, wrong by up to
+   2.8° in the GRS band.** `planetary_stacker._per_pixel_lat` and
+   `_ap_latitudes` computed `degrees(asin(Yp*cD + Zp*sD))` after scaling
+   `Ysky` by `b_pol`. That is the parametric latitude of an ellipse, not
+   the planetocentric latitude of an oblate spheroid; direct comparison
+   against `px_to_lonlat` on a 720p disk at D=P=0 gave a median
+   difference of 1.05° and max 2.84° in the GRS band. Alignment points
+   were being mis-binned for the per-latitude shear warp. The benchmark
+   simulator (`tools/zonal_stacker_benchmark._apply_zonal_shift`) used
+   the same approximation, so it and the derotator were a matched-bug
+   pair — fixing only one would have failed the other's test. Both now
+   call `px_to_lonlat_vec`, agreeing with the scalar inverse to <1e-4°,
+   and the docstring's "correct for any oblate body" claim is now true.
+
+6. **Measurement-mode derotation could stack worse than doing nothing.**
+   With the latitude now correct, an 8-frame / 3°-per-frame rotating
+   benchmark showed pure-prior derotation at 0.98 mean per-belt
+   correlation, naive mean at 0.76, and *measurement* mode at 0.68 —
+   i.e. the "accurate" mode was tearing the stack. The per-AP tracks
+   were individually fine (residuals <1.5 px) but the fitted
+   `dx(|lat|)` bins carried ~1–1.7 px of tracker/rounding noise that
+   accumulated across seven frames. The bulk-rotation prior is known
+   precisely (it is the CM angle we are undoing); measurement only has
+   to add bounded zonal shear. A sweep of measurement/prior blends gave
+   0.00 -> 0.68, 0.25 -> 0.91, 0.50 -> 0.93, 1.00 -> 0.98 at 3°/frame,
+   with no regression at 0.5°/frame, so measurement mode now blends 75 %
+   measured / 25 % model. I deliberately did not push the blend higher:
+   on real Jupiter the per-latitude wind shear is the point of the
+   derotator, and tuning alpha to 1.0 on a zero-shear synthetic would
+   delete the feature the module exists to recover. `hybrid` keeps its
+   stronger SNR-dependent weight.
+
+## A.3 What this changes about the method claims in the essay above
+
+Sections 6–7 of the main essay describe the projection and consensus as
+if they were correct from the start. They were correct for the
+*measurement* engine (`precision_engine.px_to_lonlat` was fixed in
+v6.5.1), but the *stacking/injection* helpers had not been brought across
+to the same geometry, and the feature-verification gate had a typo that
+silently disabled it. The essay's headline accuracy numbers (the 340-case
+campaigns) still stand because those campaigns measure with the engine
+directly; the new numbers to cite alongside them are the per-resolution
+deterioration floor above and the before/after table in
+`docs/DETERIORATION_AUDIT_2026-08-22.md`.
+
+The honest scope is unchanged: this is ground-based optical metrology.
+The Deterioration Lab does not train anything (SPIRE-Net stays frozen),
+and a web JPEG without a mid-exposure UTC still cannot yield an absolute
+longitude — the lab reports relative geometry and estimator agreement on
+those, which is all that is defensible.
+
+------------------------------------------------------------------------
+End of addendum. Core narrative: software 6.5.0 (2026-07-28).
+Real-photo/deterioration addendum: 7.0.1 (2026-08-22).

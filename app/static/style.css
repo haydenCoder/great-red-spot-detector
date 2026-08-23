@@ -1044,3 +1044,90 @@ input[type="date"] {
   margin-top: 8px;
   line-height: 1.4;
 }
+
+/* ── Deterioration Lab ─────────────────────────────────────────────── */
+.tab.hot {
+  color: #ff9d4d;
+  border-color: rgba(255,157,77,0.4);
+}
+.tab.hot:hover { background: rgba(255,157,77,0.12); }
+.det-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 10px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border, #1f2a37);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+}
+.det-field label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted, #8a98a8);
+  margin-bottom: 6px;
+}
+.det-actions { display: flex; align-items: flex-end; gap: 8px; }
+.det-actions .btn { flex: 1; }
+.det-progress { margin: 8px 0 14px; }
+.det-bar {
+  height: 8px; border-radius: 6px; overflow: hidden;
+  background: rgba(255,255,255,0.08);
+}
+.det-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #4dd0ff, #ff9d4d);
+  transition: width .25s ease;
+}
+.det-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.det-stat {
+  padding: 10px 12px;
+  border: 1px solid var(--border, #1f2a37);
+  border-radius: 8px;
+  background: rgba(77,208,255,0.05);
+}
+.det-stat .k {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted, #8a98a8);
+}
+.det-stat .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
+.det-stat .v.bad { color: #ff6b6b; }
+.det-stat .v.ok { color: #7dffb3; }
+.det-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.det-chart-card {
+  border: 1px solid var(--border, #1f2a37);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+}
+.det-chart-card h3 {
+  margin: 0 0 8px; font-size: 13px; font-weight: 600;
+}
+.det-chart-card canvas { width: 100%; height: auto; display: block; }
+.det-methods { display: flex; flex-direction: column; gap: 8px; }
+.det-method-row {
+  display: grid; grid-template-columns: 90px 1fr 70px; gap: 8px;
+  align-items: center; font-size: 12px;
+}
+.det-method-bar {
+  height: 8px; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.det-method-bar > i {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, #4dd0ff, #7dffb3);
+}
+.det-tips { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.5; }
+.det-tips li { margin-bottom: 6px; color: var(--text, #d7dee6); }
+.accent { color: #ff9d4d; }

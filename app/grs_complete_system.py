@@ -1172,6 +1172,15 @@ def apply_calibration(
 
 def rough_disk_mask(image: np.ndarray, thr_frac: float = 0.25) -> np.ndarray:
     img = np.asarray(image, dtype=np.float64)
+    # Collapse RGB/colour to a 2-D luma plane first. Without this the percentile
+    # threshold is a scalar while `img > thr` keeps the HxWx3 shape, so
+    # morph_open_close / largest_component operated on a 3-D mask and returned
+    # an all-False mask on bright RGB disks (validated: sum()==0).
+    if img.ndim == 3:
+        if img.shape[-1] in (3, 4):
+            img = 0.299 * img[..., 0] + 0.587 * img[..., 1] + 0.114 * img[..., 2]
+        else:
+            img = 0.299 * img[0] + 0.587 * img[1] + 0.114 * img[2]
     thr = thr_frac * np.percentile(img, 99.5)
     m = img > thr
     m = morph_open_close(m, 1, 2)
@@ -1221,8 +1230,16 @@ def validate_cube(cube: VideoCube, cfg: PipelineConfig) -> QCReport:
 def disk_mask_for_quality(image: np.ndarray) -> np.ndarray:
     m = rough_disk_mask(image, 0.2)
     if m.sum() < 50:
-        # fallback center disk
-        h, w = image.shape
+        # fallback center disk. Work on the 2-D luma plane: `image` here can be
+        # an HxWx3 RGB array (small/dark frames whose bright mask is <50 px hit
+        # this fallback), and `h, w = image.shape` raised ValueError on RGB.
+        mono = np.asarray(image, dtype=np.float64)
+        if mono.ndim == 3:
+            if mono.shape[-1] in (3, 4):
+                mono = 0.299 * mono[..., 0] + 0.587 * mono[..., 1] + 0.114 * mono[..., 2]
+            else:
+                mono = 0.299 * mono[0] + 0.587 * mono[1] + 0.114 * mono[2]
+        h, w = mono.shape
         yy, xx = np.mgrid[0:h, 0:w]
         cy, cx = h/2, w/2
         r = min(h, w) * 0.35

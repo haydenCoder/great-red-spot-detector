@@ -2020,6 +2020,160 @@ def file_api():
         return jsonify({"error": "forbidden"}), 403
 
 
+@app.route("/api/deterioration/tips", methods=["GET"])
+def api_deterioration_tips():
+    """Best-practice stacking/deterioration tips for the UI."""
+    try:
+        from deterioration_lab import TIPS
+        return jsonify({"ok": True, "tips": list(TIPS)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# Deterioration sweep runs in its own thread/state so it never blocks the
+# primary single-slot measurement job.
+_deterioration_lock = threading.Lock()
+_deterioration_state: Dict[str, Any] = {"running": False, "result": None, "error": None}
+
+
+@app.route("/api/deterioration", methods=["POST", "GET"])
+def api_deterioration():
+    """Run (POST) or poll (GET) the Jupiter deterioration matrix.
+
+    POST body (all optional):
+      resolutions: ["480p"|"540p"|"720p"|"1080p", ...]
+      seeing:      [arcsec, ...]
+      noise:       [rms, ...]
+      seeds:       int
+      sub_lat_deg, north_pa_deg: float
+      preset:      "quick" | "standard" | "full"
+    """
+    global _deterioration_state
+    from deterioration_lab import (
+        LabConfig, SEEING_TIERS, NOISE_TIERS, run_sweep,
+    )
+
+    if request.method == "GET":
+        with _deterioration_lock:
+            return jsonify({
+                "ok": True,
+                "running": bool(_deterioration_state.get("running")),
+                "progress": _deterioration_state.get("progress"),
+                "result": _deterioration_state.get("result"),
+                "error": _deterioration_state.get("error"),
+            })
+
+    data = request.get_json(force=True, silent=True) or {}
+    with _deterioration_lock:
+        if _deterioration_state.get("running"):
+            return jsonify({"ok": False, "error": "sweep already running"}), 409
+        _deterioration_state.update(
+            running=True, result=None, error=None, progress=None)
+
+    preset = str(data.get("preset") or "quick").lower()
+
+    def _f(name, lo, hi, default):
+        try:
+            return max(lo, min(hi, float(data.get(name) or default)))
+        except Exception:
+            return default
+
+    if preset == "full":
+        defs = dict(
+            resolutions=("480p", "540p", "720p", "1080p"),
+            seeing=SEEING_TIERS, noise=NOISE_TIERS, seeds=3,
+            map_width=1400, map_height=700)
+    elif preset == "standard":
+        defs = dict(
+            resolutions=("540p", "720p", "1080p"),
+            seeing=SEEING_TIERS, noise=(0.004, 0.020), seeds=2,
+            map_width=1200, map_height=600)
+    else:  # quick
+        defs = dict(
+            resolutions=("540p", "720p"),
+            seeing=SEEING_TIERS, noise=(0.004,), seeds=2,
+            map_width=1000, map_height=500)
+
+    try:
+        resolutions = tuple(data.get("resolutions") or defs["resolutions"])
+        seeing = tuple(float(x) for x in (data.get("seeing") or defs["seeing"]))
+        noise = tuple(float(x) for x in (data.get("noise") or defs["noise"]))
+        seeds = int(_f("seeds", 1, 6, defs["seeds"]))
+        cfg = LabConfig(
+            resolutions=resolutions, seeing=seeing, noise=noise, seeds=seeds,
+            sub_lat_deg=float(data.get("sub_lat_deg") or 0.0),
+            north_pa_deg=float(data.get("north_pa_deg") or 0.0),
+            map_width=int(defs["map_width"]),
+            map_height=int(defs["map_height"]),
+            progress=lambda p: _deterioration_state.update(progress=p),
+        )
+    except Exception as e:
+        with _deterioration_lock:
+            _deterioration_state.update(running=False, error=str(e))
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    def worker():
+        try:
+            CONSOLE.info(f"DETERIORATION LAB: preset={preset} "
+                         f"{len(resolutions)}x{len(seeing)}x{len(noise)} "
+                         f"seeds={seeds}")
+            rep = run_sweep(cfg)
+            with _deterioration_lock:
+                _deterioration_state.update(
+                    running=False, result=rep, progress=None)
+            CONSOLE.ok(f"DETERIORATION LAB done in {rep['elapsed_s']:.1f}s")
+        except Exception as e:
+            CONSOLE.warn(f"DETERIORATION LAB failed: {e}")
+            with _deterioration_lock:
+                _deterioration_state.update(
+                    running=False, error=f"{type(e).__name__}: {e}")
+
+    threading.Thread(target=worker, daemon=True).start()
+    return jsonify({"ok": True, "running": True, "preset": preset})
+
+
+@app.route("/api/deterioration/real", methods=["POST"])
+def api_deterioration_real():
+    """Analyse an uploaded real Jupiter image (path from /api/upload) with the
+    same disk/softness/method grading as the synthetic sweep."""
+    data = request.get_json(force=True, silent=True) or {}
+    path = (data.get("path") or "").strip()
+    if not path:
+        return jsonify({"ok": False, "error": "missing path"}), 400
+    try:
+        if _SEC:
+            path = str(assert_safe_process_path(path, *data_roots(APP_DIR)))
+        p = Path(path)
+        if not p.is_file():
+            return jsonify({"ok": False, "error": "missing file"}), 400
+    except SecurityError as e:
+        return jsonify({"ok": False, "error": str(e)}), 403
+    try:
+        import numpy as np
+        from deterioration_lab import analyse_real_image
+        suffix = p.suffix.lower()
+        if suffix in (".fit", ".fits", ".fts"):
+            import grs_complete_system as grs
+            arr, _ = grs.read_fits(p)
+            arr = np.asarray(arr)
+        else:
+            from PIL import Image
+            arr = np.asarray(Image.open(p).convert("RGB"), dtype=np.float64)
+        if arr is None or arr.size == 0:
+            return jsonify({"ok": False, "error": "unsupported image"}), 400
+        out = analyse_real_image(
+            arr,
+            distance_au=float(data.get("distance_au") or 5.2),
+            north_pa_deg=float(data.get("north_pa_deg") or 0.0),
+        )
+        out["path"] = str(p)
+        out["name"] = p.name
+        return jsonify(out)
+    except Exception as e:
+        CONSOLE.warn(f"deterioration/real: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 def main():
     host = os.environ.get("GRS_HOST", "127.0.0.1")
     port = int(os.environ.get("GRS_PORT", "8765"))

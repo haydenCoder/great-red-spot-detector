@@ -132,7 +132,7 @@ def stage_sources() -> Path:
         # only user-facing docs, not full source maps
         docs_out = BUILD / "docs"
         docs_out.mkdir(exist_ok=True)
-        for name in ("GRS_OBSERVATORY_BOOK.md", "SECURITY.md"):
+        for name in ("GRS_CODE_WALKTHROUGH_ESSAY.md", "SECURITY.md"):
             p = ROOT / "docs" / name
             if p.exists():
                 shutil.copy2(p, docs_out / name)

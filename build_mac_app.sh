@@ -85,7 +85,7 @@ if [ -f app/ephemeris_data/winjupos_cm_template.csv ]; then
   cp -f app/ephemeris_data/winjupos_cm_template.csv "$DATA_DIR/ephemeris_data/" 2>/dev/null || true
 fi
 # Ship THE book + CNN weights next to data
-cp -f docs/GRS_OBSERVATORY_BOOK.md "$DATA_DIR/docs/" 2>/dev/null || true
+cp -f docs/GRS_CODE_WALKTHROUGH_ESSAY.md "$DATA_DIR/docs/" 2>/dev/null || true
 mkdir -p "$DATA_DIR/models"
 cp -f app/models/spire_net_weights.npz app/models/spire_net_meta.json \
   app/models/spire_net_weights.GOOD.npz app/models/MODELS_README.txt \
@@ -106,7 +106,7 @@ if [ -d "$APP_PATH" ]; then
   echo "SUCCESS"
   echo "  App:  $APP_PATH"
   echo "  Data: $DATA_DIR"
-  echo "  Book:   $DATA_DIR/docs/GRS_OBSERVATORY_BOOK.md"
+  echo "  Book:   $DATA_DIR/docs/GRS_CODE_WALKTHROUGH_ESSAY.md"
   echo "  CNN:    $DATA_DIR/models/spire_net_weights.npz"
   echo ""
   echo "Next (for selling outside your Mac):"

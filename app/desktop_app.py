@@ -65,11 +65,11 @@ def resolve_manual_path(code: Path, base: Path) -> Optional[Path]:
     from source, from a PyInstaller bundle, or from the repo root.
     """
     cands = [
-        code.parent / "docs" / "GRS_OBSERVATORY_BOOK.md",
-        code / "docs" / "GRS_OBSERVATORY_BOOK.md",
-        base / "docs" / "GRS_OBSERVATORY_BOOK.md",
-        code.parent / "docs" / "GRS_OBSERVATORY_BOOK.html",
-        base / "docs" / "GRS_OBSERVATORY_BOOK.html",
+        code.parent / "docs" / "GRS_CODE_WALKTHROUGH_ESSAY.md",
+        code / "docs" / "GRS_CODE_WALKTHROUGH_ESSAY.md",
+        base / "docs" / "GRS_CODE_WALKTHROUGH_ESSAY.md",
+        code.parent / "docs" / "GRS_CODE_WALKTHROUGH_ESSAY.html",
+        base / "docs" / "GRS_CODE_WALKTHROUGH_ESSAY.html",
     ]
     for p in cands:
         if p.exists():
@@ -92,8 +92,8 @@ def resolve_buttons_doc_path(code: Path, base: Path) -> Optional[Path]:
         "BUTTONS.html",
         "features/button_guide.html",
         "features/BUTTON_GUIDE.html",
-        "GRS_OBSERVATORY_BOOK.html",
-        "GRS_OBSERVATORY_BOOK.md",
+        "GRS_CODE_WALKTHROUGH_ESSAY.html",
+        "GRS_CODE_WALKTHROUGH_ESSAY.md",
         "reference/mod_desktop_app.md",
         "reference/01_FEATURES.md",
     )
@@ -120,8 +120,14 @@ def open_local_doc(path: Path) -> None:
 os.environ.setdefault("GRS_RAM_GB", "16")
 os.environ.setdefault("GRS_SSD_CACHE", str(BASE / "ssd_cache"))
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
+try:
+    import tkinter as tk
+    from tkinter import ttk, filedialog, messagebox, scrolledtext
+    _HAS_TK = True
+except ImportError:
+    tk = None
+    ttk = filedialog = messagebox = scrolledtext = None
+    _HAS_TK = False
 
 try:
     from PIL import Image, ImageTk
@@ -389,7 +395,7 @@ class LogBridge:
             pass
 
 
-class GRSDesktopApp(tk.Tk):
+class GRSDesktopApp(tk.Tk if _HAS_TK else object):
     def __init__(self):
         super().__init__()
         self.title("Jupiter Great Red Spot Detector · System III Metrology")
@@ -501,7 +507,7 @@ class GRSDesktopApp(tk.Tk):
             messagebox.showerror("Machine ID", str(e))
 
     def _manual_path(self) -> Optional[Path]:
-        """Only user guide: GRS_OBSERVATORY_BOOK.md"""
+        """Only user guide: GRS_CODE_WALKTHROUGH_ESSAY.md"""
         return resolve_manual_path(CODE, BASE)
 
     def _buttons_doc_path(self) -> Optional[Path]:
@@ -517,7 +523,7 @@ class GRSDesktopApp(tk.Tk):
         if p is None:
             messagebox.showinfo(
                 "The Book",
-                "Guide not found.\nExpected: docs/GRS_OBSERVATORY_BOOK.md",
+                "Guide not found.\nExpected: docs/GRS_CODE_WALKTHROUGH_ESSAY.md",
             )
             return
         try:
@@ -535,7 +541,7 @@ class GRSDesktopApp(tk.Tk):
                 "Expected one of:\n"
                 "  docs/BUTTON_GUIDE.html\n"
                 "  docs/features/button_guide.html\n"
-                "  docs/GRS_OBSERVATORY_BOOK.md\n"
+                "  docs/GRS_CODE_WALKTHROUGH_ESSAY.md\n"
                 "  docs/reference/mod_desktop_app.md",
             )
             return
@@ -568,7 +574,7 @@ class GRSDesktopApp(tk.Tk):
             f"{name} v{ver}\n{tag}{lic_line}\n\n"
             "Ground-based optical metrology for Jupiter’s Great Red Spot.\n"
             "Publish: GS-MAP · CM: SPICE / Horizons / WinJUPOS\n"
-            "Only guide: docs/GRS_OBSERVATORY_BOOK.md\n"
+            "Only guide: docs/GRS_CODE_WALKTHROUGH_ESSAY.md\n"
             "CNN weights: app/models/spire_net_weights.npz\n"
             "© 2026 — see LICENSE.",
         )

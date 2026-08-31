@@ -1,8 +1,8 @@
 # Project map
 
-**User guide:** `docs/GRS_OBSERVATORY_BOOK.md`  
-**Case study:** `docs/TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md`  
-**Long technical essay:** `docs/PROFESSOR_TECHNICAL_ESSAY.md`  
+**User guide:** `docs/GRS_CODE_WALKTHROUGH_ESSAY.md`  
+**Case study:** `HOW_TO_RUN.md`  
+**Long technical essay:** `docs/GRS_CODE_WALKTHROUGH_ESSAY.md`  
 **Version:** see `VERSION` (**7.0.1**)
 
 ```
@@ -11,7 +11,7 @@ great-red-spot-detector/   (or GRS_Observatory/)
 ├── VERSION
 ├── README.md
 ├── docs/
-│   ├── GRS_OBSERVATORY_BOOK.md      ← main operator guide
+│   ├── GRS_CODE_WALKTHROUGH_ESSAY.md      ← main operator guide
 │   ├── TECHNICAL_ESSAY_VERIFIED_CASE_2026-01-09.md
 │   ├── PROFESSOR_TECHNICAL_ESSAY.md
 │   ├── PROMOTE_COPY_PASTE.md

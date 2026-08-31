@@ -6,4 +6,4 @@ weights present: True  size=16636713
 meta present:    True
 Do not delete spire_net_weights.npz when sharing the folder.
 Train only if you know what you are doing.
-See docs/GRS_OBSERVATORY_BOOK.md §7.
+See docs/GRS_CODE_WALKTHROUGH_ESSAY.md §7.

@@ -128,7 +128,7 @@ def ensure_models_present() -> Path:
         f"meta present:    {(dest / meta).exists()}\n"
         "Do not delete spire_net_weights.npz when sharing the folder.\n"
         "Train only if you know what you are doing.\n"
-        "See docs/GRS_OBSERVATORY_BOOK.md §7.\n",
+        "See docs/GRS_CODE_WALKTHROUGH_ESSAY.md §7.\n",
         encoding="utf-8",
     )
     return dest

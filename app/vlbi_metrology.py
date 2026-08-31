@@ -584,28 +584,47 @@ def px_to_lonlat_oriented(y: float, x: float, nav: AdvancedNav) -> Tuple[float, 
 # Multi-scale normalized cross-correlation template (VLBI-grade correlator)
 # ---------------------------------------------------------------------------
 
-def _ncc_peak(band: np.ndarray, tmpl: np.ndarray) -> Tuple[float, float, float]:
-    """Return subpixel (py, px, peak) via FFT NCC."""
-    from numpy.fft import rfft2, irfft2
+def _ncc_peak(band: np.ndarray, tmpl: np.ndarray, ctx: Optional[Dict[str, Any]] = None) -> Tuple[float, float, float]:
+    """Return subpixel (py, px, peak) via FFT NCC.
+
+    ``ctx`` (from ``precision_engine._ncc_corr_ctx``) shares ONE band FFT
+    across all templates of a multiscale search; without it the previous
+    per-template path is used. Local normalisation energy uses a separable
+    uniform filter (exact box sum, ~1e-13 of fftconvolve's ones-kernel),
+    because the two energy FFTs were ~2/3 of the original cost.
+    """
     th, tw = tmpl.shape
     bh, bw = band.shape
     # zero-mean unit-norm template
     t = tmpl.astype(np.float64)
     t = t - t.mean()
     t = t / (np.sqrt((t * t).sum()) + 1e-12)
-    # local energy via box filter of band^2
-    b = band.astype(np.float64)
-    b0 = b - np.mean(b)
+    b0 = (ctx.get("b0") if ctx is not None else None)
+    if b0 is None or b0.shape != band.shape:
+        b = band.astype(np.float64)
+        b0 = b - np.mean(b)
     # correlate
     try:
-        from scipy.signal import fftconvolve
-        corr = fftconvolve(b0, t[::-1, ::-1], mode="same")
-        # local norm of band under template support
-        ones = np.ones_like(t)
-        local_sum = fftconvolve(b0, ones[::-1, ::-1], mode="same")
-        local_sum2 = fftconvolve(b0 * b0, ones[::-1, ::-1], mode="same")
-        # for zero-mean patch energy: sum2 - sum^2/n
+        if ctx is not None:
+            from precision_engine import _ncc_corr_from_ctx
+            corr = _ncc_corr_from_ctx(ctx, t)
+        else:
+            corr = None
+        if corr is None:
+            from scipy.signal import fftconvolve
+            corr = fftconvolve(b0, t[::-1, ::-1], mode="same")
+        # local norm of band under template support — separable box filter
         n = float(t.size)
+        try:
+            from scipy.ndimage import uniform_filter
+            local_sum = uniform_filter(b0, size=(th, tw), mode="constant", cval=0.0) * n
+            local_sum2 = uniform_filter(b0 * b0, size=(th, tw), mode="constant", cval=0.0) * n
+        except Exception:
+            from scipy.signal import fftconvolve
+            ones = np.ones((th, tw), dtype=np.float64)
+            local_sum = fftconvolve(b0, ones, mode="same")
+            local_sum2 = fftconvolve(b0 * b0, ones, mode="same")
+        # for zero-mean patch energy: sum2 - sum^2/n
         energy = np.sqrt(np.maximum(local_sum2 - (local_sum ** 2) / n, 1e-12))
         ncc = corr / (energy + 1e-12)
     except Exception as e:
@@ -682,7 +701,10 @@ def multiscale_template_match(
     # invert so dark → bright for NCC to bright template
     inv = -band_hp
 
-    candidates = []
+    # Compute all template shapes up-front so ONE band FFT can be shared
+    # across every scale. Previously each of the 25 templates re-transformed
+    # the whole band 3× (corr + 2 energy FFTs) — the dominant search cost.
+    shapes: List[Tuple[int, int]] = []
     for L in lengths:
         for W in widths:
             tw = max(9, int(L / 180.0 * w))
@@ -691,30 +713,40 @@ def multiscale_template_match(
                 tw += 1
             if th % 2 == 0:
                 th += 1
-            yy, xx = np.mgrid[0:th, 0:tw].astype(np.float64)
-            cy, cx = (th - 1) / 2.0, (tw - 1) / 2.0
-            ell = ((xx - cx) / (tw / 2.0 + 1e-9)) ** 2 + ((yy - cy) / (th / 2.0 + 1e-9)) ** 2
-            # dark oval as positive peak on inverted map: bright elliptical blob
-            tmpl = np.exp(-0.5 * ell * 2.4)
-            tmpl[ell > 1.15] = 0.0
-            py, px, peak = _ncc_peak(inv, tmpl)
-            lon_rel = -90.0 + (px / max(w - 1, 1)) * 180.0
-            lat = 90.0 - ((y0 + py) / max(h - 1, 1)) * 180.0
-            # Prior: GRS latitude ≈ -22°, prefer on-disk (not near map edge)
-            lat_pen = abs(lat - lat0) / 8.0
-            edge_pen = max(0.0, abs(lon_rel) - 70.0) / 10.0
-            score = float(peak) - 0.12 * lat_pen - 0.15 * edge_pen
-            candidates.append({
-                "lon_iii_deg": wrap_deg(nav.cm_iii_deg + lon_rel),
-                "lat_deg": float(lat),
-                "length_deg": float(L),
-                "width_deg": float(W),
-                "score": score,
-                "ncc": float(peak),
-                "method": "multiscale_ncc",
-                "map_x": float(px),
-                "map_y": float(y0 + py),
-            })
+            shapes.append((th, tw))
+    try:
+        from precision_engine import _ncc_corr_ctx
+        ncc_ctx = _ncc_corr_ctx(inv, shapes)
+    except Exception:
+        ncc_ctx = None
+
+    candidates = []
+    scale_pairs = list(zip([(L0, W0) for L0 in lengths for W0 in widths], shapes))
+    for (L, W), (th, tw) in scale_pairs:
+        yy, xx = np.mgrid[0:th, 0:tw].astype(np.float64)
+        cy, cx = (th - 1) / 2.0, (tw - 1) / 2.0
+        ell = ((xx - cx) / (tw / 2.0 + 1e-9)) ** 2 + ((yy - cy) / (th / 2.0 + 1e-9)) ** 2
+        # dark oval as positive peak on inverted map: bright elliptical blob
+        tmpl = np.exp(-0.5 * ell * 2.4)
+        tmpl[ell > 1.15] = 0.0
+        py, px, peak = _ncc_peak(inv, tmpl, ctx=ncc_ctx)
+        lon_rel = -90.0 + (px / max(w - 1, 1)) * 180.0
+        lat = 90.0 - ((y0 + py) / max(h - 1, 1)) * 180.0
+        # Prior: GRS latitude ≈ -22°, prefer on-disk (not near map edge)
+        lat_pen = abs(lat - lat0) / 8.0
+        edge_pen = max(0.0, abs(lon_rel) - 70.0) / 10.0
+        score = float(peak) - 0.12 * lat_pen - 0.15 * edge_pen
+        candidates.append({
+            "lon_iii_deg": wrap_deg(nav.cm_iii_deg + lon_rel),
+            "lat_deg": float(lat),
+            "length_deg": float(L),
+            "width_deg": float(W),
+            "score": score,
+            "ncc": float(peak),
+            "method": "multiscale_ncc",
+            "map_x": float(px),
+            "map_y": float(y0 + py),
+        })
     if not candidates:
         t = _template_match_grs(cyl, nav_s)
         t["method"] = "template_fallback"

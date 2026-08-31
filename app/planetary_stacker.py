@@ -459,18 +459,23 @@ def per_row_warp(
     abs_lats = np.abs(row_lats)
     row_dx = np.interp(abs_lats, centres, dx_apply_per_bin)
     idx = np.arange(w, dtype=np.float64)
+    # Per-row spatial resample at (x - dx): content moves by +dx, exactly the
+    # old FFT phase-ramp convention (out(x) = in(x - dx)) — but WITHOUT the
+    # circulant wraparound that smeared limb bars into the sky and the
+    # bar-code striping plainly visible on long-rotation stacks (36-frame,
+    # 3.5-deg video benchmark, fixed in v6.8.x). mode="nearest" keeps the
+    # sky constant.
+    #
+    # NOTE: batched 2-D map_coordinates was benchmarked ~2.3× SLOWER than this
+    # row loop (629 ms vs 271 ms on 1080x1920): a 2-D order-5 spline
+    # evaluation does full y-axis interpolation work that a pure per-row
+    # 1-D shift does not need. The row loop stays.
     for row in range(h):
         if not on_disk[row].any():
             continue
         dx = float(row_dx[row])
         if abs(dx) < 0.02:
             continue
-        # Spatial-domain resample at (x - dx): content moves by +dx, exactly the
-        # old FFT phase-ramp convention (out(x) = in(x - dx)) — but WITHOUT the
-        # circulant wraparound that smeared limb bars into the sky and the
-        # bar-code striping plainly visible on long-rotation stacks (36-frame,
-        # 3.5-deg video benchmark, fixed in v6.8.x). mode="nearest" keeps the
-        # sky constant.
         out[row] = map_coordinates(arr[row], [idx - dx], order=5,
                                    mode="nearest", prefilter=True)
     if abs(dy_global) > 0.02:

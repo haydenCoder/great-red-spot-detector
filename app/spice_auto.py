@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from verbose_log import CONSOLE
+from netutil import secure_ssl_context as _ssl_context
 
 APP_DIR = Path(__file__).resolve().parent
 DEFAULT_KERNEL_DIR = Path(
@@ -130,15 +131,6 @@ class SpiceGeometry:
         return asdict(self)
 
 
-def _ssl_context():
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        try:
-            return ssl.create_default_context()
-        except Exception:
-            return ssl._create_unverified_context()
 
 
 def _sha256_file(path: Path, max_bytes: int = 32_000_000) -> str:
@@ -194,8 +186,6 @@ def _existing_kernel(kdir: Path, entry: Dict[str, Any]) -> Optional[Path]:
 
 def _download(url: str, dest: Path, timeout: float = 120.0) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_suffix(dest.suffix + ". partial")
-    # fix accidental space in suffix name
     tmp = dest.with_suffix(dest.suffix + ".partial")
     headers = {
         "User-Agent": "GRS-Observatory-SPICE-Auto/5.0 (research; +https://naif.jpl.nasa.gov)",

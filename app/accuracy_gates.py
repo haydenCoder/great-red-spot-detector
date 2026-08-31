@@ -247,23 +247,23 @@ def assess_publish_quality(package: Dict[str, Any]) -> Dict[str, Any]:
     flags: List[str] = []
     warnings: List[str] = []
 
-    pub_lon = _f(pub.get("publish_lon_iii_deg") or h.get("publish_lon_iii_deg") or h.get("lon_iii_deg"))
-    pub_lat = _f(pub.get("publish_lat_deg") or h.get("publish_lat_deg") or h.get("lat_deg"))
-    pipe_lon = _f(pub.get("pipeline_lon_iii_deg") or h.get("pipeline_lon_iii_deg"))
+    pub_lon = safe_float(pub.get("publish_lon_iii_deg") or h.get("publish_lon_iii_deg") or h.get("lon_iii_deg"))
+    pub_lat = safe_float(pub.get("publish_lat_deg") or h.get("publish_lat_deg") or h.get("lat_deg"))
+    pipe_lon = safe_float(pub.get("pipeline_lon_iii_deg") or h.get("pipeline_lon_iii_deg"))
     cm_source = str(pub.get("cm_source") or h.get("cm_source") or "")
     cm_trusted = is_trusted_cm_source(cm_source)
 
-    limb = _f(
+    limb = safe_float(
         pub.get("limb_outline_sky_spread_arcsec")
         or twin.get("limb_sky_spread_arcsec")
         or h.get("limb_outline_sky_spread_arcsec")
     )
-    def_spread = _f(
+    def_spread = safe_float(
         pub.get("definition_lon_spread_deg")
         or twin.get("definition_lon_spread_deg")
         or h.get("definition_lon_spread_deg")
     )
-    time_err = _f(h.get("time_error_seconds") or package.get("time_error_seconds") or 0.0) or 0.0
+    time_err = safe_float(h.get("time_error_seconds") or package.get("time_error_seconds") or 0.0) or 0.0
     timing_lon_unc = timing_longitude_uncertainty_deg(time_err)
 
     lat_core_ok = grs_lat_in_core_band(pub_lat)
@@ -425,7 +425,7 @@ def prefer_red_channel(image) -> Any:
     return a
 
 
-def _f(x) -> Optional[float]:
+def safe_float(x) -> Optional[float]:
     try:
         v = float(x)
         return v if math.isfinite(v) else None

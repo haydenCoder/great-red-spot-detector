@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from verbose_log import CONSOLE
+from netutil import secure_ssl_context as _ssl_context
 
 APP_DIR = Path(__file__).resolve().parent
 CACHE = APP_DIR / "nasa_cache"
@@ -60,15 +61,6 @@ def wrap_diff(a: float, b: float) -> float:
     return float((a - b + 180.0) % 360.0 - 180.0)
 
 
-def _ssl_context():
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        try:
-            return ssl.create_default_context()
-        except Exception:
-            return ssl._create_unverified_context()
 
 
 def parse_time(s: str) -> dt.datetime:

@@ -9,7 +9,7 @@ change.
 These tests are fast and self-contained: they run the audit on a tiny
 seed set (4 cases) and assert the per-method summary structure and
 signs. The full 100-case audit is run by tools/per_method_audit.py
-directly (see docs/IMPROVEMENT_DIAGNOSIS.md).
+directly (see docs/ESSAY.md).
 """
 from __future__ import annotations
 

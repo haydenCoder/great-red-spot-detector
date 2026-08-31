@@ -34,7 +34,6 @@ Naming: "Advanced-grade" = advanced methods applied to planetary imaging, not mi
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import time
@@ -45,6 +44,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from verbose_log import CONSOLE
+from netutil import array_hash as _hash_array
 from precision_engine import (
     FLAT,
     JUP_REQ_KM,
@@ -230,10 +230,6 @@ def time_error_to_lon_sigma(time_error_seconds: float) -> float:
     return abs(float(time_error_seconds)) * DEG_PER_SEC_SYS3
 
 
-def _hash_array(a: np.ndarray) -> str:
-    a = np.ascontiguousarray(a)
-    b = a.tobytes()
-    return hashlib.sha256(b[: min(len(b), 2_000_000)]).hexdigest()[:16]
 
 
 def _rotate_points(xs: np.ndarray, ys: np.ndarray, xc: float, yc: float, pa_deg: float) -> Tuple[np.ndarray, np.ndarray]:

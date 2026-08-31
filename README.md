@@ -157,9 +157,8 @@ the Δsky check.
 - Measurement-mode derotation was unregularised and could stack *worse* than
   doing nothing on long captures; it now blends 75% measured / 25% model.
 
-Each one is pinned by a regression test — see
-[`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)
-for the full write-up with before/after numbers.
+Each one is pinned by a regression test — the before/after behaviour lives in
+`tests/test_deterioration_regressions.py`.
 
 ---
 
@@ -174,7 +173,7 @@ app/                 measurement engine, stacker, derotator, UI, SPICE kernels
   planetary_*.py        planet-generalised stacker/derotator
   cspeed.c / cspeed.py  optional C99 hot-path kernels
   templates/, static/   web UI
-docs/                audits, essays, the observatory book, this report
+docs/                the observatory book, one walkthrough essay, security notes
 tests/               pytest suite (run with `pytest -m "not slow"`)
 ```
 

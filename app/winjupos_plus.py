@@ -29,14 +29,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from verbose_log import CONSOLE
+from accuracy_gates import safe_float as _f
 
-
-def _f(x) -> Optional[float]:
-    try:
-        v = float(x)
-        return v if math.isfinite(v) else None
-    except Exception:
-        return None
 
 
 def _wrap_diff(a: float, b: float) -> float:

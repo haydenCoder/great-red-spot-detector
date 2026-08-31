@@ -252,7 +252,7 @@ class TestVideoToAnswerDerotate(unittest.TestCase):
             # synthetic_hq's and the classical GS-MAP/GS-BARY definitions
             # honestly grade REJECT on it (measured 2026-08-07: publish lock
             # 18 deg off, grade REJECT, while the campaign path reads +0.16 deg
-            # on the identical stack — see docs/OBSERVATORY_PRO_6.8.0.md).
+            # on the identical stack — see docs/ESSAY.md).
             # Publish-path accuracy IS gated at 1.0 deg by the flagship
             # test_full_pipeline_recovers_truth on the richer renderer.
             cam = rep.get("campaign_measurement")

@@ -87,15 +87,9 @@ def resolve_buttons_doc_path(code: Path, base: Path) -> Optional[Path]:
     you run the app, so we search a bunch of candidate paths.
     """
     names = (
-        "BUTTON_GUIDE.html",
-        "button_guide.html",
-        "BUTTONS.html",
-        "features/button_guide.html",
-        "features/BUTTON_GUIDE.html",
-        "GRS_OBSERVATORY_BOOK.html",
         "GRS_OBSERVATORY_BOOK.md",
-        "reference/mod_desktop_app.md",
-        "reference/01_FEATURES.md",
+        "ESSAY.md",
+        "HOW_TO_RUN.md",
     )
     roots = (code.parent / "docs", code / "docs", base / "docs")
     for root in roots:
@@ -533,10 +527,9 @@ class GRSDesktopApp(tk.Tk):
                 "Button guide",
                 "Button guide not found.\n"
                 "Expected one of:\n"
-                "  docs/BUTTON_GUIDE.html\n"
-                "  docs/features/button_guide.html\n"
                 "  docs/GRS_OBSERVATORY_BOOK.md\n"
-                "  docs/reference/mod_desktop_app.md",
+                "  docs/ESSAY.md\n"
+                "  docs/HOW_TO_RUN.md",
             )
             return
         try:

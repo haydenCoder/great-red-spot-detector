@@ -22,6 +22,7 @@ import math
 from typing import Any, Dict, Optional
 
 from precision_engine import wrap_diff, sky_error_arcsec
+from accuracy_gates import safe_float as _f
 
 
 # how close to your WinJUPOS pick counts as "same result"?
@@ -29,14 +30,6 @@ EQUAL_SKY_ARCSEC = 1.0       # treat as same result (pro-amateur agreement)
 NEAR_SKY_ARCSEC = 2.0        # close but not equal
 FAIR_SKY_ARCSEC = 5.0         # reasonable given definition differences
 
-
-def _f(x) -> Optional[float]:
-    """safe float conversion — returns None for non-finite values"""
-    try:
-        v = float(x)
-        return v if math.isfinite(v) else None
-    except Exception:
-        return None
 
 
 def assess_winjupos_equality(

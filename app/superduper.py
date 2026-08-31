@@ -19,16 +19,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from accuracy_gates import safe_float as _f
 
-def _f(x):
-    """safe float — returns None if it can't convert or if it's NaN/inf"""
-    try:
-        v = float(x)
-        if v != v:  # NaN check (NaN != NaN is True, weird but handy)
-            return None
-        return v
-    except Exception:
-        return None
 
 
 def build_superduper_card(package: Dict[str, Any]) -> Dict[str, Any]:

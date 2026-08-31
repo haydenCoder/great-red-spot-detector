@@ -35,7 +35,6 @@ Honest scope:
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import time
@@ -46,6 +45,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from verbose_log import CONSOLE
+from netutil import array_hash as _hash_array
 from precision_engine import (
     NavState,
     FLAT,
@@ -134,9 +134,6 @@ class ResearchGradeResult:
         return asdict(self)
 
 
-def _hash_array(a: np.ndarray) -> str:
-    a = np.ascontiguousarray(a)
-    return hashlib.sha256(a.tobytes()[: min(len(a.tobytes()), 2_000_000)]).hexdigest()[:16]
 
 
 def inject_dark_oval(

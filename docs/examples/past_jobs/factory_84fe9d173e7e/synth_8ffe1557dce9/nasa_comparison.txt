@@ -1,8 +1,0 @@
-Grade: GOOD (lat stable; lon uses schematic model only)
-Source: model+Horizons
-{
-  "lon_iii_deg": -76.00526607237617,
-  "lat_deg": 0.20300865173339844,
-  "length_deg": -5.550524242081492,
-  "width_deg": -0.22881569067569707
-}

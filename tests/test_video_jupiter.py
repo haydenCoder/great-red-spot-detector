@@ -135,7 +135,7 @@ class TestDerotatedStackRecoversGRS(unittest.TestCase):
     All arms share ref_index so every stack is anchored to the SAME epoch and
     the truth comparison is apples-to-apples (an earlier scratch bench mixed
     anchors and invented a fake ~1.1 deg 'error' — documented in
-    docs/OBSERVATORY_PRO_6.8.0.md). Gates: every arm inside a generous
+    docs/ESSAY.md). Gates: every arm inside a generous
     absolute band at this coarse 384x288 scale, and the derotated arms no
     worse than plain (the 14.45 deg corruption of the pre-fix prior must
     never return)."""
@@ -196,7 +196,7 @@ class TestDerotatedStackRecoversGRS(unittest.TestCase):
         # and APS local alignment absorbs it (AutoStakkert can do the same on
         # short captures — plain is near-perfect here, measured 0.037 deg), so
         # derotation only has blur to *add*; its value shows on long sweeps
-        # (see the 350 s bench in docs/OBSERVATORY_PRO_6.8.0.md where the
+        # (see the 350 s bench in docs/ESSAY.md where the
         # prior arm BEATS plain). The honest gate: derot arms stay inside the
         # same absolute band (1.2 deg ~ 1.3 GRS-chord px at this scale) and
         # never catastrophically corrupt (pre-fix: 14.45 deg).

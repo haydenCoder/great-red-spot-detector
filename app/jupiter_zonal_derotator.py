@@ -29,7 +29,7 @@ ALGORITHM (v6.8 — consolidated on the tested engine)
 The pre-v6.8 internals (a/90 plate scale → 1.57× under-shift at the
 equator; bare phase-corr tracker that saturated past ap_half; per-row
 FFT phase ramps with circulant wrap + limb ringing) were retired after
-the v6.8 derotation audit — see docs/OBSERVATORY_PRO_6.8.0.md.
+the v6.8 derotation regressions — see docs/ESSAY.md.
 
 WHAT IT IS NOT
 ==============

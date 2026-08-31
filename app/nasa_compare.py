@@ -19,20 +19,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from verbose_log import CONSOLE
+from netutil import secure_ssl_context as _ssl_context
 
 CACHE = Path(__file__).resolve().parent / "nasa_cache"
 CACHE.mkdir(exist_ok=True)
 
 
-def _ssl_context():
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        try:
-            return ssl.create_default_context()
-        except Exception:
-            return ssl._create_unverified_context()
 
 
 @dataclass

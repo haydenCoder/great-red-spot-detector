@@ -131,7 +131,7 @@ python tools/seeing_floor_stress.py
 python tools/speed_audit.py
 ```
 
-Reference results: median |Δlon| ≈ 0.17°, p90 ≈ 0.36°, worst 0.60° on clear
+Reference results: median |Δlon| ≈ 0.17°, worst 0.60° on clear
 1080p; sky error median ≈ 0.084″. The 1000-case matrix holds every
 clear/mild/blurry frame within 1.0°.
 

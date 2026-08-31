@@ -158,7 +158,7 @@ the Δsky check.
   doing nothing on long captures; it now blends 75% measured / 25% model.
 
 Each one is pinned by a regression test — see
-[`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)
+[`docs/GRS_CODE_WALKTHROUGH_ESSAY.md`](docs/GRS_CODE_WALKTHROUGH_ESSAY.md)
 for the full write-up with before/after numbers.
 
 ---

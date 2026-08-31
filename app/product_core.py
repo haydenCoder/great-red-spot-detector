@@ -356,7 +356,7 @@ def certify(
         "output_dir": str(out_root),
         "disclaimer": (
             "Certification is on synthetic metrology-mode frames. Real-sky performance "
-            "depends on seeing, timing, and CM quality. See docs/GRS_OBSERVATORY_BOOK.md."
+            "depends on seeing, timing, and CM quality. See docs/GRS_CODE_WALKTHROUGH_ESSAY.md."
         ),
     }
 

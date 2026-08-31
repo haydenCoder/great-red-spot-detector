@@ -31,7 +31,6 @@ except ImportError:
     pass
 
 
-@unittest.skipUnless(_HAS_TK, "tkinter not available — headless environment")
 class TestDesktopWiring(unittest.TestCase):
     def test_open_buttons_doc_handler_exists(self):
         import desktop_app as da
@@ -88,10 +87,10 @@ class TestDesktopWiring(unittest.TestCase):
         import desktop_app as da
 
         p = da.resolve_manual_path(da.CODE, da.BASE)
-        self.assertIsNotNone(p, "docs/GRS_OBSERVATORY_BOOK.md should exist in tree")
+        self.assertIsNotNone(p, "docs/GRS_CODE_WALKTHROUGH_ESSAY.md should exist in tree")
         assert p is not None
         self.assertTrue(p.exists())
-        self.assertIn("GRS_OBSERVATORY_BOOK", p.name)
+        self.assertIn("GRS_CODE_WALKTHROUGH_ESSAY", p.name)
 
     def test_construct_desktop_app(self):
         """Construct real Tk app when display allows; else record honest limit."""

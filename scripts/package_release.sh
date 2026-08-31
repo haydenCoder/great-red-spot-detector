@@ -15,7 +15,7 @@ echo "Building app…"
 cp -R "$ROOT/dist/GRS_Observatory.app" "$OUT/" 2>/dev/null || true
 cp -R "$ROOT/dist/GRS_Observatory_Data" "$OUT/" 2>/dev/null || mkdir -p "$OUT/GRS_Observatory_Data"
 mkdir -p "$OUT/docs" "$OUT/models"
-cp -f "$ROOT/docs/GRS_OBSERVATORY_BOOK.md" "$OUT/docs/" 2>/dev/null || true
+cp -f "$ROOT/docs/GRS_CODE_WALKTHROUGH_ESSAY.md" "$OUT/docs/" 2>/dev/null || true
 cp -f "$ROOT/docs/SECURITY.md" "$OUT/docs/" 2>/dev/null || true
 cp -f "$ROOT/app/models/spire_net_weights.npz" "$ROOT/app/models/spire_net_meta.json" \
   "$ROOT/app/models/spire_net_weights.GOOD.npz" "$OUT/models/" 2>/dev/null || true
@@ -28,7 +28,7 @@ cat > "$OUT/START_HERE.txt" << EOF
 GRS Observatory v${VER}
 ======================
 
-ONLY GUIDE: docs/GRS_OBSERVATORY_BOOK.md
+ONLY GUIDE: docs/GRS_CODE_WALKTHROUGH_ESSAY.md
 
 1. Double-click GRS_Observatory.app
 2. Help → The Book (or open the .md file)

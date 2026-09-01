@@ -9,6 +9,23 @@ Full write-ups: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AU
 and [`docs/CODE_AUDIT_2026-08-31.md`](docs/CODE_AUDIT_2026-08-31.md) (what was checked,
 what was found, what was deliberately left alone).
 
+### Changed — the one-click note says what the night did
+`runEverythingTail` used to print a fixed *"Night done — dashboard, report, ephemeris,
+multi-night, stress filled"* line. That is an over-claim in two cases the endpoint supports:
+unchecking *“Include stress suite”*, and a stage that raises inside `api_factory_night`
+(which records `{"error": …}` and carries on). The summary is now built from
+`report["stages"]`, so a failed stage reads **multi-night ✗**, a skipped one **stress off**,
+and a payload with no `stages` at all says nothing about them instead of asserting everything.
+
+### Fixed — the fast suite's one failure was the test, not the code
+`tests/test_smoke_detailed.py::TestEphemerisProvenance::test_cm_source_is_trusted_when_spice_available`
+asked `resolve_ephemeris(..., use_spice=True)` for a publication-grade CM source and asserted it
+must be trusted — with no `spiceypy` in the environment, where it can only ever answer
+`"analytical"`. The test beside it asserts that `"analytical"` *must* be flagged as untrustworthy,
+so the pair was never about the fallback. The SPICE gate now skips when the optional dependency is
+missing (`skipTest("spiceypy unavailable — no SPICE branch to gate")`) and still fails hard when it
+is present, so a red fast suite means something again.
+
 ### Changed — one click runs the whole night
 The panel read like an assembly manual: eight sections, eleven buttons, and the two
 things worth doing on any given night (Multi-night, Stress) were two clicks you had to

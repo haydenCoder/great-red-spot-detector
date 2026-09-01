@@ -991,8 +991,7 @@
 
   /* The time bar paints its own filled track (CSS can't know the value), so
      the drag reads as progress instead of a bare groove. */
-  function paintSlider() {
-    const s = $("timeBar");
+  function paintFill(s) {
     if (!s) return;
     const min = parseFloat(s.min);
     const max = parseFloat(s.max);
@@ -1000,6 +999,12 @@
     const span = Number.isFinite(max - min) && max > min ? max - min : 1;
     const pct = Number.isFinite(v) ? Math.max(0, Math.min(100, (100 * (v - min)) / span)) : 50;
     s.style.setProperty("--fill", pct.toFixed(2) + "%");
+  }
+
+  function paintSlider() {
+    const s = $("timeBar");
+    if (!s) return;
+    paintFill(s);
     const rd = $("timeBarReadout");
     if (rd) s.setAttribute("aria-valuetext", `${rd.textContent} local`);
   }
@@ -1117,6 +1122,8 @@
     $("fileInfo").classList.remove("muted");
     $("fileInfo").classList.add("file-real");
     $("btnProcess").disabled = false;
+    if ($("btnSharpen")) $("btnSharpen").disabled = false;
+    if ($("sharpOut")) setText("sharpOut", "Ready — pick a method and press Sharpen my image.");
     setModeBadge("real", "REAL FILE LOADED");
     if (j.preview) {
       showPreview(j.preview, `Your file: ${j.original}`, "real");
@@ -1134,8 +1141,38 @@
     $("winjuposInfo").textContent = `WinJUPOS CML: ${file.name} → ${j.path}`;
   }
 
+  // "Run everything" = the factory night, plus the read-only panels it cannot
+  // produce. Those panels do not take the job slot (two GETs, one sync POST and
+  // the Deterioration Lab's own lock), so they are safe to fire the moment the
+  // night lands — one press, every tab filled, no queue to babysit.
+  let pendingEverything = false;
+  let everythingRan = 0;
+
+  async function runEverythingTail() {
+    if (everythingRan) return;                 // a re-polled result must not re-run it
+    everythingRan += 1;
+    const note = (msg) => setText("oneClickNote", msg);
+    const steps = [];
+    const step = async (name, fn) => {
+      try { await fn(); steps.push(name); } catch (e) { /* a missing panel is not a failure */ }
+    };
+    note("Filling Transits · session planner · Sharpen Lab · Deterioration Lab…");
+    await step("transits", () => runTransits({ quiet: true }));
+    await step("session", () => runSessionPlan({ quiet: true }));
+    if (filePath) await step("sharpen", runSharpen);
+    await step("deterioration", () => {
+      const b = $("btnDetRun");
+      if (b && !b.disabled) b.click();          // long sweep: leave the tab choice to the user
+    });
+    note(`Night done — dashboard, report, ephemeris, multi-night, stress${steps.length ? ", " + steps.join(", ") : ""} filled. Press 4 to watch the ☄ Deterioration Lab sweep.`);
+    CONSOLE_LINE();
+  }
+
+  function CONSOLE_LINE() { /* the server console already logged the night; nothing to add */ }
+
   async function startJob(url, body, statusText) {
     if (!body) return;
+    everythingRan = 0;
     lastHandledJobId = null;
     wasRunning = true;
     setStatus("run", statusText || "RUNNING");
@@ -1205,7 +1242,7 @@
     if (j.running) {
       pollMs = 600;                       // a job is moving: check often
       wasRunning = true;
-      const kind = (j.kind || "RUN").toUpperCase();
+      const kind = ({ FACTORY: "EVERYTHING" })[String(j.kind || "").toUpperCase()] || (j.kind || "RUN").toUpperCase();
       // an honest "still working" readout: stacking 400 frames with no output
       // for a minute looks exactly like a frozen UI without it
       if (runKey !== String(j.id || kind)) { runKey = String(j.id || kind); runT0 = Date.now(); }
@@ -1240,6 +1277,10 @@
       if (lastHandledJobId !== jid) {
         lastHandledJobId = jid;
         renderResult(j.result);
+        if (pendingEverything && j.result.kind === "factory_night") {
+          pendingEverything = false;
+          runEverythingTail();                     // fills the panels the night cannot
+        }
         if (wasRunning) {
           if (j.result.kind === "factory_night") showTab("dashboard", true);
           else if (j.result.kind === "video_stack") showTab("video", true);
@@ -1395,12 +1436,29 @@
       const k = e.key;
       if (k === "ArrowRight" || k === "ArrowDown") { e.preventDefault(); shiftTab(1); }
       else if (k === "ArrowLeft" || k === "ArrowUp") { e.preventDefault(); shiftTab(-1); }
+
       else if (k === "Home") { e.preventDefault(); showTab(TAB_ORDER[0], true); $('tabbtn-' + TAB_ORDER[0])?.focus(); }
       else if (k === "End") { e.preventDefault(); showTab(TAB_ORDER[TAB_ORDER.length - 1], true); $('tabbtn-' + TAB_ORDER[TAB_ORDER.length - 1])?.focus(); }
     });
     // the ink lives in the wrapper's space, so it must track the scroll
     strip.addEventListener("scroll", () => moveInk(false), { passive: true });
   }
+  // 1…9 and 0 jump to the 1st…10th tab from anywhere on the page. With eleven
+  // tabs in a scrollable strip, "where is my Deterioration Lab" is a findability
+  // bug, and a keyboard index is the cheap fix for it.
+  window.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    const k = e.key;
+    if (!/^[1-9]$/.test(k) && k !== "0") return;
+    const el = e.target;
+    if (el && el.matches && el.matches("input, select, textarea, [contenteditable], [role='log']")) return;
+    const name = TAB_ORDER[k === "0" ? 9 : parseInt(k, 10) - 1];
+    if (!name) return;
+    e.preventDefault();
+    showTab(name, true);
+    $("tabbtn-" + name)?.focus();
+  });
+
   window.addEventListener("resize", () => { moveInk(false); flagStripOverflow(); onLayoutChange(); });
   window.addEventListener("load", () => { moveInk(false); flagStripOverflow(); });
 
@@ -1548,8 +1606,10 @@
     }
   });
 
-  $("btnTransits")?.addEventListener("click", async () => {
-    showTab("transits", true);
+  async function runTransits(opts) {
+    // quiet: the one-click tail calls it that way — filling a panel must not drag
+    // the user off the night they are reading. (A click event has no .quiet.)
+    if (!(opts && opts.quiet)) showTab("transits", true);
     setText("transitsBox", "Planning…");
     const q = new URLSearchParams({
       time: ($("trTime") && $("trTime").value.trim()) || "",
@@ -1563,11 +1623,12 @@
     } catch (e) {
       setText("transitsBox", "Error: " + String(e));
     }
-  });
+  }
+  $("btnTransits")?.addEventListener("click", runTransits);
 
   // v6.9 Analysis Pro panels
-  $("btnSessionPlan")?.addEventListener("click", async () => {
-    showTab("analysis", true);
+  async function runSessionPlan(opts) {
+    if (!(opts && opts.quiet)) showTab("analysis", true);
     setText("analysisBox", "Planning…");
     const q = new URLSearchParams({
       a_eq_px: ($("anScale") && $("anScale").value) || "0",
@@ -1581,7 +1642,8 @@
     } catch (e) {
       setText("analysisBox", "Error: " + String(e));
     }
-  });
+  }
+  $("btnSessionPlan")?.addEventListener("click", runSessionPlan);
 
   $("btnDrift")?.addEventListener("click", async () => {
     showTab("analysis", true);
@@ -1606,6 +1668,49 @@
     } catch (e) {
       setText("driftBox", "Error: " + String(e));
     }
+  });
+
+  // Sharpen Lab (wavelet / unsharp / Richardson-Lucy) — the preview pane is
+  // where you are already looking, so the result replaces the preview image.
+  async function runSharpen() {
+    if (!filePath) { setText("sharpOut", "Load an image first."); return; }
+    const method = ($("sharpMethod") && $("sharpMethod").value) || "wavelet";
+    const amount = parseFloat(($("sharpAmount") && $("sharpAmount").value)) || 1;
+    const btn = $("btnSharpen");
+    if (btn) btn.disabled = true;
+    setText("sharpOut", `Sharpening (${method}, ${amount.toFixed(1)}×)…`);
+    try {
+      const j = await (await fetch("/api/sharpen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filePath, method, amount }),
+      })).json();
+      if (!j.ok) { setText("sharpOut", "Error: " + (j.error || "failed")); return; }
+      // Laplacian variance on these frames is a small number (1e-3 … 1e2), so fixed
+      // decimals would print "0.0 → 0.0" and hide the whole result.
+      const f = (v) => {
+        const n = Number(v);
+        if (v == null || !Number.isFinite(n)) return "—";
+        const a = Math.abs(n);
+        return a >= 100 ? n.toFixed(1) : a >= 0.01 ? n.toFixed(4) : n.toExponential(2);
+      };
+      const before = Number(j.lapvar_before), after = Number(j.lapvar_after);
+      const gain = before > 0 && Number.isFinite(after) ? ` · ×${(after / before).toFixed(2)}` : "";
+      setText("sharpOut",
+        `${method} · Laplacian variance ${f(before)} → ${f(after)}${gain}`
+        + ` · higher means more edge energy (noise counts as edge energy too)`);
+      if (j.preview) showPreview(j.preview, `Sharpened (${method})`, "real");
+    } catch (e) {
+      setText("sharpOut", "Error: " + String(e));
+    } finally {
+      if (btn && filePath) btn.disabled = false;
+    }
+  }
+  $("btnSharpen")?.addEventListener("click", runSharpen);
+  $("sharpAmount")?.addEventListener("input", (e) => {
+    const out = $("sharpAmountOut");
+    if (out) out.textContent = `${parseFloat(e.target.value).toFixed(1)}×`;
+    paintFill(e.target);
   });
 
   // Time bar wiring
@@ -1681,11 +1786,14 @@
       };
     }
     if (!body) return;
-    const msg = hasFile
-      ? "Self-test will process YOUR uploaded file (plus multi-night / optional stress). Continue?"
-      : "No file loaded — self-test will use synthetic images. Continue?";
-    if (!confirm(msg)) return;
-    startJob("/api/factory_night", body, "SELF-TEST");
+    pendingEverything = true;
+    // no modal in front of the button meant to be pressed: the note above it and
+    // the mode badge already say which source the night will use
+    setModeBadge(hasFile ? "real" : "factory", hasFile ? "REAL FILE · FULL NIGHT" : "SYNTHETIC · FULL NIGHT");
+    setText("oneClickNote", hasFile
+      ? "Running the whole night on your uploaded image…"
+      : "No image loaded — running the night on a synthetic test planet.");
+    startJob("/api/factory_night", body, "EVERYTHING");
   });
   $("btnMulti").addEventListener("click", () => startJob("/api/multi_epoch", { directory: null, smooth: true }, "MULTI"));
   $("btnHard").addEventListener("click", () => {
@@ -1882,6 +1990,35 @@
       }
       updateCountryHint();
     } catch (_) {}
+    // /api/resolutions is the server's own table of what a preset buys you. Let it
+    // label the picker, so "16K" stops being a mystery word you press and more of
+    // 16K is worth knowing before you press Generate.
+    let RESOLUTIONS = null;
+    function paintResHint() {
+      const hint = $("resHint");
+      const sel = $("resolution");
+      if (!hint || !sel || !RESOLUTIONS) return;
+      const r = RESOLUTIONS[sel.value];
+      if (!r) { hint.hidden = true; return; }
+      const bits = [r.width ? `${sel.value}: ${r.width}×${r.height} px` : "", r.note].filter(Boolean);
+      hint.textContent = bits.join(" · ");
+      hint.hidden = !hint.textContent.trim();
+    }
+    $("resolution")?.addEventListener("change", paintResHint);
+    try {
+      const rr = await (await fetch("/api/resolutions")).json();
+      if (rr && typeof rr === "object") {
+        RESOLUTIONS = rr;
+        for (const o of ($("resolution") ? [...$("resolution").options] : [])) {
+          const r = rr[o.value];
+          if (!r) continue;
+          const bits = [r.width ? `${r.width}×${r.height}` : "", r.note].filter(Boolean);
+          if (bits.length) o.title = bits.join(" · ");
+        }
+        paintResHint();
+      }
+    } catch (_) { /* the picker works without the hint */ }
+
     // slider fill, tab ink, drawer reachability, then the first poll
     paintSlider();
     showTab(userTab, true);

@@ -3,11 +3,59 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
-## [Unreleased] — UI rounds 1–2 + full-code audit
+## [Unreleased] — UI rounds 1–3 + full-code audit
 
 Full write-ups: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)
 and [`docs/CODE_AUDIT_2026-08-31.md`](docs/CODE_AUDIT_2026-08-31.md) (what was checked,
 what was found, what was deliberately left alone).
+
+### Changed — one click runs the whole night
+The panel read like an assembly manual: eight sections, eleven buttons, and the two
+things worth doing on any given night (Multi-night, Stress) were two clicks you had to
+remember to make. It is now *load an image → press one button → read the tabs*.
+
+* **⚡ Run everything** (`#btnFactory`, section 6) posts `/api/factory_night`
+  (`app/server.py:1318`), which already covers the night: resolved ephemeris →
+  measurement (your uploaded file when one is loaded, a synthetic planet otherwise) →
+  multi-epoch differential → hard-synth stress suite (`factoryHard` now checked by
+  default, so "everything" really means everything). When the result lands,
+  `runEverythingTail()` fills the four panels that endpoint cannot: Transits, the
+  session planner, the Sharpen Lab (only when a real file exists) and the
+  ☄ Deterioration Lab sweep. None of them takes the job slot — two GETs, one
+  synchronous POST and the Lab's own lock — so nothing can 409 behind the night, and
+  the tail runs **quiet**: no `showTab` calls, so it never drags you off the dashboard
+  it just filled. A re-polled result cannot re-run it (`everythingRan`), and a second
+  press explicitly can.
+* The modal in front of the button is gone. It used to ask *"Self-test will process YOUR
+  uploaded file. Continue?"* — the note under the button and the mode badge now say the
+  same thing without intercepting the press.
+* **Multi-night / Stress are still there** for one-off runs, folded into
+  `<details class="steps">` (*"Other buttons, if you want one step alone"*) instead of
+  two always-visible sections competing with the one click.
+* **Deterioration Lab moved to 4th in the tab strip** (it was 8th of 11, off-screen on a
+  phone) and tabs now answer the number keys: `1`…`9`, `0` jump to the 1st–10th tab from
+  anywhere on the page (ignored while typing in a field, in the console, or with ⌘/ctrl
+  held). The strip carries the hint as its tooltip.
+* **Sharpen Lab** (`app/static/app.js`, `runSharpen`) — `/api/sharpen`
+  (`app/server.py:1837`) had *no UI at all*: wavelet / unsharp / Richardson-Lucy existed
+  only for anyone willing to read the source. It sits under the Preview image, is armed
+  only once a real file is loaded, reports the Laplacian variance before → after, and
+  swaps the preview to the sharpened frame so the difference is the thing you are looking at.
+* **Resolution picker** now asks `/api/resolutions` (`app/server.py:464`, previously dead
+  code) and labels each preset with what it buys — `8K: 7680×4320 px`, `16K … May
+  downshift if RAM tight` — instead of leaving 16K as a mystery word.
+* `tests/test_ui_wiring.py::TestBackendIsReachable` scans every `@app.route` and fails if
+  one is not reachable from a control, so a backend feature can no longer ship without a
+  way to press it. Two exemptions, both documented in the test: `/api/file` and
+  `/api/output/*`, which the server uses to *build* URLs it already sends in JSON.
+
+### Fixed — a duplicated test class, so test edits cannot silently do nothing
+`tests/test_ser_io.py` defined `TestSERRobustness` and `TestAVIRoundTrip` twice
+(lines 112 and 205): Python rebinds the name, so the first pair was shadowed and any edit
+to it would have looked like a passing test that never ran. The shadow copy was introduced
+while preparing the previous commit; `ruff --select F811` found it. The duplicate is
+deleted, the collected count is unchanged (15) and the file still passes, and the sweep was
+re-run across every file the last two rounds touched (no other duplicates).
 
 ### Fixed — the web UI throttled itself into a frozen page
 The page polled `/api/logs` + `/api/job` every 600 ms and `/api/nn/status`

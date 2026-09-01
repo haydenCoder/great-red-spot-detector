@@ -9,7 +9,9 @@ the server's request budget and froze the page about 20 seconds after load.
 """
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -21,6 +23,7 @@ sys.path.insert(0, str(APP))
 HTML = (APP / "templates" / "index.html").read_text(encoding="utf-8")
 JS = (APP / "static" / "app.js").read_text(encoding="utf-8")
 CSS = (APP / "static" / "style.css").read_text(encoding="utf-8")
+SERVER = (APP / "server.py").read_text(encoding="utf-8")
 
 
 def _closures(src: str):
@@ -296,6 +299,148 @@ class TestZoomPanAndDrop(unittest.TestCase):
         self.assertIn("runT0 = Date.now()", aj)
         self.assertIn('setStatus("run", `${kind} · ${clock}`)', aj)
         self.assertIn('runKey = "";', aj)                    # cleared once idle
+
+
+
+class TestOneClickNight(unittest.TestCase):
+    """"One click for everything": the CTA, the panels it chains afterwards, the
+    Sharpen Lab that had an endpoint but no UI, and tab findability."""
+
+    def test_factory_button_is_a_single_press(self):
+        self.assertIn("Run everything", HTML)
+        self.assertIn('id="btnFactory"', HTML)
+        handler = JS[JS.index('$("btnFactory").addEventListener'):]
+        handler = handler[: handler.index("\n  });") + 5]
+        self.assertNotIn("confirm(", handler, "one click must not raise a dialog")
+        self.assertIn("pendingEverything = true", handler)
+        self.assertIn('startJob("/api/factory_night"', handler)
+        self.assertIn("factoryHard", handler)
+        self.assertIn('id="factoryHard" checked', HTML, "stress suite is part of 'everything'")
+
+    def test_tail_fills_the_panels_the_night_cannot(self):
+        tail = JS[JS.index("async function runEverythingTail()"):]
+        tail = tail[: tail.index("\n  }\n\n  function CONSOLE_LINE")]
+        for step in ("runTransits", "runSessionPlan", "runSharpen", '$("btnDetRun")'):
+            self.assertIn(step, tail, f"one-click tail never runs {step}")
+        self.assertIn('if (filePath) await step("sharpen"', tail)
+        # fired from the result branch, and only for the night itself
+        aj = JS[JS.index("function applyJobState(j) {"):][: 2200]
+        self.assertIn('pendingEverything && j.result.kind === "factory_night"', aj)
+        self.assertIn("pendingEverything = false;", aj)
+        self.assertIn("everythingRan = 0;", JS[JS.index("async function startJob("):][: 400],
+                      "a second press must be allowed to run the tail again")
+
+    def test_optional_steps_are_folded_away(self):
+        start = HTML.index('<details class="steps">')
+        end = HTML.index("</details>", start)
+        inside = HTML[start:end]
+        for btn in ("btnMulti", "btnHard"):
+            self.assertIn('id="%s"' % btn, inside, f"{btn} should live inside the disclosure")
+        self.assertIn("<summary", inside)
+        # …and the buttons the one click drives stay reachable on their own
+        for btn in ("btnProcess", "btnSynth", "btnFactory"):
+            self.assertNotIn('id="%s"' % btn, inside, f"{btn} must stay outside the disclosure")
+
+    def test_sharpen_lab_is_wired_to_its_endpoint(self):
+        for fn in ("sharpMethod", "sharpAmount", "btnSharpen", "sharpOut"):
+            self.assertIn('id="%s"' % fn, HTML, f"#{fn} missing from markup")
+            self.assertIn('$("%s")' % fn, JS, f"app.js never touches #{fn}")
+        self.assertIn('id="sharpLab"', HTML)
+        self.assertIn(".sharp-lab {", CSS, "Sharpen Lab row has no styling")
+        self.assertIn("showPreview(j.preview", JS, "sharpened result never reaches the preview")
+        call = JS[JS.index("async function runSharpen()"):][: 1400]
+        self.assertIn('fetch("/api/sharpen"', call)
+        self.assertIn("path: filePath", call)
+        self.assertIn("method, amount", call)
+        self.assertIn('$("btnSharpen").disabled = false', JS)   # only after a real file
+        self.assertIn('id="btnSharpen" class="btn ghost" disabled', HTML)
+
+    def test_sharpen_payload_matches_the_server_contract(self):
+        route = SERVER[SERVER.index("def api_sharpen()"):]
+        route = route[: route.index("@app.route", 10)]
+        for key in ('data.get("path")', 'data.get("method")', 'data.get("amount")'):
+            self.assertIn(key, route)
+        allowed = set(re.findall(r'"(wavelet|unsharp|rl)"', route))
+        seg = HTML[HTML.index('id="sharpMethod"'):HTML.index("sharpAmount")]
+        in_ui = set(re.findall(r'<option value="(\w+)"', seg))
+        self.assertTrue(in_ui, "no sharpen methods in the UI")
+        self.assertTrue(in_ui <= allowed, f"UI offers methods the server rejects: {in_ui - allowed}")
+
+    def test_asset_version_follows_the_assets(self):
+        """A UI round that never bumps VERSION must still bust the browser cache,
+        or the fix the user is waiting for stays invisible to them. Executed from
+        source rather than imported, so the check costs no heavy imports."""
+        src = (APP / "server.py").read_text(encoding="utf-8")
+        start = src.index("def _ui_version(")
+        body = src[start: src.index('@app.route("/")', start)]
+        self.assertIn('("app.js", "style.css")', body)
+        ns: dict = {}
+        exec(f"from pathlib import Path\n{body}", ns)
+        ui_version = ns["_ui_version"]
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "app.js").write_text("1", encoding="utf-8")
+            (root / "style.css").write_text("1", encoding="utf-8")
+            v1 = ui_version("7.0", root)
+            self.assertTrue(v1.startswith("7.0."), f"token lost the asset stamp: {v1}")
+            os.utime(root / "app.js", (3_000_000_000, 3_000_000_000))
+            self.assertNotEqual(v1, ui_version("7.0", root), "touching app.js kept the old token")
+            self.assertEqual(ui_version("7.0", root / "absent"), "7.0")   # odd install still renders
+        self.assertIn("app.js?v={{ ui_v or 'dev' }}", HTML)
+        self.assertIn("style.css?v={{ ui_v or 'dev' }}", HTML)
+
+    def test_deterioration_tab_is_in_the_first_screenful(self):
+        tabs = re.findall(r'class="tab[^"]*" id="tabbtn-([a-z-]+)"', HTML)
+        self.assertEqual(len(tabs), 11, f"expected 11 tabs, got {tabs}")
+        self.assertLess(tabs.index("deterioration"), 5,
+                        f"Deterioration Lab is at position {tabs.index('deterioration') + 1} of {len(tabs)}")
+        self.assertEqual(tabs[0], "preview")
+
+    def test_number_keys_jump_to_a_tab(self):
+        start = JS.index("1…9 and 0 jump")
+        h = JS[start: JS.index("});", start) + 3]
+        self.assertIn("/^[1-9]$/.test(k)", h)
+        self.assertIn('TAB_ORDER[k === "0" ? 9 : parseInt(k, 10) - 1]', h)
+        self.assertIn("showTab(name, true)", h)
+        for keep in ("input", "select", "textarea", "[contenteditable]", "[role='log']"):
+            self.assertIn(keep, h, f"the shortcut must not eat typing in {keep}")
+        self.assertIn("e.metaKey || e.ctrlKey || e.altKey", h)
+        self.assertIn("press 1-9 or 0", HTML, "the shortcut is invisible without a hint")
+
+class TestBackendIsReachable(unittest.TestCase):
+    """"Everything in my code is in this UI", pinned: every Flask route must be
+    mentioned by app.js — either fetched directly or handed to startJob — except
+    the two the server uses to *build* URLs it already sends to the browser, plus
+    one orphan kept as an API surface. A new route with no UI shows up here."""
+
+    # server emits these itself (inside JSON payloads / <img src>) → reachable
+    # through a result, and /api/output/* is an external API with no caller.
+    SERVER_BUILT = ("/api/file", "/api/output")   # compared after "<" is stripped
+
+    def test_every_route_is_reachable_from_the_page(self):
+        routes = sorted(set(re.findall(r'@app\.route\(\s*"([^"]+)"', SERVER)))
+        self.assertGreaterEqual(len(routes), 34, "route scan found too few routes — regex drift?")
+        orphans = []
+        for r in routes:
+            if r in ("/", "/favicon.ico", "/static/<path:filename>"):
+                continue
+            lit = r.split("<")[0].rstrip("/")
+            if lit in self.SERVER_BUILT:
+                continue
+            if lit not in JS:
+                orphans.append(r)
+        self.assertFalse(orphans, f"routes no page control can reach: {orphans}")
+
+    def test_resolution_table_is_used_by_the_picker(self):
+        self.assertIn('fetch("/api/resolutions")', JS)
+        self.assertIn('id="resHint"', HTML)
+        self.assertIn("$(\"resolution\")?.addEventListener(\"change\", paintResHint)", JS)
+        # …and every option the picker offers is a preset the pipeline accepts
+        seg = HTML[HTML.index('id="resolution"'): HTML.index("</select>", HTML.index('id="resolution"'))]
+        opts = set(re.findall(r'<option value="([\w]+)"', seg))
+        self.assertEqual(opts, {"auto", "1080p", "4K", "8K", "16K"})
+        for o in opts - {"auto"}:
+            self.assertIn(f'"{o}"', SERVER, f"preset {o} is not accepted by the server")
 
 
 if __name__ == "__main__":

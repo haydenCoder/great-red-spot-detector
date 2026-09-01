@@ -161,21 +161,30 @@
               <option value="16K">16K (may downshift)</option>
             </select>
           </label>
+          <p class="muted small" id="resHint" hidden></p>
           <p class="muted small">Always picks a <strong>random UTC epoch</strong>. Session time above is ignored.</p>
           <label class="check"><input type="checkbox" id="synthProcess" checked /> Measure after generate</label>
           <button type="button" id="btnSynth" class="btn accent">Generate synthetic</button>
         </div>
 
-        <div class="mode-section factory">
-          <h2>6 · Self-test night (optional)</h2>
-          <p class="mode-tag">With a file loaded → processes <strong>your</strong> image. Without → synthetic test.</p>
-          <label class="check"><input type="checkbox" id="factoryHard" /> Include stress suite (slower)</label>
-          <button type="button" id="btnFactory" class="btn factory">Run self-test night</button>
+        <div class="mode-section factory oneclick">
+          <h2>6 · One click — the whole night</h2>
+          <p class="mode-tag">Pro ephemeris → measure <strong>your</strong> image (synthetic if none) →
+             multi-night drift → stress suite → then Transits, the session planner, Sharpen Lab and
+             the Deterioration Lab fill themselves.</p>
+          <label class="check"><input type="checkbox" id="factoryHard" checked /> Include stress suite (slower)</label>
+          <button type="button" id="btnFactory" class="btn factory big">⚡ Run everything</button>
+          <p class="muted small" id="oneClickNote">Nothing else needs to be pressed. The buttons under
+            “step-by-step” are only for running one stage alone.</p>
         </div>
 
-        <h2>7 · Extra tools</h2>
-        <button type="button" id="btnMulti" class="btn primary">Multi-night drift</button>
-        <button type="button" id="btnHard" class="btn accent">Stress suite</button>
+        <details class="steps">
+          <summary id="stepsSummary">Step-by-step (optional) — Multi-night, stress suite</summary>
+          <div class="btn-row">
+            <button type="button" id="btnMulti" class="btn primary">Multi-night drift</button>
+            <button type="button" id="btnHard" class="btn accent">Stress suite</button>
+          </div>
+        </details>
 
         <h2>8 · SPIRE-Net (weights are frozen)</h2>
         <p class="muted small">Training is not needed for normal use. Weights ship with the app and stay fixed so results stay stable.</p>
@@ -202,10 +211,12 @@
 
       <section class="panel center" aria-label="Workspace">
         <div class="tabs-wrap">
-          <div class="tabs" role="tablist" aria-label="Workspaces" id="tabStrip">
+          <div class="tabs" role="tablist" aria-label="Workspaces" id="tabStrip"
+               title="Tabs: press 1-9 or 0 on the keyboard to jump straight to one">
             <button type="button" class="tab active" id="tabbtn-preview" data-tab="preview" role="tab" aria-selected="true" aria-controls="tab-preview" tabindex="0">Preview</button>
             <button type="button" class="tab" id="tabbtn-dashboard" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" tabindex="-1">Dashboard</button>
             <button type="button" class="tab" id="tabbtn-results" data-tab="results" role="tab" aria-selected="false" aria-controls="tab-results" tabindex="-1">Full report</button>
+            <button type="button" class="tab hot" id="tabbtn-deterioration" data-tab="deterioration" role="tab" aria-selected="false" aria-controls="tab-deterioration" tabindex="-1">☄ Deterioration Lab</button>
             <button type="button" class="tab" id="tabbtn-eph" data-tab="eph" role="tab" aria-selected="false" aria-controls="tab-eph" tabindex="-1">Ephemeris</button>
             <button type="button" class="tab" id="tabbtn-multi" data-tab="multi" role="tab" aria-selected="false" aria-controls="tab-multi" tabindex="-1">Multi-night</button>
             <button type="button" class="tab" id="tabbtn-hard" data-tab="hard" role="tab" aria-selected="false" aria-controls="tab-hard" tabindex="-1">Stress</button>
@@ -213,7 +224,6 @@
             <button type="button" class="tab" id="tabbtn-video" data-tab="video" role="tab" aria-selected="false" aria-controls="tab-video" tabindex="-1">Video</button>
             <button type="button" class="tab" id="tabbtn-transits" data-tab="transits" role="tab" aria-selected="false" aria-controls="tab-transits" tabindex="-1">Transits</button>
             <button type="button" class="tab" id="tabbtn-analysis" data-tab="analysis" role="tab" aria-selected="false" aria-controls="tab-analysis" tabindex="-1">Analysis</button>
-            <button type="button" class="tab hot" id="tabbtn-deterioration" data-tab="deterioration" role="tab" aria-selected="false" aria-controls="tab-deterioration" tabindex="-1">☄ Deterioration Lab</button>
           </div>
           <span class="tab-ink" id="tabInk" aria-hidden="true"></span>
         </div>
@@ -228,6 +238,20 @@
               <button type="button" id="btnZoomIn" title="Zoom in (or press +)" aria-label="Zoom in">+</button>
               <span id="zoomHint" class="zoom-hint">wheel: zoom · drag: pan</span>
             </span>
+          </div>
+          <div class="sharp-lab" id="sharpLab">
+            <label class="sl-field">Sharpen
+              <select id="sharpMethod">
+                <option value="wavelet" selected>Wavelet (safe)</option>
+                <option value="unsharp">Unsharp mask</option>
+                <option value="rl">Richardson–Lucy</option>
+              </select>
+            </label>
+            <label class="sl-field sl-amount">Amount <output id="sharpAmountOut">1.0×</output>
+              <input type="range" id="sharpAmount" class="slider" min="0.2" max="3" step="0.1" value="1" aria-label="Sharpen amount" />
+            </label>
+            <button type="button" id="btnSharpen" class="btn ghost" disabled title="Needs an uploaded image">Sharpen my image</button>
+            <span id="sharpOut" class="muted small">Measures sharpness before/after (Laplacian variance) and shows the result in this pane.</span>
           </div>
           <div class="preview-wrap" id="previewWrap">
             <img id="previewImg" alt="Jupiter / GRS preview" />

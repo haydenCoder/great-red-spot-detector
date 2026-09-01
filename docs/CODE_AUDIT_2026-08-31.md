@@ -322,3 +322,46 @@ The same working tree also carries the second UI round (whole-window file drop, 
 zoom/pan, elapsed-time status pill) and 11 new `tests/test_ui_wiring.py` guards for them;
 those are described in the CHANGELOG entry for this release rather than here, since none of
 them changed a number anyone publishes.
+
+
+---
+
+## Addendum — 2026-09-01 (UI round 3: one click, dead endpoints, one self-inflicted defect)
+
+The third round was driven by *"make sure everything in my code is in this UI and no more
+multi-night or something, I want only one click for everything"*. Auditing that claim
+meant mapping all 34 Flask routes onto page controls, which found three things.
+
+| Finding | Evidence | Decision |
+| --- | --- | --- |
+| **Two endpoints had no UI at all** | `POST /api/sharpen` (`server.py:1837`, the only way to reach wavelet/unsharp/Richardson-Lucy sharpening) and `GET /api/resolutions` (`server.py:464`) were referenced by nothing in `app.js`. Earlier greps for `fetch("/api/…` missed the job endpoints because those are dispatched through `startJob(url, …)` — the coverage check now looks at both. | Sharpen Lab added to the Preview pane; resolution picker now labels itself from the server table. Both are wired, not removed: they are science features that had simply never been connected. |
+| **`/api/output/<job_id>/<path:filename>` has no caller anywhere** (app, tools, tests) | `_find_output_dir(job_id)` + traversal-guarded `send_from_directory`; nothing emits the URL, unlike `/api/file?path=…` which the server puts into JSON payloads. | **Left alone and unwired.** The route is a working, hardened read-only API that an external tool can use; inventing a UI around an unknown `job_id` convention would be guesswork. Noted as an orphan rather than deleted. |
+| **A7 — duplicated test classes** | `tests/test_ser_io.py` defined `TestSERRobustness`/`TestAVIRoundTrip` twice (112/205); the second definitions shadowed the first, so the first copy's edits would have been inert. Introduced by the previous commit while its patch scripts were being written; `ruff --select F811` caught it. | Duplicate pair deleted after diffing the two blocks to prove they were byte-identical (no coverage lost: 15 tests before and after). Every file touched in the last two rounds was re-scanned with an AST pass for top-level and in-class redefinitions — clean. |
+
+One design decision worth recording: the one-click tail deliberately **does not** switch tabs.
+`runTransits`/`runSessionPlan` take a `{quiet: true}` flag when the tail calls them, because a
+click that filled each panel *and* yanked the visible pane four times in a row would leave the
+user reading the last panel instead of the answer. The note under the button names what was
+filled and tells you to press `4` for the still-running sweep.
+
+### `/api/sharpen` — first exercise of the endpoint, and what the readout must therefore say
+
+Nothing in the repo had ever called it, so the round wired it up and then measured it against a
+deliberately soft synthetic capture (320×240 PNG, red-spot ellipse, 12 % uniform noise added
+after the edges were drawn), through the live server with the exact JSON the browser sends
+(`{"path": …, "method": …, "amount": 1.8}`):
+
+| method | Laplacian variance before → after | ratio |
+| --- | --- | --- |
+| `wavelet` | 4.206e-3 → 3.032e-6 | ×0.0007 |
+| `unsharp` | 4.206e-3 → 3.297e-2 | ×7.84 |
+| `rl` | 4.206e-3 → 6.789e-3 | ×1.62 |
+
+Two things came out of that. The numbers live in 1e-3…1e2, so `toFixed(1)` in the UI would have
+printed `0.0 → 0.0` and hidden the entire result — the readout now uses adaptive precision plus a
+ratio. And `wavelet` *lowers* Laplacian variance here, because that statistic counts noise as edge
+energy and the wavelet step removes noise: the panel therefore states what the number is
+(“higher means more edge energy, noise counts as edge energy too”) instead of implying that a
+smaller number is a worse image. An unknown method returns a clean `400 {"error": "unknown method
+'nope'"}`, which the panel prints verbatim; `amount` outside 0.1–4 is clamped server-side, so the
+slider’s range is advisory rather than load-bearing.

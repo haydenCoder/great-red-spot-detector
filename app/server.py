@@ -343,15 +343,29 @@ ACCURACY_TIPS = [
 ]
 
 
+def _ui_version(base="0", static_dir=None):
+    """Cache-busting token for the two hand-edited assets.
+
+    PRODUCT_VERSION alone is not enough: a UI round that touches only app.js and
+    style.css never bumps the version, so every browser keeps running the file it
+    cached. The mtime of the assets is what actually changes when the UI does.
+    """
+    static = Path(static_dir) if static_dir else Path(__file__).resolve().parent / "static"
+    try:
+        stamp = max(int((static / n).stat().st_mtime) for n in ("app.js", "style.css"))
+    except OSError:
+        return str(base)                    # unpacked/odd install: version alone is fine
+    return f"{base}.{stamp:x}"
+
+
 @app.route("/")
 def index():
-    # The static asset query string is the cache-buster; deriving it from the
-    # product version means a release can never ship a stale ?v= literal.
+    # The static asset query string is the cache-buster; see _ui_version.
     try:
-        from product_core import PRODUCT_VERSION as _ui_v
+        from product_core import PRODUCT_VERSION as _base_v
     except Exception:
-        _ui_v = _version_fallback()
-    return render_template("index.html", ui_v=_ui_v)
+        _base_v = _version_fallback()
+    return render_template("index.html", ui_v=_ui_version(_base_v))
 
 
 @app.route("/api/health")

@@ -341,6 +341,15 @@ class TestOneClickNight(unittest.TestCase):
         self.assertIn("return null", summary)      # no stages object -> say nothing, not everything
         self.assertIn("runEverythingTail(j.result)", JS)
 
+    def test_a_night_that_never_started_leaves_no_pending_tail(self):
+        # otherwise the next unrelated factory result would fire the whole tail
+        self.assertIn("failEverything(j.error);", JS)
+        self.assertIn("failEverything(String(e));", JS)
+        f = JS[JS.index("function failEverything("):][: 600]
+        self.assertIn("if (!pendingEverything) return;", f)
+        self.assertIn("pendingEverything = false;", f)
+        self.assertIn("Nothing else was run.", f)
+
     def test_optional_steps_are_folded_away(self):
         start = HTML.index('<details class="steps">')
         end = HTML.index("</details>", start)

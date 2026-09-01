@@ -1190,6 +1190,14 @@
 
   function CONSOLE_LINE() { /* the server console already logged the night; nothing to add */ }
 
+  function failEverything(reason) {
+    // a night that never started must not leave a pending flag behind — the next
+    // unrelated factory result would otherwise trigger the whole tail
+    if (!pendingEverything) return;
+    pendingEverything = false;
+    setText("oneClickNote", `The night did not start${reason ? `: ${reason}` : ""}. Nothing else was run.`);
+  }
+
   async function startJob(url, body, statusText) {
     if (!body) return;
     everythingRan = 0;
@@ -1212,12 +1220,14 @@
         setStatus("err", "ERROR");
         setBusy(false);
         wasRunning = false;
+        failEverything(j.error);
       }
     } catch (e) {
       alert(String(e));
       setStatus("err", "ERROR");
       setBusy(false);
       wasRunning = false;
+      failEverything(String(e));
     }
   }
 

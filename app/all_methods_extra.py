@@ -577,7 +577,7 @@ def m_watershed(cyl, nav, lon_iii, lat) -> MethodHit:
                                 lon_iii, lat, weight=2.0,
                                 note="Watershed/basin of inverted GRS bowl")
     except Exception as e:
-        raise RuntimeError(str(e))
+        raise RuntimeError(str(e)) from e   # keep the original traceback as the cause
 
 
 # ---------- structure tensor / radial symmetry ----------
@@ -608,7 +608,7 @@ def m_structure_tensor(cyl, nav, lon_iii, lat) -> MethodHit:
                                 lon_iii, lat, weight=1.7,
                                 note="Structure-tensor energy × dark mass")
     except Exception as e:
-        raise RuntimeError(str(e))
+        raise RuntimeError(str(e)) from e   # keep the original traceback as the cause
 
 
 def m_radial_symmetry(cyl, nav, lon_iii, lat) -> MethodHit:

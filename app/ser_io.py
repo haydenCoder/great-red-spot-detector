@@ -492,7 +492,8 @@ def write_avi(
     strl = _alist(b"strl", _chunk(b"strh", strh) + _chunk(b"strf", bih))
     hdrl = _alist(b"hdrl", _chunk(b"avih", avih) + strl)
 
-    movi_payload = bytearray()
+    movi_body = bytearray()
+    idx: list = []
     for f in frames:
         a = np.asarray(f)
         if a.shape[:2] != (h, w):
@@ -506,10 +507,18 @@ def write_avi(
             rows = np.zeros((h, row_bytes), dtype=np.uint8)
             rows[:, :w] = a
         frame_bytes = rows[::-1].tobytes()          # bottom-up
-        movi_payload += _chunk(b"00db", frame_bytes)
-    movi = _alist(b"movi", bytes(movi_payload))
+        # dwOffset is measured from the start of the movi LIST body, so record
+        # it before this frame's chunk is appended.
+        idx.append(struct.pack("<4sIII", b"00db", 0x10, len(movi_body),
+                               len(frame_bytes)))
+        movi_body += _chunk(b"00db", frame_bytes)
+    # The 'avih' header sets AVIF_HASINDEX, which promises this index; without it
+    # the file only plays by accident (seeking fails, and strict demuxers such as
+    # DirectShow/VirtualDub reject the stream). idx1 is a multiple of 2 bytes, so
+    # _chunk adds no pad and the recorded offsets stay exact.
+    movi_body += _chunk(b"idx1", b"".join(idx))
+    movi = _alist(b"movi", bytes(movi_body))
 
-    idx_entries = []
     return path_write_riff(path, hdrl + movi)
 
 

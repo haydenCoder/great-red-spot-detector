@@ -322,5 +322,57 @@ class TestZonalDerotator(unittest.TestCase):
         self.assertTrue(gate_ap_track(nav, (256.0, 192.0), 0.0, -19.0, -16.0))
 
 
+
+class TestApLatitude(unittest.TestCase):
+    """The per-AP latitude that bins the zonal-wind prior must be the latitude
+    the engine publishes. Regression guard for the thin-sky `asin(Y*cos D)`
+    approximation this replaced (it returned 0 deg at the disc centre and
+    drifted to ~10 deg p99 near the limb, mis-binning the per-AP wind prior)."""
+
+    A = 400.0
+    XC = YC = 512.0
+    FLAT = 1.0 / 15.4
+
+    def test_centre_ap_returns_sub_lat_deg(self):
+        from jupiter_zonal_stacker import _ap_latitude
+        for sub in (0.0, 0.67, 3.0, -3.4):
+            got = _ap_latitude((self.XC, self.YC), (self.XC, self.YC), self.A,
+                               sub_lat_deg=sub, north_pa_deg=343.4)
+            self.assertAlmostEqual(got, sub, places=6,
+                                   msg=f"centre AP at sub-lat {sub}")
+
+    def test_matches_engine_across_disc(self):
+        from jupiter_zonal_stacker import _ap_latitude, _ap_on_disk
+        from precision_engine import NavState, px_to_lonlat_vec
+        ys, xs = np.mgrid[112.0:912.0:8.0, 112.0:912.0:8.0]
+        for sub, pa in ((0.0, 0.0), (0.67, 343.4), (3.0, 343.4), (-3.4, 20.0)):
+            ns = NavState(xc=self.XC, yc=self.YC, a_eq_px=self.A,
+                          flattening=self.FLAT, cm_iii_deg=0.0, distance_au=5.2,
+                          sub_lat_deg=sub, north_pa_deg=pa)
+            _, lat_true = px_to_lonlat_vec(ys.ravel(), xs.ravel(), ns)
+            on = np.array([_ap_on_disk(float(x), float(y), self.XC, self.YC,
+                                       self.A, pa, self.FLAT)
+                           for x, y in zip(xs.ravel(), ys.ravel())])
+            self.assertGreater(int(on.sum()), 1000, "grid should cover the disc")
+            got = np.array([
+                _ap_latitude((float(x), float(y)), (self.XC, self.YC), self.A,
+                             sub_lat_deg=sub, north_pa_deg=pa,
+                             flattening=self.FLAT)
+                for x, y in zip(xs.ravel()[on], ys.ravel()[on])])
+            err = np.abs(got - lat_true[on])
+            self.assertTrue(np.all(np.isfinite(got)), "AP latitude must stay finite")
+            self.assertLess(float(err.max()), 1e-6,
+                            f"sub={sub} pa={pa}: max deviation {err.max():.3g} deg")
+
+    def test_off_disc_still_finite(self):
+        from jupiter_zonal_stacker import _ap_latitude
+        got = _ap_latitude((self.XC + 5000.0, self.YC), (self.XC, self.YC), self.A,
+                           sub_lat_deg=3.0, north_pa_deg=343.4)
+        # No real spheroid intersection out there: the thin-sky fallback clips,
+        # so the contract is "finite and within ±90", never NaN into the prior.
+        self.assertTrue(math.isfinite(got))
+        self.assertLessEqual(abs(got), 90.0)
+
+
 if __name__ == "__main__":
     unittest.main()

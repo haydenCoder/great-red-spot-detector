@@ -201,7 +201,7 @@ def fetch_horizons_full(
     center = "'500@399'"  # geocenter default
     if abs(site_lat) > 0.01 or abs(site_lon) > 0.01:
         # custom site: lon, lat, elev — Horizons coord format
-        center = f"coord@399"  # will also set SITE_COORD if supported; geocenter fallback
+        center = "coord@399"  # will also set SITE_COORD if supported; geocenter fallback
     params = {
         "format": "text",
         "COMMAND": "'599'",

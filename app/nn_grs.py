@@ -686,7 +686,7 @@ class SpireNet:
         meta_path = use.with_name("spire_net_meta.json")
         if meta_path.exists():
             try:
-                meta = json.loads(meta_path.read_text())
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 net.train_history = meta.get("history", [])
             except Exception:
                 pass

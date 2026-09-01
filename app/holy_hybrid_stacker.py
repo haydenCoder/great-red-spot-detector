@@ -470,6 +470,10 @@ def _fit_rbf_velocity_field(
     sigma: float, quality: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
+    NOTE (audit 2026-08-31): this fitter no longer has a production caller —
+    `stack_holy_grail` used to call it once per frame and discard the field. It is
+    kept for the per-AP warp path and its unit tests.
+
     Like `_fit_velocity_field` but uses quality-weighted RBF: APs with
     lower quality contribute less to the interpolated velocity field.
     This is the RBF term of the physics prior.
@@ -745,7 +749,16 @@ def run_holy_hybrid(
                 drift_vectors_for_r0.append(phys_drift)
                 if len(drift_vectors_for_r0) > 50:
                     drift_vectors_for_r0 = drift_vectors_for_r0[-50:]
-    # 4) RBF velocity field per frame, quality-weighted
+    # 4) Per-frame shift. This used to fit a quality-weighted RBF velocity field
+    #    for every frame and then *discard* it: `_fit_rbf_velocity_field` ends in
+    #    a Gaussian elimination over all APs, so `stack_holy_grail` was paying one
+    #    full solve per frame (measured 43-74 ms at 121-441 APs, i.e. 17-30 s on a
+    #    400-frame run) for a field nothing ever sampled. The global shift below is
+    #    what `warp_to_reference` actually consumes (a single (dx, dy)), and the
+    #    per-frame rotation is applied separately in `_track_and_derotate` (its
+    #    result is reported through `derot_deg` / `derot_source`).
+    #    `sigma_rbf` stays because it is a *published* diagnostic
+    #    (`rbf_smoothness_sigma`), so its value is computed exactly as before.
     sigma_rbf = max(2.0, float(np.median(np.linalg.norm(
         aps[1:] - aps[:-1], axis=1
     )) * 1.5)) if aps.shape[0] > 1 else 5.0
@@ -754,10 +767,6 @@ def run_holy_hybrid(
         valid = np.isfinite(map_drift[k, :, 0])
         if not valid.any():
             continue
-        vfield = _fit_rbf_velocity_field(
-            aps[valid], map_drift[k, valid], (h, w),
-            sigma=sigma_rbf, quality=map_quality[k, valid],
-        )
         # Equatorial-band median shift
         cy, cx = h / 2.0, w / 2.0
         eq_ap_idx = np.where(eq_band & valid)[0]

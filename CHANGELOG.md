@@ -3,9 +3,131 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
-## [Unreleased] — deterioration audit + Deterioration Lab
+## [Unreleased] — UI rounds 1–2 + full-code audit
 
-Full write-up: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md).
+Full write-ups: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)
+and [`docs/CODE_AUDIT_2026-08-31.md`](docs/CODE_AUDIT_2026-08-31.md) (what was checked,
+what was found, what was deliberately left alone).
+
+### Fixed — the web UI throttled itself into a frozen page
+The page polled `/api/logs` + `/api/job` every 600 ms and `/api/nn/status`
+every 1200 ms — ~250 requests/min against a 90/min budget — so about 20
+seconds after opening, *every* answer became a 429. The console stopped,
+**Process** looked dead (the finished job was never fetched), and the
+Deterioration progress bar froze at 5%. Read-only polling now has its own
+budget (`security_hard.POLL_ENDPOINTS`, 900/min default) and its own hit
+queue, the three polls are folded into one `/api/status` snapshot, idle
+polling slows to ~2 s, a hidden tab does not poll at all, and a failing
+server gets exponential backoff plus a visible RETRY/OFFLINE pill instead of
+a silently stuck screen. Uploads, job starts and file reads keep the tight
+90/min budget.
+
+### Fixed — Deterioration Lab results never rendered
+`app.js` shipped two independent closures; the Deterioration one called
+`esc()`, which only exists in the closure above it. So the first
+`ReferenceError` killed the tips list, and the next one fired mid-`render()` —
+after the charts, before the method-survival bars and the raw matrix — with
+the error swallowed by a `catch`. A local `esc`, per-section render guards,
+and an explicit redraw when the tab becomes visible (a canvas inside a hidden
+pane measures 0) fix it.
+
+### Fixed — the zonal stacker binned alignment points by the wrong latitude
+`jupiter_zonal_stacker._ap_latitude` used a thin-sky `asin(Y*cos D)` shortcut that
+contradicted its own docstring: it returned 0° at the disc centre where the truth is the
+sub-Earth latitude, and drifted to ~10° p99 / ~21° near the limb (up to ~2.9° *inside* the
+GRS band at this season's +3° sub-Earth latitude). That latitude selects the per-AP
+zonal-wind rate used as the derotation prior. It now uses
+`precision_engine.px_to_lonlat_vec` — the exact oblate-spheroid solve the engine publishes
+measurements with — matching the sibling fix already shipped in
+`planetary_stacker._ap_latitudes`; the old form survives only as the off-limb fallback.
+**JUP_ZONAL stacks may shift slightly; re-pin the campaign if you cite them.**
+
+### Fixed — 17–30 seconds of every `stack_holy_grail` run was discarded
+Step 4 fitted a quality-weighted RBF velocity field for *each frame* and never read it
+(43–74 ms of Gaussian elimination per frame at 121–441 APs). Removed; the equatorial-band
+median shift it sat next to is what `warp_to_reference` actually consumes. `sigma_rbf` is
+kept because it also feeds the published `rbf_smoothness_sigma` diagnostic — removing the
+call naively breaks the result JSON, which is why the removal is pinned by a spy test.
+
+### Fixed — AVI exports advertised an index they did not have
+`write_avi` set `AVIF_HASINDEX` in `avih` and wrote `hdrl + movi` with no `idx1`, so the
+files played by luck and would not seek (DirectShow/VirtualDub-class tools reject them).
+The index is now written with per-frame chunk ids, offsets from the `movi` body and exact
+byte sizes, including the odd-width pad case.
+
+### Hardened — a mis-weighted stack can no longer be silent
+`planetary_stacker._robust_combine` (<3 frames) zipped weights against frames, so a short
+weight list silently dropped frames while still normalising. It now raises
+`ValueError: _robust_combine: N frames but M weights`. Also removed dead code found by the
+sweep (`safe_name` in `/api/upload`, `t_ref`/`epoch_s` in `filter_wheel`, `best` in
+`grs_image_prep`, an unused unpack in `result_report`) and added `raise ... from e` in
+`all_methods_extra` so the original traceback stays chained.
+
+### Fixed — report files were written with the machine's locale
+`app/` had 26 text reads/writes with no explicit `encoding=` (12 of them the
+`job_result.json` dumps in `server.py`, `filter_wheel`'s human report, the CSV writers in
+`grs_drift`/`wind_analysis`, two JSON readers). `Path.write_text` follows
+`locale.getpreferredencoding(False)`, so on a non-UTF-8 box (`LC_ALL=C`, cron, a container
+without a locale) a write containing σ/°/″/— raises `UnicodeEncodeError` *after* the
+expensive part of the run, or mangles the file. The filter-wheel `.txt` was already a live
+failure there; the rest were one `ensure_ascii=False` away from becoming one. All 28 now
+say `encoding="utf-8"`. Pinned structurally by `tests/test_text_encoding.py` (an AST sweep
+with its own self-test), because `ruff`'s `PLW1514` only looks at `open()` and never at
+`write_text`.
+
+### Improved — drop a capture anywhere, zoom the preview, and see the job tick
+- **Whole-window file drop**: drag a `.ser`/`.avi`/`.fits`/`.png` onto any part of the
+  window and it uploads, with a dashed overlay that names the file it will load. Drops
+  inside an existing drop zone are still handed to that zone, so nothing uploads twice,
+  and text/link drags are ignored (the overlay keys on `dataTransfer.types`, not on drop).
+- **Preview zoom + pan**: `⌘`/`ctrl`+wheel (or a trackpad pinch) to zoom from the fitted
+  view, plain wheel to keep zooming once you are in — the preview sits inside a scrolling
+  column, so a plain wheel at 100% is deliberately left to the page instead of hijacking
+  it. 100–1400%, drag to pan while zoomed, double-click to toggle 300%/fit, `+`/`-`/`0`
+  when the pane has focus, and a −/%/+ readout in the meta row. Zooming grows the image width instead of using a CSS transform, and the box centres
+  with `safe center`, so no part of an enlarged disc is unreachable behind the scroll origin.
+  The wrap opts itself out of tab-swiping only while zoomed, so a swipe still works at
+  100%; loading a different image resets the zoom.
+- **Status pill while running**: `PROCESS · 1:47` instead of a bare `RUN` — the job kind and
+  elapsed time, so a long stack reads as working rather than frozen.
+
+### Improved — the sliding parts now slide
+- **Controls drawer** (≤900px, the only way to reach any control on a phone):
+  drags with the finger from the edge or the sheet itself, snaps on distance
+  *or* flick velocity, fades the backdrop in step (it used to swap `display`,
+  which cancels the transition), is `inert` + unfocusable when closed, traps
+  and restores focus, and locks page scroll on `html` *and* `body` (iOS only
+  honours one).
+- **Tabs**: sliding indicator under the active tab, the active tab is scrolled
+  into view when a job jumps tabs on its own, ←/→/Home/End keyboard nav with a
+  roving tabindex, real `tablist` ARIA wiring, and a touch swipe (rubber-banded
+  at both ends, never stolen from a code block, canvas or form control).
+- **Time slider**: custom cross-browser track with a filled progress run and a
+  22px thumb, 24h scale, `aria-valuetext`, and `touch-action: none` so the drag
+  stops being ambiguous. The old markup nested a `div` inside a `<label>`.
+- **Live console** no longer yanks you to the bottom mid-read: scrolling up
+  pauses follow, a "N new ↓" chip appears, the DOM is capped at 700 lines, and
+  `ts`/`level` are escaped like the message.
+- `color-scheme: dark` so the native date picker and scroll widgets stop
+  rendering light-on-dark; static assets are cache-busted from `VERSION`
+  instead of a hardcoded `?v=6.5.1` that had gone stale releases ago.
+- Clicking a drop zone no longer re-triggers the file input through its own
+  bubbled click (a picker that appears to never open).
+- `GRS_ALLOW_FRAME` relaxes `frame-ancestors` for sandboxed/tunnelled
+  previews; default stays `DENY`.
+
+### Tests
+25 static wiring regressions in `tests/test_ui_wiring.py`: JS↔DOM id contract,
+tab/pane pairing, ARIA completeness, helper scope per closure, separate rate
+buckets, single-endpoint polling, reduced-motion coverage, and the zoom/drop
+hooks (the CSS selectors they depend on, the swipe opt-out, the drop hand-off,
+the elapsed pill). Plus audit regressions: `TestApLatitude` (3),
+`test_discarded_rbf_solve_stays_gone` / `test_rbf_smoothness_sigma_is_still_published`,
+and `test_avi_index_written`, and `tests/test_text_encoding.py` (3). `pytest tests -m "not
+slow"` after all of it: 520 passed, 16 skipped, 1 pre-existing `spiceypy` failure (it fails
+the same way on the base commit).
+Non-slow suite: 501 passed, 16 skipped (1 pre-existing failure in
+`test_smoke_detailed.py` needs `spiceypy`, which is not installed here).
 
 ### Added — Deterioration Lab (web UI)
 New `app/deterioration_lab.py` + orange **Deterioration Lab** tab: sweeps

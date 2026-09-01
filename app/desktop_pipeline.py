@@ -437,7 +437,7 @@ def run_synthetic_full(
     eb = methods.get("error_budget") or {}
     vf = methods.get("vlbi_full") or {}
     if isinstance(vf, dict):
-        (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str))
+        (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str), encoding="utf-8")
 
     nasa_rep = None
     if nasa:
@@ -873,7 +873,7 @@ def run_process_full(
     eb = methods.get("error_budget") or {}
     vf = methods.get("vlbi_full") or {}
     if isinstance(vf, dict):
-        (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str))
+        (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str), encoding="utf-8")
 
     nasa_rep = None
     if nasa:

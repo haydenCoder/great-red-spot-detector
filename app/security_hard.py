@@ -56,20 +56,62 @@ class SecurityError(PermissionError):
 
 
 # --- Simple per-IP rate limit (in-process) ---
+#
+# Two budgets, not one. The web UI is a *live* page: while a job runs it polls
+# the log tail, the job slot and the NN status several times a second just to
+# keep the screen still. When every request drew from one 90/min budget, a
+# freshly loaded tab throttled itself into 429s about 20 s after opening —
+# after that the console froze, "Process" looked dead, and the Deterioration
+# Lab progress bar stuck at 5%. Read-only polling therefore gets its own
+# (much larger) budget and its own hit queue, so it can never starve the
+# endpoints that actually start work or touch the filesystem.
 _rl_lock = threading.Lock()
 _rl_hits: Dict[str, Deque[float]] = defaultdict(deque)
 _RL_WINDOW_S = 60.0
 _RL_MAX = int(os.environ.get("GRS_RATE_LIMIT_PER_MIN", "90"))
+_RL_POLL_MAX = int(os.environ.get("GRS_POLL_RATE_LIMIT_PER_MIN", "900"))
+
+# Cheap, side-effect-free GETs: the page itself plus what the live tab polls.
+# Everything with consequences — uploads, job starts, file reads — keeps the
+# tight budget.
+POLL_ENDPOINTS: Set[str] = {
+    "/",
+    "/api/logs",
+    "/api/job",
+    "/api/status",
+    "/api/nn/status",
+    "/api/health",
+    "/api/capabilities",
+    "/api/tips",
+    "/api/regions",
+    "/api/countries",
+    "/api/resolutions",
+    "/api/deterioration",
+    "/api/deterioration/tips",
+}
 
 
-def rate_limit_ok(client_key: str, *, max_per_min: Optional[int] = None) -> bool:
-    """Return False if client exceeded request budget."""
-    limit = max_per_min if max_per_min is not None else _RL_MAX
+def rate_bucket(path: str, method: str = "GET") -> str:
+    """Which request budget a call draws from: ``"poll"`` or ``"mutate"``."""
+    if (method or "GET").upper() == "GET" and str(path or "") in POLL_ENDPOINTS:
+        return "poll"
+    return "mutate"
+
+
+def rate_limit_ok(client_key: str, *, max_per_min: Optional[int] = None, bucket: str = "mutate") -> bool:
+    """Return False if client exceeded the request budget for ``bucket``.
+
+    Queues are keyed per (client, bucket) so polling cannot consume the budget
+    that protects job starts, and vice versa.
+    """
+    limit = max_per_min if max_per_min is not None else (
+        _RL_POLL_MAX if bucket == "poll" else _RL_MAX
+    )
     if limit <= 0:
         return True
     now = time.time()
     with _rl_lock:
-        q = _rl_hits[client_key]
+        q = _rl_hits[f"{client_key}|{bucket}"]
         while q and now - q[0] > _RL_WINDOW_S:
             q.popleft()
         if len(q) >= limit:
@@ -176,9 +218,24 @@ def strip_control_chars(s: str, max_len: int = 500) -> str:
 
 
 def security_headers() -> Dict[str, str]:
-    return {
+    """Response headers for the web UI.
+
+    Framing is denied by default (this app reads files off the local disk, so
+    it must not be embeddable by strangers). When the UI is intentionally
+    served through something that embeds it — a sandboxed preview, a tunneled
+    dashboard — set ``GRS_ALLOW_FRAME`` to the embedding origin, a
+    space-separated origin list, or ``*``. That relaxes ``frame-ancestors``
+    only; every other header is unchanged.
+    """
+    allow = (os.environ.get("GRS_ALLOW_FRAME") or "").strip()
+    if allow.lower() in ("*", "1", "true", "yes", "any"):
+        ancestors = "*"
+    elif allow:
+        ancestors = allow
+    else:
+        ancestors = "'none'"
+    headers = {
         "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
         "Referrer-Policy": "no-referrer",
         "Content-Security-Policy": (
             "default-src 'self'; "
@@ -186,13 +243,18 @@ def security_headers() -> Dict[str, str]:
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: blob:; "
             "connect-src 'self'; "
-            "frame-ancestors 'none'; "
+            f"frame-ancestors {ancestors}; "
             "base-uri 'self'; "
             "form-action 'self'"
         ),
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
         "Cache-Control": "no-store",
     }
+    # X-Frame-Options cannot express an allow-list; only send the strict DENY
+    # when nothing is allowed, so an origin list is actually usable.
+    if not allow:
+        headers["X-Frame-Options"] = "DENY"
+    return headers
 
 
 def data_roots(app_dir: Path) -> List[Path]:

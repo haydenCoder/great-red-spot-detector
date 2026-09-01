@@ -1785,7 +1785,7 @@ class GRSDesktopApp(tk.Tk if _HAS_TK else object):
             out_dir = Path(self.rgb_paths["G"]).parent
             rgb_path = _save_png(out_dir / "rgb_combined.png", res.rgb)
             (out_dir / "rgb_report.json").write_text(
-                json.dumps(res.report, indent=2, default=str))
+                json.dumps(res.report, indent=2, default=str), encoding="utf-8")
             self.msg_q.put(("progress", 100))
             return {"text": _rc.combine_report_text(res) +
                     f"\n\nrgb: {rgb_path}", "preview": str(rgb_path)}

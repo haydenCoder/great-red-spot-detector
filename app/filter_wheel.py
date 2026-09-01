@@ -227,8 +227,6 @@ def run_filter_wheel(
     nav.sub_lat_deg = float(sub_lat_deg)
     nav.north_pa_deg = float(north_pa_deg)
 
-    t_ref = tmids[ref]
-    epoch_s = {c: (tmids[c],) for c in "RGB"}
     if any(tmids[c] is None for c in "RGB"):
         if ref_channel.upper() not in tmids or tmids[ref] is None:
             # no timing information at all: fall back to zero-gaps and SAY SO
@@ -266,7 +264,7 @@ def run_filter_wheel(
                                for c in "RGB"}
     report["derotate_mode_within_capture"] = derotate_mode
     report_json = out_dir / "rgb_report.json"
-    report_json.write_text(json.dumps(report, indent=2, default=str))
+    report_json.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     txt = out_dir / "filter_wheel_report.txt"
     txt.write_text(filter_wheel_report_text(
         FilterWheelResult(rgb_path=str(rgb_path), channels=ch_results,
@@ -275,7 +273,7 @@ def run_filter_wheel(
                           report_text_path="",
                           nav_used={"xc": nav.xc, "yc": nav.yc,
                                     "a_eq_px": nav.a_eq_px},
-                          warnings=warnings)))
+                          warnings=warnings)), encoding="utf-8")
     return FilterWheelResult(
         rgb_path=str(rgb_path), channels=ch_results, combine_report=report,
         report_json_path=str(report_json), report_text_path=str(txt),

@@ -64,7 +64,7 @@ def fetch_horizons(t: dt.datetime, timeout: float = 10.0) -> Optional[Dict[str, 
     cf = CACHE / f"horizons_{key}.json"
     if cf.exists():
         try:
-            return json.loads(cf.read_text())
+            return json.loads(cf.read_text(encoding="utf-8"))
         except Exception:
             pass
     # Delegate to full parser when available
@@ -88,7 +88,7 @@ def fetch_horizons(t: dt.datetime, timeout: float = 10.0) -> Optional[Dict[str, 
                 "excerpt": full.get("excerpt", "")[:1500],
                 "full": full,
             }
-            cf.write_text(json.dumps(out, indent=2))
+            cf.write_text(json.dumps(out, indent=2), encoding="utf-8")
             return out
     except Exception as e:
         CONSOLE.debug(f"full Horizons delegate: {e}")
@@ -151,7 +151,7 @@ def fetch_horizons(t: dt.datetime, timeout: float = 10.0) -> Optional[Dict[str, 
         "excerpt": text[:1500],
         "parser": parsed.get("parser"),
     }
-    cf.write_text(json.dumps(out, indent=2))
+    cf.write_text(json.dumps(out, indent=2), encoding="utf-8")
     CONSOLE.ok("Horizons response parsed and cached")
     return out
 

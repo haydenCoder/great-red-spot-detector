@@ -47,17 +47,203 @@
     el.textContent = label || "No image";
   }
 
-  function setDrawer(open) {
+  // ── preview zoom + pan ───────────────────────────────────────────────────
+  // The scroll box is the panner: the image is sized as a multiple of the box
+  // width, and `align-items: safe center` (style.css) keeps the start edge
+  // reachable, which plain centering would hide behind the scroll origin.
+  const ZMIN = 1, ZMAX = 14, ZSTEP = 1.35;
+  let zoom = 1;
+  const zoomActive = () => zoom > 1.001;
+
+  function paintZoom() {
+    const img = $("previewImg");
+    const wrap = $("previewWrap");
+    if (img) {
+      img.classList.toggle("zoomed", zoomActive());
+      img.style.setProperty("--zoom", zoom.toFixed(3));
+    }
+    if (wrap) {
+      // while zoomed, the wrap owns horizontal drag, so it must opt out of the
+      // tab-swipe gesture — via the same hook the swipe controller already honours
+      wrap.classList.toggle("zoomable", zoomActive());
+      wrap.toggleAttribute("data-no-swipe", zoomActive());
+    }
+    const pct = $("zoomPct");
+    if (pct) pct.textContent = `${Math.round(zoom * 100)}%`;
+    const out = $("btnZoomOut");
+    if (out) out.disabled = !zoomActive();
+    const hint = $("zoomHint");
+    if (hint) {
+      const size = img && img.naturalWidth ? `${img.naturalWidth}×${img.naturalHeight} px` : "";
+      hint.textContent = zoomActive()
+        ? `${size ? size + " · " : ""}${Math.round(zoom * 100)}% of fit · drag to pan`
+        : [size, "⌘/ctrl+wheel or dbl-click to zoom"].filter(Boolean).join(" · ");
+    }
+  }
+
+  function setZoom(z, ax, ay) {
+    const wrap = $("previewWrap");
+    if (!wrap) return;
+    const next = Math.min(ZMAX, Math.max(ZMIN, Number(z) || 1));
+    const r = wrap.getBoundingClientRect();
+    const px = ax == null ? r.width / 2 : ax - r.left;
+    const py = ay == null ? r.height / 2 : ay - r.top;
+    // anchor in content units (zoom-independent) so the point under the cursor stays put
+    const bx = (wrap.scrollLeft + px) / (zoom || 1);
+    const by = (wrap.scrollTop + py) / (zoom || 1);
+    const same = Math.abs(next - zoom) < 1e-4;
+    zoom = next;
+    paintZoom();
+    if (same) return;
+    void wrap.scrollHeight;                      // flush layout before restoring scroll
+    if (zoomActive()) {
+      wrap.scrollLeft = bx * zoom - px;
+      wrap.scrollTop = by * zoom - py;
+    } else {
+      wrap.scrollLeft = 0;
+      wrap.scrollTop = 0;
+    }
+  }
+
+  $("btnZoomIn")?.addEventListener("click", () => setZoom(zoom * ZSTEP));
+  $("btnZoomOut")?.addEventListener("click", () => setZoom(zoom / ZSTEP));
+  $("zoomPct")?.addEventListener("click", () => setZoom(1));
+  $("previewWrap")?.addEventListener("wheel", (e) => {
+    if (!$("previewImg")?.classList.contains("show")) return;
+    // The preview lives inside a scrolling column, so a plain wheel must stay a
+    // page scroll while the image fits — hijacking it is how a viewer becomes
+    // unusable. ctrl/⌘+wheel (and the trackpad pinch that browsers deliver as
+    // ctrl+wheel) always zooms; once zoomed in, the wheel belongs to the image.
+    if (!(e.ctrlKey || e.metaKey) && !zoomActive()) return;
+    e.preventDefault();
+    setZoom(zoom * (e.deltaY < 0 ? ZSTEP : 1 / ZSTEP), e.clientX, e.clientY);
+  }, { passive: false });
+  $("previewImg")?.addEventListener("dblclick", (e) => {
+    setZoom(zoomActive() ? 1 : 3, e.clientX, e.clientY);
+  });
+  $("tab-preview")?.addEventListener("keydown", (e) => {
+    const k = e.key;
+    if (k === "+" || k === "=") { e.preventDefault(); setZoom(zoom * ZSTEP); }
+    else if (k === "-" || k === "_") { e.preventDefault(); setZoom(zoom / ZSTEP); }
+    else if (k === "0") { e.preventDefault(); setZoom(1); }
+  });
+
+  let panId = null, panX = 0, panY = 0, panL = 0, panT = 0;
+  $("previewWrap")?.addEventListener("pointerdown", (e) => {
+    if (!zoomActive()) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const wrap = $("previewWrap");
+    panId = e.pointerId;
+    panX = e.clientX;
+    panY = e.clientY;
+    panL = wrap.scrollLeft;
+    panT = wrap.scrollTop;
+    wrap.classList.add("panning");
+    try { wrap.setPointerCapture(e.pointerId); } catch (err) { /* capture is best-effort */ }
+    e.preventDefault();
+  });
+  $("previewWrap")?.addEventListener("pointermove", (e) => {
+    if (panId === null || e.pointerId !== panId) return;
+    const wrap = $("previewWrap");
+    wrap.scrollLeft = panL - (e.clientX - panX);
+    wrap.scrollTop = panT - (e.clientY - panY);
+  });
+  const endPan = (e) => {
+    if (panId === null || (e && e.pointerId !== panId)) return;
+    const wrap = $("previewWrap");
+    panId = null;
+    if (wrap) {
+      wrap.classList.remove("panning");
+      try { wrap.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+    }
+  };
+  $("previewWrap")?.addEventListener("pointerup", endPan);
+  $("previewWrap")?.addEventListener("pointercancel", endPan);
+  $("previewWrap")?.addEventListener("lostpointercapture", endPan);
+
+  // ── whole-window file drop ───────────────────────────────────────────────
+  // Dropping a capture anywhere in the window loads it; the dedicated .drop
+  // zones keep their own handlers, so a drop inside one is left to that zone.
+  const DROP_HINT = ".ser · .avi · .fits · .png · .jpg";
+  let dragDepth = 0;
+
+  const isFileDrag = (e) => {
+    const types = e && e.dataTransfer && e.dataTransfer.types;
+    if (!types) return false;
+    return Array.prototype.includes.call(types, "Files");
+  };
+  const dragName = (e) => {
+    try {
+      const it = e.dataTransfer.items && e.dataTransfer.items[0];
+      return it && it.kind === "file" && it.name ? it.name : "";
+    } catch (err) {
+      return "";
+    }
+  };
+  function paintDrop(on, name) {
+    const ov = $("dropOverlay");
+    if (!ov) return;
+    ov.classList.toggle("show", !!on);
+    const sub = $("dropOverlayName");
+    if (sub) sub.textContent = name ? `will load: ${name}` : DROP_HINT;
+  }
+  window.addEventListener("dragenter", (e) => {
+    if (!isFileDrag(e) || (e.target && e.target.closest && e.target.closest(".drop"))) return;
+    dragDepth += 1;
+    paintDrop(true, dragName(e));
+  });
+  window.addEventListener("dragover", (e) => {
+    if (!isFileDrag(e) || (e.target && e.target.closest && e.target.closest(".drop"))) return;
+    e.preventDefault();                 // without this, `drop` never fires
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    paintDrop(true, dragName(e));
+  });
+  window.addEventListener("dragleave", () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) paintDrop(false, "");
+  });
+  window.addEventListener("drop", (e) => {
+    if (!isFileDrag(e)) return;
+    const inZone = e.target && e.target.closest && e.target.closest(".drop");
+    dragDepth = 0;
+    paintDrop(false, "");
+    if (inZone) return;                 // its own handler owns this drop
+    e.preventDefault();
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    showTab("preview", true);
+    uploadFile(f);
+  });
+
+  function setDrawer(open, opts = {}) {
     drawerOpen = !!open;
     const panel = $("controlsPanel");
     const backdrop = $("drawerBackdrop");
     const btn = $("menuToggle");
-    if (panel) panel.classList.toggle("open", drawerOpen);
-    if (backdrop) {
-      backdrop.hidden = !drawerOpen;
-      backdrop.classList.toggle("show", drawerOpen);
+    if (panel) {
+      panel.classList.toggle("open", drawerOpen);
+      panel.classList.remove("dragging");
+      panel.style.setProperty("--drawer-dx", "0px");
+      // a closed drawer must not be tabbable, scrollable or clickable
+      panel.inert = !drawerOpen && isMobileLayout();
+      if (drawerOpen && isMobileLayout()) {
+        if (!lastDrawerFocus) lastDrawerFocus = document.activeElement;
+        if (opts.focus !== false) panel.focus({ preventScroll: true });
+      } else if (!drawerOpen && lastDrawerFocus) {
+        const back = lastDrawerFocus;
+        lastDrawerFocus = null;
+        if (back && back.isConnected) { try { back.focus({ preventScroll: true }); } catch (_) {} }
+      }
     }
-    document.body.classList.toggle("drawer-open", drawerOpen && isMobileLayout());
+    if (backdrop) {
+      // never toggle `hidden` alongside an opacity transition — the display
+      // change kills the fade, so the backdrop only ever lives in classes
+      backdrop.classList.toggle("show", drawerOpen);
+      backdrop.style.removeProperty("opacity");
+    }
+    const mobile = isMobileLayout();
+    document.documentElement.classList.toggle("drawer-open", drawerOpen && mobile);
+    document.body.classList.toggle("drawer-open", drawerOpen && mobile);
     if (btn) {
       btn.setAttribute("aria-expanded", drawerOpen ? "true" : "false");
       btn.setAttribute("aria-label", drawerOpen ? "Close controls menu" : "Open controls menu");
@@ -65,16 +251,173 @@
     }
   }
 
+  /* ── Drawer dragging ──────────────────────────────────────────────────
+     The drawer is the only way to reach any control under 900px, so it has
+     to move like a sheet of paper: the finger owns it while it is dragged,
+     a flick completes the gesture, and a half-hearted pull springs back. */
+  const DRAG_SNAP = 0.5;          // fraction of the width to commit on
+  const DRAG_FLICK = 0.45;        // px per ms, a fast short pull counts too
+  const DRAG_SKIP = "input, select, textarea, button, a[href], canvas, .drop, .codeblock, [data-no-drag]";
+  let drag = null;
+  let lastDrawerFocus = null;
+
+  function drawerWidth() {
+    const panel = $("controlsPanel");
+    return (panel ? panel.offsetWidth : 320) + 12;   // + the 12px overshoot
+  }
+
+  function dragPaint(x) {
+    const panel = $("controlsPanel");
+    const backdrop = $("drawerBackdrop");
+    const w = Math.max(60, drawerWidth());   // never divide by an unsized panel
+    const clamped = Math.max(-w, Math.min(0, x));
+    if (panel) panel.style.setProperty("--drawer-dx", clamped.toFixed(1) + "px");
+    if (backdrop) backdrop.style.opacity = String((1 + clamped / w).toFixed(3));
+    if (drag) drag.lastX = clamped;
+  }
+
+  function startDrawerDrag(e, source) {
+    if (!isMobileLayout()) return;
+    if (drag) return;
+    const fromEdge = source === "edge";
+    if (fromEdge && drawerOpen) return;
+    if (!fromEdge) {
+      // touch can grab the drawer anywhere; a mouse only from the grab strip,
+      // so text selection and form fields keep working
+      const onHead = e.target.closest && e.target.closest(".drawer-head");
+      if (e.pointerType === "mouse" && !onHead) return;
+      // never steal a gesture from a control that needs horizontal drag itself
+      // (the time slider is the one that mattered: it lives in this drawer)
+      if (e.target.closest && e.target.closest(DRAG_SKIP)) return;
+    }
+    const w = drawerWidth();
+    drag = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      base: drawerOpen ? 0 : -w,
+      t0: performance.now(),
+      t1: 0,
+      lastX: drawerOpen ? 0 : -w,
+      decided: false,
+    };
+    // `.dragging` = visible + no easing, so the sheet can start mid-air
+    $("controlsPanel")?.classList.add("dragging");
+  }
+
+  function moveDrawerDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x0;
+    const dy = e.clientY - drag.y0;
+    if (!drag.decided) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      // mostly-vertical → let the browser scroll the drawer instead
+      if (Math.abs(dy) > Math.abs(dx)) { endDrawerDrag(false); return; }
+      drag.decided = true;
+      $("drawerBackdrop")?.classList.add("dragging");
+    }
+    drag.t1 = performance.now();
+    dragPaint(drag.base + dx);
+  }
+
+  function endDrawerDrag(commit = true) {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    const panel = $("controlsPanel");
+    const backdrop = $("drawerBackdrop");
+    const w = drawerWidth();
+    panel?.classList.remove("dragging");
+    backdrop?.classList.remove("dragging");
+    if (backdrop) backdrop.style.removeProperty("opacity");
+    if (panel) panel.style.setProperty("--drawer-dx", "0px");
+    if (!d.decided) return;                       // that was a tap, not a drag
+    const dt = Math.max(1, (d.t1 || performance.now()) - d.t0);
+    const vel = (d.lastX - d.base) / dt;          // px per ms, + = opening
+    const frac = 1 + d.lastX / w;                 // 0 = shut, 1 = open
+    let open = drawerOpen;
+    if (commit) {
+      if (vel > DRAG_FLICK) open = true;
+      else if (vel < -DRAG_FLICK) open = false;
+      else open = frac > DRAG_SNAP;                // otherwise: nearest edge
+    }
+    if (open !== drawerOpen) setDrawer(open);
+  }
+
+  function wireDrawerDrag() {
+    const panel = $("controlsPanel");
+    const edge = $("edgeZone");
+    if (edge) {
+      edge.addEventListener("pointerdown", (e) => startDrawerDrag(e, "edge"));
+    }
+    if (panel) {
+      panel.addEventListener("pointerdown", (e) => startDrawerDrag(e, "panel"));
+    }
+    window.addEventListener("pointermove", moveDrawerDrag, { passive: true });
+    window.addEventListener("pointerup", (e) => endDrawerDrag(true));
+    window.addEventListener("pointercancel", () => endDrawerDrag(false));
+  }
+
+  /* Tabs: the strip is the one place the UI lets you slide sideways, so it
+     gets a sliding indicator, keyboard arrows, scroll-into-view (the job
+     runner jumps tabs on its own and the target was often off-screen) and a
+     touch swipe. */
+  const TAB_ORDER = [...document.querySelectorAll(".tab")].map((b) => b.dataset.tab);
+
+  function tabStrip() { return $("tabStrip"); }
+
+  function moveInk(animate = true) {
+    const strip = tabStrip();
+    const ink = $("tabInk");
+    if (!strip || !ink) return;
+    const active = strip.querySelector(".tab.active") || strip.querySelector(".tab");
+    if (!active) return;
+    ink.classList.toggle("nofollow", !animate);
+    const x = active.offsetLeft - strip.scrollLeft;
+    const y = active.offsetTop + active.offsetHeight - 3;
+    ink.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    ink.style.width = `${active.offsetWidth}px`;
+    ink.classList.add("ready");
+    if (!animate) requestAnimationFrame(() => ink.classList.remove("nofollow"));
+  }
+
+  function flagStripOverflow() {
+    const strip = tabStrip();
+    const wrap = strip && strip.parentElement;
+    if (!wrap) return;
+    wrap.classList.toggle("scrolling", strip.scrollWidth - strip.clientWidth > 4);
+  }
+
   function showTab(name, force = false) {
+    if (!TAB_ORDER.includes(name)) name = "preview";
     document.querySelectorAll(".tab").forEach((b) => {
       const on = b.dataset.tab === name;
       b.classList.toggle("active", on);
       b.setAttribute("aria-selected", on ? "true" : "false");
+      b.tabIndex = on ? 0 : -1;             // one stop for the whole strip
     });
     document.querySelectorAll(".tabpane").forEach((p) => {
-      p.classList.toggle("active", p.id === "tab-" + name);
+      const on = p.id === "tab-" + name;
+      p.classList.toggle("active", on);
+      if (!on) { p.style.transform = ""; p.classList.remove("swiping"); }
     });
     if (force) userTab = name;
+    const active = [...document.querySelectorAll(".tab")].find((b) => b.dataset.tab === name);
+    if (active && typeof active.scrollIntoView === "function") {
+      try { active.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (_) {}
+    }
+    moveInk(true);
+    // canvases sized inside a hidden pane measure 0 — let owners redraw
+    document.dispatchEvent(new CustomEvent("grs:tab", { detail: { tab: name } }));
+  }
+
+  function shiftTab(delta) {
+    const i = TAB_ORDER.indexOf(userTab);
+    const next = TAB_ORDER[Math.min(TAB_ORDER.length - 1, Math.max(0, (i < 0 ? 0 : i) + delta))];
+    if (!next || next === userTab) return false;
+    showTab(next, true);
+    $(`tabbtn-${next}`)?.focus();
+    return true;
   }
 
   function setBusy(busy) {
@@ -91,18 +434,57 @@
     if (el) el.textContent = text;
   }
 
+  /* Console: never yank the view. The old code forced scrollTop to the bottom
+     on every poll tick, so you could not read a line while a job ran — and it
+     appended without limit. */
+  const LOG_CAP = 700;
+  let logFollow = true;
+  let logPending = 0;
+
+  const isAtBottom = (box) => box.scrollHeight - box.scrollTop - box.clientHeight <= 28;
+
+  function paintLogBadge() {
+    const btn = $("btnJumpLatest");
+    if (btn) {
+      btn.hidden = logPending === 0;
+      btn.textContent = `${logPending} new ↓`;
+    }
+    const pin = $("btnPinLog");
+    if (pin) {
+      pin.setAttribute("aria-pressed", logFollow ? "true" : "false");
+      pin.textContent = logFollow ? "⇣ follow" : "⇢ paused";
+      pin.title = logFollow
+        ? "Auto-scroll is on — click to keep the log where you are reading"
+        : "Auto-scroll is off — click to follow the newest line";
+    }
+  }
+
+  function scrollLogToBottom() {
+    const box = $("console");
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
+    logPending = 0;
+    paintLogBadge();
+  }
+
   function appendLogs(lines) {
     const box = $("console");
     if (!box || !lines?.length) return;
+    const wasBottom = isAtBottom(box);
     for (const ln of lines) {
       lastLogId = Math.max(lastLogId, ln.id);
       const div = document.createElement("div");
       div.className = "line " + (ln.level || "INFO");
-      div.innerHTML = `<span class="ts">[${ln.ts}]</span><strong>${ln.level}</strong> ${esc(ln.msg)}`;
+      div.innerHTML = `<span class="ts">[${esc(ln.ts)}]</span><strong>${esc(ln.level || "INFO")}</strong> ${esc(ln.msg)}`;
       box.appendChild(div);
     }
-    box.scrollTop = box.scrollHeight;
-    setText("logCount", box.children.length + " lines");
+    while (box.children.length > LOG_CAP) box.removeChild(box.firstElementChild);
+    if (logFollow && wasBottom) scrollLogToBottom();
+    else {                                   // reading up-top: bank the count
+      logPending += lines.length;
+      paintLogBadge();
+    }
+    setText("logCount", box.children.length + " lines" + (logFollow ? "" : " · follow off"));
   }
 
   function renderBudget(components) {
@@ -294,9 +676,13 @@
       if (img.dataset.src !== full) {
         img.src = full;
         img.dataset.src = full;
+        if (zoom !== 1) setZoom(1);            // new image: back to fit
+        img.onload = () => paintZoom();        // naturalWidth is only known here
+        if (img.complete) paintZoom();
       }
       img.classList.add("show");
       if (empty) empty.style.display = "none";
+      paintZoom();
       setPreviewSource(kind || "real", label || "Image");
     }
   }
@@ -603,6 +989,21 @@
     };
   }
 
+  /* The time bar paints its own filled track (CSS can't know the value), so
+     the drag reads as progress instead of a bare groove. */
+  function paintSlider() {
+    const s = $("timeBar");
+    if (!s) return;
+    const min = parseFloat(s.min);
+    const max = parseFloat(s.max);
+    const v = parseFloat(s.value);
+    const span = Number.isFinite(max - min) && max > min ? max - min : 1;
+    const pct = Number.isFinite(v) ? Math.max(0, Math.min(100, (100 * (v - min)) / span)) : 50;
+    s.style.setProperty("--fill", pct.toFixed(2) + "%");
+    const rd = $("timeBarReadout");
+    if (rd) s.setAttribute("aria-valuetext", `${rd.textContent} local`);
+  }
+
   function applyTimeBarToUserTime() {
     if (syncingTime) return;
     syncingTime = true;
@@ -639,6 +1040,7 @@
       }
     } finally {
       syncingTime = false;
+      paintSlider();
     }
   }
 
@@ -660,6 +1062,7 @@
       }
     } finally {
       syncingTime = false;
+      paintSlider();
     }
   }
 
@@ -761,93 +1164,316 @@
     }
   }
 
-  async function poll() {
-    try {
-      const j = await (await fetch(`/api/logs?after=${lastLogId}`)).json();
-      if (j.lines?.length) appendLogs(j.lines);
-    } catch (_) {}
+  /* ── Live status polling ──────────────────────────────────────────────
+     One request per tick — /api/status carries the log tail, the job slot and
+     the NN state together. The page used to fire three fetches every 600 ms
+     (~250 requests/min) against a 90/min server budget, so about 20 s after
+     load every answer became a 429: the console stopped, "Process" looked
+     dead and the Deterioration progress bar froze mid-slide. Idle now polls
+     slower, a hidden tab does not poll at all, and a failing server gets an
+     exponential backoff instead of a frozen screen. */
+  let pollTimer = null;
+  let pollMs = 700;
+  let pollErrs = 0;
+  let statusEndpointOk = true;
 
-    try {
-      const j = await (await fetch("/api/job")).json();
-      if (j.running) {
-        wasRunning = true;
-        setStatus("run", (j.kind || "RUN").toUpperCase());
-        setBusy(true);
-        return;
-      }
-
-      setBusy(false);
-
-      if (j.error) {
-        setStatus("err", "ERROR");
-        if (lastHandledJobId !== "err:" + j.error) {
-          setText("resultsBox", "Error:\n" + j.error);
-          setText("dStatus", "Error");
-          setText("dHead", j.error);
-          lastHandledJobId = "err:" + j.error;
-          showTab("results", true);
-        }
-        wasRunning = false;
-        return;
-      }
-
-      if (j.result) {
-        setStatus("ok", "DONE");
-        const jid = j.result.job_id || JSON.stringify(j.result).slice(0, 40);
-        if (lastHandledJobId !== jid) {
-          lastHandledJobId = jid;
-          renderResult(j.result);
-          if (wasRunning) {
-            if (j.result.kind === "factory_night") showTab("dashboard", true);
-            else if (j.result.kind === "video_stack") showTab("video", true);
-            else if (j.result.calibration_grade) showTab("hard", true);
-            else if (j.result.series || (j.result.headline && j.result.headline.drift_lon_deg_per_day != null))
-              showTab("multi", true);
-            else showTab("dashboard", true);
-          }
-        }
-        wasRunning = false;
-        return;
-      }
-
-      if (!wasRunning) setStatus("idle", "IDLE");
-      wasRunning = false;
-    } catch (_) {}
+  async function json(r) {
+    if (!r.ok) throw new Error(r.status === 429 ? "rate limit — backing off" : `HTTP ${r.status}`);
+    return r.json();
   }
 
-  // Mobile drawer
+  async function fetchSnapshot() {
+    if (statusEndpointOk) {
+      const r = await fetch(`/api/status?after=${lastLogId}`);
+      if (r.status === 404) {
+        statusEndpointOk = false;   // server without /api/status → legacy trio below
+      } else {
+        const j = await json(r);
+        return { lines: j.lines || [], job: j.job || {}, nn: j.nn || null };
+      }
+    }
+    const [lg, jb, nn] = await Promise.all([
+      fetch(`/api/logs?after=${lastLogId}`).then(json).catch(() => null),
+      fetch("/api/job").then(json).catch(() => null),
+      fetch("/api/nn/status").then(json).catch(() => null),
+    ]);
+    if (lg === null && jb === null && nn === null) throw new Error("server not answering");
+    return { lines: (lg && lg.lines) || [], job: jb || {}, nn };
+  }
+
+  function applyJobState(j) {
+    if (j.running) {
+      pollMs = 600;                       // a job is moving: check often
+      wasRunning = true;
+      const kind = (j.kind || "RUN").toUpperCase();
+      // an honest "still working" readout: stacking 400 frames with no output
+      // for a minute looks exactly like a frozen UI without it
+      if (runKey !== String(j.id || kind)) { runKey = String(j.id || kind); runT0 = Date.now(); }
+      const el = Math.max(0, Math.round((Date.now() - runT0) / 1000));
+      const clock = el < 60 ? `${el}s` : `${Math.floor(el / 60)}:${pad2(el % 60)}`;
+      setStatus("run", `${kind} · ${clock}`);
+      const pill = $("statusPill");
+      if (pill) pill.title = `${kind} running for ${clock} (this browser's view; polling every 0.6 s)`;
+      setBusy(true);
+      return;
+    }
+    runKey = "";
+    pollMs = 1800;                        // idle: one request every ~2 s
+    setBusy(false);
+
+    if (j.error) {
+      setStatus("err", "ERROR");
+      if (lastHandledJobId !== "err:" + j.error) {
+        setText("resultsBox", "Error:\n" + j.error);
+        setText("dStatus", "Error");
+        setText("dHead", j.error);
+        lastHandledJobId = "err:" + j.error;
+        showTab("results", true);
+      }
+      wasRunning = false;
+      return;
+    }
+
+    if (j.result) {
+      setStatus("ok", "DONE");
+      const jid = j.result.job_id || JSON.stringify(j.result).slice(0, 40);
+      if (lastHandledJobId !== jid) {
+        lastHandledJobId = jid;
+        renderResult(j.result);
+        if (wasRunning) {
+          if (j.result.kind === "factory_night") showTab("dashboard", true);
+          else if (j.result.kind === "video_stack") showTab("video", true);
+          else if (j.result.calibration_grade) showTab("hard", true);
+          else if (j.result.series || (j.result.headline && j.result.headline.drift_lon_deg_per_day != null))
+            showTab("multi", true);
+          else showTab("dashboard", true);
+        }
+      }
+      wasRunning = false;
+      return;
+    }
+
+    if (!wasRunning) setStatus("idle", "IDLE");
+    wasRunning = false;
+  }
+
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    if (document.hidden) return;          // background tab: no traffic at all
+    pollTimer = setTimeout(poll, pollMs);
+  }
+
+  let pollInFlight = false;
+  let runKey = "", runT0 = 0;
+  async function poll() {
+    if (pollInFlight) return;             // never interleave two snapshots
+    pollInFlight = true;
+    try {
+      await pollOnce();
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  async function pollOnce() {
+    let snap = null;
+    try {
+      snap = await fetchSnapshot();
+      if (pollErrs) {
+        pollErrs = 0;
+        $("statusPill") && ($("statusPill").title = "Live status OK");
+      }
+    } catch (e) {
+      pollErrs++;
+      pollMs = Math.min(10000, 700 * 2 ** Math.min(4, pollErrs));
+      setStatus("err", pollErrs >= 3 ? "OFFLINE" : "RETRY");
+      const pill = $("statusPill");
+      if (pill) {
+        pill.title = `status poll failed (${String((e && e.message) || e)}) — retry in ${(pollMs / 1000).toFixed(1)}s`;
+      }
+      schedulePoll();
+      return;
+    }
+    if (snap.lines && snap.lines.length) appendLogs(snap.lines);
+    if (snap.nn) renderNn(snap.nn);
+    applyJobState(snap.job || {});
+    schedulePoll();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { clearTimeout(pollTimer); return; }
+    pollMs = 700;
+    poll();
+  });
+
+  // console follow / jump-to-latest
+  $("btnPinLog")?.addEventListener("click", () => {
+    logFollow = !logFollow;
+    if (logFollow) scrollLogToBottom();
+    paintLogBadge();
+  });
+  $("btnJumpLatest")?.addEventListener("click", () => {
+    logFollow = true;
+    scrollLogToBottom();
+    paintLogBadge();
+  });
+  $("console")?.addEventListener(
+    "scroll",
+    () => {
+      const box = $("console");
+      const at = isAtBottom(box);
+      if (at === logFollow) return;
+      logFollow = at;
+      if (at) logPending = 0;
+      paintLogBadge();
+    },
+    { passive: true }
+  );
+  paintLogBadge();
+
+  // ── Mobile drawer ────────────────────────────────────────────────────
   $("menuToggle")?.addEventListener("click", () => setDrawer(!drawerOpen));
   $("drawerBackdrop")?.addEventListener("click", () => setDrawer(false));
-  $("btnCloseDrawer")?.addEventListener("click", () => setDrawer(false));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && drawerOpen) setDrawer(false);
-  });
-  window.addEventListener(
-    "resize",
-    (() => {
-      let t;
-      return () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          if (!isMobileLayout() && drawerOpen) setDrawer(false);
-        }, 120);
-      };
-    })()
-  );
+  $("btnDrawerCloseTop")?.addEventListener("click", () => setDrawer(false));
+  wireDrawerDrag();
 
-  // Tabs
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (drawerOpen) { e.preventDefault(); setDrawer(false); }
+      return;
+    }
+    if (e.key !== "Tab" || !drawerOpen || !isMobileLayout()) return;
+    // keep the keyboard inside the open drawer
+    const panel = $("controlsPanel");
+    if (!panel) return;
+    const items = [...panel.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  /* narrow window / rotation decides whether controls are a drawer at all */
+  const mqMobile = window.matchMedia("(max-width: 900px)");
+  const onLayoutChange = () => {
+    const panel = $("controlsPanel");
+    if (!isMobileLayout()) {
+      if (drawerOpen) setDrawer(false);
+      if (panel) {
+        // desktop keeps controls inline and always reachable
+        panel.inert = false;
+        panel.classList.remove("dragging");
+        panel.style.setProperty("--drawer-dx", "0px");
+      }
+    } else if (panel) {
+      panel.inert = !drawerOpen;
+    }
+    moveInk(false);
+    flagStripOverflow();
+  };
+  if (mqMobile.addEventListener) mqMobile.addEventListener("change", onLayoutChange);
+  else if (mqMobile.addListener) mqMobile.addListener(onLayoutChange);
+
+  // ── Tabs: click, keyboard, drag ───────────────────────────────────────
   document.querySelectorAll(".tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       userTab = btn.dataset.tab;
       showTab(userTab, true);
     });
   });
+  const strip = tabStrip();
+  if (strip) {
+    strip.addEventListener("keydown", (e) => {
+      const k = e.key;
+      if (k === "ArrowRight" || k === "ArrowDown") { e.preventDefault(); shiftTab(1); }
+      else if (k === "ArrowLeft" || k === "ArrowUp") { e.preventDefault(); shiftTab(-1); }
+      else if (k === "Home") { e.preventDefault(); showTab(TAB_ORDER[0], true); $('tabbtn-' + TAB_ORDER[0])?.focus(); }
+      else if (k === "End") { e.preventDefault(); showTab(TAB_ORDER[TAB_ORDER.length - 1], true); $('tabbtn-' + TAB_ORDER[TAB_ORDER.length - 1])?.focus(); }
+    });
+    // the ink lives in the wrapper's space, so it must track the scroll
+    strip.addEventListener("scroll", () => moveInk(false), { passive: true });
+  }
+  window.addEventListener("resize", () => { moveInk(false); flagStripOverflow(); onLayoutChange(); });
+  window.addEventListener("load", () => { moveInk(false); flagStripOverflow(); });
+
+  // swipe the workspace sideways to change tab (touch only)
+  const SWIPE_EXEMPT = ".tabs-wrap, .codeblock, canvas, input, select, textarea, button, a, .drop, .det-methods, [data-no-swipe]";
+  let swipe = null;
+  const centerEl = document.querySelector(".center");
+  centerEl?.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" || swipe) return;
+    const pane = e.target.closest(".tabpane.active");
+    if (!pane || e.target.closest(SWIPE_EXEMPT)) return;
+    swipe = { id: e.pointerId, pane, x0: e.clientX, y0: e.clientY, t0: performance.now(), x: 0, on: false };
+  });
+  // tracked on window (not the pane): a swipe must keep following the finger
+  // even after it leaves the pane, and pointerId alone scopes the gesture
+  window.addEventListener("pointermove", (e) => {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    const dx = e.clientX - swipe.x0;
+    const dy = e.clientY - swipe.y0;
+    if (!swipe.on) {
+      if (Math.abs(dx) < 12) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.5) { swipe = null; return; }
+      swipe.on = true;
+      swipe.pane.classList.add("swiping");
+    }
+    const i = TAB_ORDER.indexOf(userTab);
+    const wantsNext = dx < 0 && i < TAB_ORDER.length - 1;
+    const wantsPrev = dx > 0 && i > 0;
+    // zero-width fallback: a hidden/unsized pane must not swallow the gesture
+    const w = swipe.pane.clientWidth || window.innerWidth || 360;
+    const allowed = wantsNext || wantsPrev ? Math.abs(dx) : Math.min(Math.abs(dx), 26);
+    swipe.x = Math.sign(dx) * Math.min(allowed, w * 0.62);
+    swipe.pane.style.transform = `translateX(${swipe.x.toFixed(1)}px)`;
+    swipe.pane.style.opacity = String(Math.max(0.55, 1 - Math.abs(swipe.x) / 900));
+    e.preventDefault();
+  });
+  const endSwipe = (e) => {
+    if (!swipe || (e && e.pointerId !== swipe.id)) return;
+    const s = swipe;
+    swipe = null;
+    const clear = () => {
+      s.pane.style.transition = "";
+      s.pane.style.transform = "";
+      s.pane.style.opacity = "";
+      s.pane.classList.remove("swiping");
+    };
+    if (!s.on) return;
+    const dt = Math.max(1, (e?.timeStamp || performance.now()) - s.t0);
+    const vel = s.x / dt;
+    const far = Math.abs(s.x) > Math.min(120, (s.pane.clientWidth || window.innerWidth || 360) * 0.28);
+    const flick = Math.abs(vel) > 0.5 && Math.abs(s.x) > 24;
+    if (!(far || flick)) { s.pane.style.transition = "transform .18s var(--ease-slide), opacity .18s ease"; moveInk(true); setTimeout(clear, 190); return; }
+    if (vel < 0) shiftTab(1);
+    else shiftTab(-1);
+    clear();
+  };
+  // up/cancel on window too: releasing the finger outside the pane (over the
+  // tab strip, the console, or off-window) must still land the gesture,
+  // otherwise the pane stays stranded half-off-screen with .swiping on it
+  window.addEventListener("pointerup", endSwipe);
+  window.addEventListener("pointercancel", () => { swipe = null; });
 
   function wireDrop(zoneId, inputId, onFile) {
     const zone = $(zoneId);
     const input = $(inputId);
     if (!zone || !input) return;
-    const open = () => input.click();
+    // The hidden <input> lives inside the zone, so its own click bubbles back
+    // here — without this guard one tap opens the picker and immediately
+    // re-triggers it, which some browsers show as a dialog that never opens.
+    const open = (e) => {
+      if (e && e.target === input) return;
+      input.click();
+    };
     zone.addEventListener("click", open);
     zone.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -984,6 +1610,7 @@
 
   // Time bar wiring
   $("timeBar")?.addEventListener("input", applyTimeBarToUserTime);
+  $("timeBar")?.addEventListener("change", () => { paintSlider(); applyTimeBarToUserTime(); });
   $("obsDate")?.addEventListener("change", applyTimeBarToUserTime);
   $("userTime")?.addEventListener("change", applyUserTimeToBar);
   $("userTime")?.addEventListener("blur", applyUserTimeToBar);
@@ -1120,27 +1747,27 @@
     });
   });
 
-  async function pollNn() {
-    try {
-      const j = await (await fetch("/api/nn/status")).json();
-      const el = $("nnStatus");
-      if (!el) return;
-      if (j.running) {
-        const mode = j.mode === "overnight" ? "OVERNIGHT" : "TRAIN";
-        const best = j.best_loss != null ? Number(j.best_loss).toFixed(5) : "—";
-        const nan = j.nan_skips != null ? j.nan_skips : 0;
-        el.textContent =
-          `NN ${mode}: epoch ${j.epoch}/${j.epochs || "…"}  loss=${j.loss != null ? Number(j.loss).toFixed(5) : "…"}  best=${best}  nan_skips=${nan}` +
-          (j.strategy ? `  strat=${j.strategy}` : "") +
-          (j.hours_left != null ? `  left=${Number(j.hours_left).toFixed(2)}h` : "") +
-          (j.prevent_sleep ? "  · awake" : "");
-        if ($("btnNnTrain")) $("btnNnTrain").disabled = true;
-      } else {
-        if ($("btnNnTrain") && !$("statusPill").classList.contains("run")) $("btnNnTrain").disabled = false;
-        el.textContent = j.trained || j.weights_exist ? `NN ready · ${j.message || "weights on disk · NaN-guard on"}` : `NN idle · ${j.message || "not trained"}`;
-      }
-    } catch (_) {}
+  function renderNn(j) {
+    const el = $("nnStatus");
+    if (!el || !j) return;
+    if (j.running) {
+      const mode = j.mode === "overnight" ? "OVERNIGHT" : "TRAIN";
+      const best = j.best_loss != null ? Number(j.best_loss).toFixed(5) : "—";
+      const nan = j.nan_skips != null ? j.nan_skips : 0;
+      el.textContent =
+        `NN ${mode}: epoch ${j.epoch}/${j.epochs || "…"}  loss=${j.loss != null ? Number(j.loss).toFixed(5) : "…"}  best=${best}  nan_skips=${nan}` +
+        (j.strategy ? `  strat=${j.strategy}` : "") +
+        (j.hours_left != null ? `  left=${Number(j.hours_left).toFixed(2)}h` : "") +
+        (j.prevent_sleep ? "  · awake" : "");
+      el.classList.add("nn-live");
+      if ($("btnNnTrain")) $("btnNnTrain").disabled = true;
+    } else {
+      el.classList.remove("nn-live");
+      if ($("btnNnTrain") && !$("statusPill").classList.contains("run")) $("btnNnTrain").disabled = false;
+      el.textContent = j.trained || j.weights_exist ? `NN ready · ${j.message || "weights on disk · NaN-guard on"}` : `NN idle · ${j.message || "not trained"}`;
+    }
   }
+
   $("btnNnTrain")?.addEventListener("click", async () => {
     const overnight = $("nnOvernight") ? $("nnOvernight").checked : false;
     const body = {
@@ -1163,11 +1790,11 @@
       })
     ).json();
     if (!j.ok) alert(j.error || "train failed");
-    else pollNn();
+    else poll();
   });
   $("btnNnStop")?.addEventListener("click", async () => {
     await fetch("/api/nn/stop", { method: "POST" });
-    pollNn();
+    poll();
   });
 
   function renderPillars(caps) {
@@ -1255,9 +1882,13 @@
       }
       updateCountryHint();
     } catch (_) {}
-    setInterval(poll, 600);
-    setInterval(pollNn, 1200);
-    pollNn();
+    // slider fill, tab ink, drawer reachability, then the first poll
+    paintSlider();
+    showTab(userTab, true);
+    moveInk(false);
+    flagStripOverflow();
+    onLayoutChange();
+    poll();
   })();
 })();
 
@@ -1275,9 +1906,17 @@
   const tipsBox = document.getElementById("detTips");
   if (!runBtn) return;
 
+  // This module runs in its own closure: `esc` inside the main IIFE above is
+  // NOT visible here, so it used to throw ReferenceError on every render —
+  // the tips list, the method-survival bars and the raw JSON all silently
+  // vanished after a sweep. Keep a local copy, deliberately.
+  const esc = (s) => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
   const RES_COLORS = {
     "480p": "#ff6b6b", "540p": "#ff9d4d", "720p": "#4dd0ff", "1080p": "#7dffb3"
   };
+
+  let lastRep = null;      // keep the report so the charts can be redrawn
 
   function num(id, dflt) {
     const el = document.getElementById(id);
@@ -1287,6 +1926,19 @@
 
   function fmt(v, d = 2) {
     return Number.isFinite(v) ? v.toFixed(d) : "—";
+  }
+
+  /** Paint a card row, but never let one bad field kill the whole panel. */
+  function safeSection(label, fn) {
+    try { fn(); }
+    catch (e) {
+      console.error(`Deterioration Lab: ${label} failed`, e);
+      if (summary && !summary.hidden) {
+        summary.insertAdjacentHTML("beforeend",
+          `<div class="det-stat"><div class="k">${esc(label)}</div>` +
+          `<div class="v bad">render error</div></div>`);
+      }
+    }
   }
 
   async function loadTips() {
@@ -1300,6 +1952,17 @@
 
   function drawLineChart(canvas, rows, valueFn, yMax, yLabel) {
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;                 // canvas unavailable (print/legacy mode)
+    if (!Array.isArray(rows) || !rows.length) {
+      const cw = canvas.clientWidth || 560;
+      canvas.width = cw; canvas.height = 240;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#8a98a8";
+      ctx.font = "12px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("no cells measured yet", canvas.width / 2, 120);
+      return;
+    }
     const dpr = window.devicePixelRatio || 1;
     const cssW = canvas.clientWidth || 560, cssH = 240;
     canvas.width = cssW * dpr; canvas.height = cssH * dpr;
@@ -1358,8 +2021,9 @@
   }
 
   function render(rep) {
-    const rows = rep.rows || [];
-    const floor = rep.floor || {};
+    lastRep = rep || null;
+    const rows = (rep && rep.rows) || [];
+    const floor = (rep && rep.floor) || {};
     const withErr = rows.filter(r => Number.isFinite(r.median_abs_dlon));
     const best = withErr.reduce((a, b) =>
       (a.median_abs_dlon <= b.median_abs_dlon ? a : b), withErr[0] || {});
@@ -1369,70 +2033,112 @@
       ? withErr.reduce((s, r) => s + (r.within_1deg || 0), 0) / withErr.length : 0;
 
     summary.hidden = false;
-    const floor1 = Object.entries(floor).map(([res, f]) => {
-      const v = f.floor_1deg_seeing;
-      return `<div class="det-stat"><div class="k">${res} floor @1°</div>
-        <div class="v ${Number.isFinite(v) ? "ok" : "bad"}">${Number.isFinite(v) ? v.toFixed(1) + '"' : "none"}</div></div>`;
-    }).join("");
-    summary.innerHTML = `
-      <div class="det-stat"><div class="k">cells</div><div class="v">${rep.n_cells}</div></div>
-      <div class="det-stat"><div class="k">best med |Δlon|</div><div class="v ok">${fmt(best.median_abs_dlon, 3)}°</div></div>
-      <div class="det-stat"><div class="k">within 1° (avg)</div><div class="v">${(sumWithin * 100).toFixed(0)}%</div></div>
-      <div class="det-stat"><div class="k">worst p90 |Δlon|</div><div class="v bad">${fmt(worst.p90_abs_dlon, 2)}°</div></div>
-      ${floor1}`;
+    safeSection("summary", () => {
+      const floor1 = Object.entries(floor).map(([res, f]) => {
+        const v = (f || {}).floor_1deg_seeing;
+        return `<div class="det-stat"><div class="k">${esc(res)} floor @1°</div>
+          <div class="v ${Number.isFinite(v) ? "ok" : "bad"}">${Number.isFinite(v) ? v.toFixed(1) + '"' : "none"}</div></div>`;
+      }).join("");
+      summary.innerHTML = `
+        <div class="det-stat"><div class="k">cells</div><div class="v">${esc(rep.n_cells ?? "—")}</div></div>
+        <div class="det-stat"><div class="k">best med |Δlon|</div><div class="v ok">${fmt(best.median_abs_dlon, 3)}°</div></div>
+        <div class="det-stat"><div class="k">within 1° (avg)</div><div class="v">${(sumWithin * 100).toFixed(0)}%</div></div>
+        <div class="det-stat"><div class="k">worst p90 |Δlon|</div><div class="v bad">${fmt(worst.p90_abs_dlon, 2)}°</div></div>
+        ${floor1}`;
+    });
 
-    drawLineChart(document.getElementById("detChartLon"), rows,
-      r => r.median_abs_dlon,
-      Math.max(1.2, ...withErr.map(r => r.p90_abs_dlon || 0).filter(Number.isFinite)),
-      "median |Δlon| °");
-    drawLineChart(document.getElementById("detChartHit"), rows,
-      r => r.within_1deg || 0, 1.05, "within 1°");
+    // canvases measure 0 while the tab is hidden — redraw when it is shown
+    safeSection("charts", () => {
+      const yMax = Math.max(1.2, ...withErr.map(r => r.p90_abs_dlon || 0).filter(Number.isFinite));
+      const cLon = document.getElementById("detChartLon");
+      const cHit = document.getElementById("detChartHit");
+      if (cLon) drawLineChart(cLon, rows, r => r.median_abs_dlon, yMax, "median |Δlon| °");
+      if (cHit) drawLineChart(cHit, rows, r => r.within_1deg || 0, 1.05, "within 1°");
+    });
 
-    const mb = rep.method_breakdown || {};
-    const mMax = Math.max(1e-6, ...Object.values(mb).map(m => m.p90_abs_dlon || 0));
-    methodsBox.innerHTML = Object.entries(mb)
-      .sort((a, b) => (a[1].median_abs_dlon || 9) - (b[1].median_abs_dlon || 9))
-      .map(([name, m]) => {
-        const w = 100 * Math.min(1, (m.p90_abs_dlon || 0) / mMax);
-        return `<div class="det-method-row">
-          <span>${esc(name)}</span>
-          <span class="det-method-bar"><i style="width:${w}%"></i></span>
-          <span class="mono">${fmt(m.median_abs_dlon, 2)}°</span></div>`;
-      }).join("") || '<span class="muted small">no per-method data</span>';
+    safeSection("method survival", () => {
+      if (!methodsBox) return;
+      const mb = (rep && rep.method_breakdown) || {};
+      const mMax = Math.max(1e-6, ...Object.values(mb).map(m => (m || {}).p90_abs_dlon || 0));
+      methodsBox.innerHTML = Object.entries(mb)
+        .sort((a, b) => ((a[1] || {}).median_abs_dlon ?? 9) - ((b[1] || {}).median_abs_dlon ?? 9))
+        .map(([name, m]) => {
+          const w = 100 * Math.min(1, ((m || {}).p90_abs_dlon || 0) / mMax);
+          return `<div class="det-method-row">
+            <span>${esc(name)}</span>
+            <span class="det-method-bar"><i style="width:0%"></i></span>
+            <span class="mono">${fmt((m || {}).median_abs_dlon, 2)}°</span></div>`;
+        }).join("") || '<span class="muted small">no per-method data</span>';
+      // let the bars grow from zero — a slide reads as "measured", not "spike"
+      requestAnimationFrame(() => {
+        [...methodsBox.querySelectorAll(".det-method-bar > i")]
+          .forEach((el, i) => {
+            const mb2 = Object.entries(mb).sort((a, b) => ((a[1] || {}).median_abs_dlon ?? 9) - ((b[1] || {}).median_abs_dlon ?? 9))[i];
+            if (!mb2) return;
+            el.style.width = (100 * Math.min(1, ((mb2[1] || {}).p90_abs_dlon || 0) / mMax)).toFixed(1) + "%";
+          });
+      });
+    });
 
     if (rawBox) rawBox.textContent = JSON.stringify(rep, null, 2);
   }
 
   let pollTimer = null;
+  let pollErrs = 0;
+  function setProgress(pct, text, indeterminate = false) {
+    if (!bar || !progText) return;
+    bar.classList.toggle("indet", indeterminate);
+    if (!indeterminate) bar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    if (text != null) progText.textContent = text;
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
   async function poll() {
+    let j;
     try {
-      const j = await (await fetch("/api/deterioration")).json();
-      if (j.running && j.progress) {
-        const p = j.progress;
-        const pct = Math.round(100 * p.done / Math.max(1, p.total));
-        bar.style.width = pct + "%";
-        progText.textContent = `${p.done}/${p.total} · ${p.resolution || ""} · ${p.seeing || ""}" seeing`;
-      }
-      if (!j.running) {
-        clearInterval(pollTimer); pollTimer = null;
-        runBtn.disabled = false; pollBtn.disabled = true;
-        progress.hidden = true;
-        if (j.result) render(j.result);
-        if (j.error) {
-          summary.hidden = false;
-          summary.innerHTML = `<div class="det-stat"><div class="k">error</div><div class="v bad">${esc(j.error)}</div></div>`;
-        }
-      }
+      const r = await fetch("/api/deterioration");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      j = await r.json();
+      pollErrs = 0;
     } catch (e) {
-      clearInterval(pollTimer); pollTimer = null;
-      runBtn.disabled = false;
+      // a dropped answer must not strand the panel with a dead progress bar
+      if (++pollErrs > 6) {
+        stopPolling();
+        runBtn.disabled = false;
+        pollBtn.disabled = false;
+        setProgress(0, `poll failed (${e.message}) — press "Poll status" to retry`, true);
+      }
+      return;
     }
+    if (j.running) {
+      const p = j.progress;
+      if (p && p.total) {
+        setProgress(Math.round(100 * (p.done || 0) / Math.max(1, p.total)),
+          `${p.done || 0}/${p.total} cells · ${p.resolution || "?"} · ${p.seeing ?? "?"}″ seeing · ${p.noise ?? "?"} rms`);
+      } else {
+        setProgress(0, "queued — waiting for the first cell…", true);
+      }
+      return;
+    }
+    stopPolling();
+    runBtn.disabled = false;
+    pollBtn.disabled = true;
+    setProgress(100, "sweep finished");
+    if (j.result) render(j.result);
+    if (j.error) {
+      summary.hidden = false;
+      summary.innerHTML = `<div class="det-stat"><div class="k">error</div><div class="v bad">${esc(j.error)}</div></div>`;
+    }
+    if (progress) setTimeout(() => { if (!j.running) progress.hidden = true; }, 700);
   }
 
   runBtn.addEventListener("click", async () => {
     runBtn.disabled = true; pollBtn.disabled = false;
     summary.hidden = true; progress.hidden = false;
-    bar.style.width = "5%"; progText.textContent = "queued…";
+    setProgress(4, "submitting…", true);
     const body = {
       preset: presetSel ? presetSel.value : "quick",
       sub_lat_deg: num("detSubLat", 0),
@@ -1445,14 +2151,35 @@
       });
       const j = await r.json();
       if (!j.ok) { throw new Error(j.error || "failed"); }
-      pollTimer = setInterval(poll, 1500);
+      pollErrs = 0;
+      stopPolling();
+      pollTimer = setInterval(poll, 1200);
+      poll();
     } catch (e) {
-      runBtn.disabled = false; progress.hidden = true;
+      runBtn.disabled = false; pollBtn.disabled = true;
+      progress.hidden = true;
       summary.hidden = false;
       summary.innerHTML = `<div class="det-stat"><div class="k">error</div><div class="v bad">${esc(e.message)}</div></div>`;
     }
   });
   pollBtn.addEventListener("click", () => poll());
+
+  /* Charts are sized from clientWidth, which is 0 while the tab is hidden, so
+     redraw whenever the panel actually becomes visible (and on resize). */
+  let detResize = null;
+  function redrawDet() {
+    if (!lastRep) return;
+    const pane = document.getElementById("tab-deterioration");
+    if (pane && !pane.classList.contains("active")) return;
+    render(lastRep);
+  }
+  document.addEventListener("grs:tab", (e) => {
+    if (e.detail && e.detail.tab === "deterioration") requestAnimationFrame(redrawDet);
+  });
+  window.addEventListener("resize", () => {
+    clearTimeout(detResize);
+    detResize = setTimeout(redrawDet, 180);
+  });
 
   loadTips();
 

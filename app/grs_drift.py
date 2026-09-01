@@ -363,7 +363,7 @@ def export_drift_csv(points: Sequence[DriftPoint], fit: DriftFit,
     pts = sorted(points, key=lambda p: p.t_utc)
     os.makedirs(os.path.dirname(os.path.abspath(str(out_path))), exist_ok=True)
     clip = set(fit.clipped)
-    with open(str(out_path), "w", newline="") as f:
+    with open(str(out_path), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         for k in ("t_ref", "lon0_deg", "rate_deg_per_day",
                   "rate_deg_per_30d", "sigma_rate_deg_per_day", "n_used",

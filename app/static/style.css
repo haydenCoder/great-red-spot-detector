@@ -3,6 +3,9 @@
 */
 :root {
   /* Calm dark UI — readable, not “cyber dashboard” */
+  /* color-scheme makes native widgets (date picker, scrollbars, form
+     controls) dark too; without it the date input rendered light-on-dark. */
+  color-scheme: dark;
   --bg: #0f1419;
   --panel: #161d26;
   --panel2: #1c2530;
@@ -368,13 +371,50 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   min-height: 0;
 }
 
+/* Tab strip. The sliding underline (#tabInk) is positioned by app.js; the
+   active tab also keeps a solid background so the UI is still readable if the
+   script never loads. */
+.tabs-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+/* when the strip overflows (phones), fade the cut-off edge so it reads as
+   scrollable / swipeable instead of looking truncated */
+.tabs-wrap.scrolling::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 2px;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--panel));
+}
 .tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 10px;
   flex-wrap: wrap;
-  flex-shrink: 0;
+  scroll-behavior: smooth;
 }
+.tab-ink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), #8fcdf2);
+  box-shadow: 0 0 10px rgba(74, 159, 224, 0.55);
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--dur-ink) var(--ease-slide),
+              width var(--dur-ink) var(--ease-slide),
+              opacity 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.tab-ink.ready { opacity: 1; }
+.tab-ink.nofollow { transition: none; }
 .tab {
   background: transparent;
   border: 1px solid var(--border);
@@ -387,12 +427,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   min-height: 36px;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease,
+              transform 0.1s ease;
 }
+.tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.045); }
+.tab:active { transform: translateY(1px); }
 .tab.active {
   color: var(--text);
   background: var(--panel2);
   border-color: #3d4f6a;
 }
+/* keyboard focus moves with the arrows, so make it obvious where it landed */
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .tabpane {
   display: none;
@@ -401,10 +447,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   min-width: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;   /* vertical scroll stays native, horizontal is swipe */
 }
 .tabpane.active {
   display: flex;
   flex-direction: column;
+  animation: pane-in 0.2s var(--ease-slide) both;
+}
+.tabpane:focus-visible { outline-offset: -2px; }
+.tabpane.swiping { transition: none; animation: none; }
+@keyframes pane-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 .preview-wrap {
@@ -413,9 +467,15 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   background: #06080c;
   border-radius: 10px;
   border: 1px solid var(--border);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* `safe` keeps the overflow reachable when zoomed: with plain centering the
+     top/left of an enlarged image is scrolled past and unreachable. */
+  align-items: safe center;
+  justify-content: safe center;
+  overflow: auto;
+  overscroll-behavior: contain;
   position: relative;
 }
 #previewImg {
@@ -427,6 +487,81 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   display: none;
 }
 #previewImg.show { display: block; }
+
+/* ── preview zoom / pan ───────────────────────────────────────────────── */
+#previewImg.show { cursor: zoom-in; }
+#previewImg.zoomed {
+  max-width: none;
+  max-height: none;
+  width: calc(100% * var(--zoom, 1));
+  flex: 0 0 auto;                 /* never shrink back into the box */
+  cursor: grab;
+  touch-action: none;             /* we pan it ourselves when zoomed */
+}
+.preview-wrap.panning,
+.preview-wrap.panning #previewImg.zoomed { cursor: grabbing; }
+.preview-wrap.panning { user-select: none; }
+
+.zoom-ctl {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.zoom-ctl button {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  color: var(--text);
+  font: 600 12px/1 var(--mono);
+}
+.zoom-ctl button:hover:not(:disabled) { border-color: var(--accent); }
+.zoom-ctl button:disabled { opacity: 0.45; cursor: default; }
+.zoom-ctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.zoom-readout { min-width: 48px; font-variant-numeric: tabular-nums; }
+.zoom-hint { color: var(--muted); font-size: 11px; }
+
+/* ── whole-window file drop ──────────────────────────────────────────── */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4, 7, 12, 0.72);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--dur-slide) var(--ease-slide), visibility 0s;
+}
+.drop-overlay.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--dur-slide) var(--ease-slide), visibility 0s;
+}
+.drop-card {
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  padding: 26px 34px;
+  text-align: center;
+  background: rgba(12, 18, 28, 0.92);
+  max-width: min(520px, 100%);
+}
+.drop-title { font-size: 18px; font-weight: 700; color: var(--text); }
+.drop-sub {
+  margin-top: 6px;
+  color: var(--muted);
+  font: 12px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+.drop-overlay.reject .drop-card { border-color: var(--err); }
+.drop-overlay.reject .drop-sub { color: var(--err); }
+
 .preview-empty {
   color: var(--muted);
   font-size: 13px;
@@ -608,22 +743,33 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .small { font-size: 11px; }
 .mono { font-family: var(--mono); }
 
-/* Backdrop for mobile drawer */
+/* Backdrop for mobile drawer.
+   Fades instead of popping: toggling `display` between none/block kills the
+   transition, so state lives in opacity/visibility and the drawer drag can
+   drive `opacity` continuously. */
 .drawer-backdrop {
-  display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(4, 6, 10, 0.62);
   z-index: 45;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  visibility: hidden;
   pointer-events: none;
+  transition: opacity var(--dur-slide) var(--ease-slide),
+              visibility 0s linear var(--dur-slide);
 }
 .drawer-backdrop.show {
-  display: block;
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition: opacity var(--dur-slide) var(--ease-slide), visibility 0s;
 }
+.drawer-backdrop.dragging { transition: opacity 0s linear; }
+
+/* Left-edge strip that opens the drawer by dragging (phones) */
+.edge-zone { display: none; }
+/* Drawer chrome only makes sense once the controls are off-canvas */
+.drawer-head { display: none; }
 
 /* =========================
    RESPONSIVE BREAKPOINTS
@@ -683,28 +829,120 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
     overflow: visible;
   }
 
-  /* Controls become off-canvas drawer */
+  /* Keep the header (status pill / mode badge) live above the backdrop; the
+     drawer itself owns the top-left corner and carries its own close button. */
+  .topbar { z-index: 60; }
+
+  /* Controls become an off-canvas drawer that follows the finger.
+     --drawer-dx is written by the drag handler (0 at rest), so the same
+     transform expression covers "closed", "dragging" and "open". */
   .controls {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
-    width: min(92vw, 360px);
+    width: var(--drawer-w);
     max-width: 100%;
-    z-index: 50;
+    z-index: 70;
     border-radius: 0;
     border-left: 0;
     border-top: 0;
     border-bottom: 0;
-    transform: translateX(-105%);
-    transition: transform 0.22s ease;
+    transform: translateX(calc(-100% - 12px + var(--drawer-dx, 0px)));
+    visibility: hidden;
+    transition: transform var(--dur-slide) var(--ease-slide),
+                visibility 0s linear var(--dur-slide);
     box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
     padding-top: max(12px, var(--safe-top));
     padding-bottom: max(16px, var(--safe-bottom));
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    will-change: transform;
   }
-  .controls.open {
-    transform: translateX(0);
+  .controls.open,
+  .controls.dragging {
+    transform: translateX(var(--drawer-dx, 0px));
+    visibility: visible;
+    transition: transform var(--dur-slide) var(--ease-slide), visibility 0s;
   }
+  .controls.dragging {
+    transition: none;            /* no easing while the finger owns the motion */
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.55);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .controls.inert { pointer-events: none; }
+
+  /* Edge strip for swipe-to-open. Deliberately small and inset: a full-height
+     strip would swallow taps meant for the left edge of the panel's controls,
+     which start ~21px in. The ☰ button stays the primary path. */
+  .edge-zone {
+    display: block;
+    position: fixed;
+    top: 18%;
+    bottom: 18%;
+    left: 0;
+    width: 16px;
+    z-index: 30;
+    touch-action: pan-y;
+  }
+  .edge-zone::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 3px;
+    height: 56px;
+    margin-top: -28px;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  /* Drawer chrome: sticky title + close, and a grab handle */
+  .drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: calc(-1 * max(12px, var(--safe-top))) -14px 10px;
+    padding: calc(10px + max(0px, var(--safe-top) - 12px)) 14px 10px;
+    background: linear-gradient(180deg, var(--panel) 72%, rgba(22, 29, 38, 0.85));
+    border-bottom: 1px solid var(--border);
+    cursor: grab;
+  }
+  .drawer-head:active { cursor: grabbing; }
+  .drawer-grip {
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    background: #3a4a60;
+    flex-shrink: 0;
+  }
+  .drawer-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .drawer-close {
+    margin-left: auto;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel2);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .drawer-close:active { transform: scale(0.94); }
 
   .center,
   .console-panel {
@@ -729,6 +967,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
     min-height: min(42vh, 320px);
   }
 
+  .zoom-hint { display: none; }
+  .preview-wrap { touch-action: pan-x pan-y; }
+
   .dash-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -752,15 +993,13 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
     align-items: flex-start;
   }
 
+  html.drawer-open,
   body.drawer-open {
+    /* lock the page behind the drawer (html AND body: iOS only honours one
+       of them depending on which element is the scroller) */
     overflow: hidden;
+    overscroll-behavior: none;
   }
-}
-
-/* Close-drawer button only useful on mobile */
-.menu-only-mobile { display: none; }
-@media (max-width: 900px) {
-  .menu-only-mobile { display: block; }
 }
 
 /* Phones */
@@ -786,6 +1025,12 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   }
 
   .panel { padding: 10px 12px; }
+  .drawer-head {
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 
   .center { min-height: 50vh; }
   .console-panel { min-height: 160px; max-height: 35vh; }
@@ -797,11 +1042,61 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   .dash-card.wide { grid-column: auto; }
 }
 
-/* Prefer reduced motion */
+/* ---------- Console follow / jump-to-latest ---------- */
+.console-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.jump-latest,
+.pin-log {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  min-height: 24px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.pin-log[aria-pressed="true"] {
+  color: var(--ok);
+  border-color: #1d4a36;
+  background: #0c1f16;
+}
+.jump-latest {
+  color: var(--accent);
+  border-color: #2a4a6e;
+  background: #0e1a2a;
+  animation: pane-in 0.2s var(--ease-slide) both;
+}
+.jump-latest:active,
+.pin-log:active { transform: scale(0.95); }
+.console.stuck-bottom { scroll-behavior: smooth; }
+
+/* Prefer reduced motion: keep every state change, drop the travel */
 @media (prefers-reduced-motion: reduce) {
   .pill.run { animation: none; }
   .controls { transition: none; }
   .drawer-backdrop { transition: none; }
+  .tabpane.active { animation: none; }
+  .tab-ink { transition: none; }
+  .tabs { scroll-behavior: auto; }
+  .console.stuck-bottom { scroll-behavior: auto; }
+  .tab,
+  .slider::-webkit-slider-thumb,
+  .det-bar-fill,
+  .jump-latest,
+  .pin-log,
+  .drop-overlay,
+  .drop-overlay.show { transition: none; }
 }
 
 /* Desktop: slightly smaller form text is fine */
@@ -876,21 +1171,98 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   font-weight: 600;
 }
 
-/* ---------- Time bar ---------- */
-.time-bar-label { margin-bottom: 10px; }
-.time-bar-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  margin-top: 6px;
+/* ---------- Motion tokens ---------- */
+:root {
+  /* single source of truth for how things slide, so the whole UI agrees */
+  --ease-slide: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-slide: 0.26s;
+  --dur-ink: 0.22s;
+  --drawer-w: min(92vw, 360px);
+  --scrollbar: #2c3644;
 }
-.time-bar-row input[type="range"] {
+
+/* ---------- Time bar (slider) ---------- */
+.field { margin-bottom: 10px; }
+.field > label { margin-bottom: 10px; }
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.field-label { margin-bottom: 0 !important; }
+.slider-row { padding-top: 2px; }
+.slider {
+  --fill: 50%;
   width: 100%;
   margin: 0;
-  min-height: 28px;
-  accent-color: var(--accent);
-  cursor: pointer;
+  height: 30px;
+  min-height: 30px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: 8px;
+  cursor: grab;
+  /* the control owns this drag; nothing here may scroll a container */
+  touch-action: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.slider:active { cursor: grabbing; }
+/* Firefox track/thumb need their own rules; Chrome ignores them harmlessly */
+.slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0 var(--fill), #1a2230 var(--fill) 100%);
+  border: 1px solid var(--border);
+}
+.slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #1a2230;
+  border: 1px solid var(--border);
+}
+.slider::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #eaf4ff, #4a9fe0 62%, #2c6fa8);
+  border: 1px solid #7dc0f0;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55), 0 0 0 0 rgba(74, 159, 224, 0.45);
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #eaf4ff, #4a9fe0 62%, #2c6fa8);
+  border: 1px solid #7dc0f0;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+.slider:hover::-webkit-slider-thumb { transform: scale(1.08); }
+.slider:active::-webkit-slider-thumb,
+.slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55), 0 0 0 7px rgba(74, 159, 224, 0.22);
+}
+.slider:focus-visible::-moz-range-thumb { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55), 0 0 0 7px rgba(74, 159, 224, 0.22); }
+.slider:focus-visible { outline: none; }
+.slider-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--mono);
+  user-select: none;
+  pointer-events: none;
 }
 #timeBarReadout {
   font-family: var(--mono);
@@ -1079,7 +1451,21 @@ input[type="date"] {
 .det-bar-fill {
   height: 100%; width: 0%;
   background: linear-gradient(90deg, #4dd0ff, #ff9d4d);
-  transition: width .25s ease;
+  transition: width .35s var(--ease-slide, ease);
+}
+/* between "submitted" and the first measured cell the sweep is genuinely
+   indeterminate — say so instead of parking a bar at 5% forever */
+.det-bar-fill.indet {
+  width: 34% !important;
+  animation: det-indet 1.1s var(--ease-slide, ease) infinite alternate;
+  opacity: 0.85;
+}
+@keyframes det-indet {
+  from { transform: translateX(-30%); }
+  to { transform: translateX(230%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .det-bar-fill.indet { animation: none; width: 100% !important; opacity: 0.35; }
 }
 .det-summary {
   display: grid;
@@ -1127,7 +1513,41 @@ input[type="date"] {
 .det-method-bar > i {
   display: block; height: 100%;
   background: linear-gradient(90deg, #4dd0ff, #7dffb3);
+  transition: width .45s var(--ease-slide, ease);
 }
+.det-chart-card canvas { border-radius: 6px; }
+
+/* NN training line gets a live accent while a run is going */
+.nn-live {
+  color: var(--text) !important;
+  border-left: 2px solid var(--factory, #8b7ec8);
+  padding-left: 8px;
+  animation: pulse 1.6s ease infinite;
+}
+@media (prefers-reduced-motion: reduce) { .nn-live { animation: none; } }
+
+/* Dark, thin scrollbars where they are visible at all (Firefox/Chromium) */
+.panel, .console, .codeblock, .tabpane, .tabs {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+.panel::-webkit-scrollbar,
+.console::-webkit-scrollbar,
+.codeblock::-webkit-scrollbar,
+.tabpane::-webkit-scrollbar,
+.tabs::-webkit-scrollbar { width: 10px; height: 8px; }
+.panel::-webkit-scrollbar-thumb,
+.console::-webkit-scrollbar-thumb,
+.codeblock::-webkit-scrollbar-thumb,
+.tabpane::-webkit-scrollbar-thumb,
+.tabs::-webkit-scrollbar-thumb {
+  background: #2c3644;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.panel::-webkit-scrollbar-thumb:hover,
+.console::-webkit-scrollbar-thumb:hover { background-color: #3d4f6a; }
 .det-tips { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.5; }
 .det-tips li { margin-bottom: 6px; color: var(--text, #d7dee6); }
 .accent { color: #ff9d4d; }

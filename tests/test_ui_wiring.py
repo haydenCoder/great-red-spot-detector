@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -199,7 +199,7 @@ class TestMotionCss(unittest.TestCase):
         self.assertRegex(CSS, r"\.slider::-moz-range-thumb")
 
     def test_reduced_motion_covers_the_new_motion(self):
-        blocks = re.findall(r"@media \(prefers-reduced-motion: reduce\) \{(.*?)(?:\n\})", CSS, re.S)
+        blocks = re.findall(r"@media \(prefers-reduced-motion: reduce\) \{(.*?)(?:\n\})", CSS, re.DOTALL)
         self.assertTrue(blocks, "no reduced-motion block in style.css")
         body = "\n".join(blocks)
         for sel in (".controls", ".drawer-backdrop", ".tab-ink", ".tabpane.active", ".tabs"):
@@ -318,7 +318,7 @@ class TestOneClickNight(unittest.TestCase):
         self.assertIn('id="factoryHard" checked', HTML, "stress suite is part of 'everything'")
 
     def test_tail_fills_the_panels_the_night_cannot(self):
-        tail = JS[JS.index("async function runEverythingTail()"):]
+        tail = JS[JS.index("async function runEverythingTail("):]
         tail = tail[: tail.index("\n  }\n\n  function CONSOLE_LINE")]
         for step in ("runTransits", "runSessionPlan", "runSharpen", '$("btnDetRun")'):
             self.assertIn(step, tail, f"one-click tail never runs {step}")
@@ -330,21 +330,32 @@ class TestOneClickNight(unittest.TestCase):
         self.assertIn("everythingRan = 0;", JS[JS.index("async function startJob("):][: 400],
                       "a second press must be allowed to run the tail again")
 
+    def test_one_click_note_describes_the_night_it_ran(self):
+        # a fixed "ephemeris, multi-night, stress" sentence would over-claim the
+        # moment a stage is skipped by the checkbox or fails inside the endpoint
+        self.assertNotIn("`Night done — dashboard, report", JS)
+        summary = JS[JS.index("function nightSummary("):][: 900]
+        for key in ("st.ephemeris", "st.measure", "st.multi_epoch", "st.hard_synth"):
+            self.assertIn(key, summary, f"night summary ignores {key}")
+        self.assertIn("v.error ? `${label} ✗` : v.skipped ? `${label} off` : label", summary)
+        self.assertIn("return null", summary)      # no stages object -> say nothing, not everything
+        self.assertIn("runEverythingTail(j.result)", JS)
+
     def test_optional_steps_are_folded_away(self):
         start = HTML.index('<details class="steps">')
         end = HTML.index("</details>", start)
         inside = HTML[start:end]
         for btn in ("btnMulti", "btnHard"):
-            self.assertIn('id="%s"' % btn, inside, f"{btn} should live inside the disclosure")
+            self.assertIn(f'id="{btn}"', inside, f"{btn} should live inside the disclosure")
         self.assertIn("<summary", inside)
         # …and the buttons the one click drives stay reachable on their own
         for btn in ("btnProcess", "btnSynth", "btnFactory"):
-            self.assertNotIn('id="%s"' % btn, inside, f"{btn} must stay outside the disclosure")
+            self.assertNotIn(f'id="{btn}"', inside, f"{btn} must stay outside the disclosure")
 
     def test_sharpen_lab_is_wired_to_its_endpoint(self):
         for fn in ("sharpMethod", "sharpAmount", "btnSharpen", "sharpOut"):
-            self.assertIn('id="%s"' % fn, HTML, f"#{fn} missing from markup")
-            self.assertIn('$("%s")' % fn, JS, f"app.js never touches #{fn}")
+            self.assertIn(f'id="{fn}"', HTML, f"#{fn} missing from markup")
+            self.assertIn(f'$("{fn}")', JS, f"app.js never touches #{fn}")
         self.assertIn('id="sharpLab"', HTML)
         self.assertIn(".sharp-lab {", CSS, "Sharpen Lab row has no styling")
         self.assertIn("showPreview(j.preview", JS, "sharpened result never reaches the preview")
@@ -375,7 +386,7 @@ class TestOneClickNight(unittest.TestCase):
         body = src[start: src.index('@app.route("/")', start)]
         self.assertIn('("app.js", "style.css")', body)
         ns: dict = {}
-        exec(f"from pathlib import Path\n{body}", ns)
+        exec(f"from pathlib import Path\n{body}", ns)  # noqa: S102 — source-level probe, no user input
         ui_version = ns["_ui_version"]
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

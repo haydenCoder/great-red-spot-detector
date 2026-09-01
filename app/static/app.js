@@ -1148,7 +1148,25 @@
   let pendingEverything = false;
   let everythingRan = 0;
 
-  async function runEverythingTail() {
+  function nightSummary(result) {
+    // The note must describe what the night actually did: report["stages"] says
+    // ephemeris / measure / multi-night / stress ran, was skipped on request, or
+    // failed. A fixed sentence here would over-claim the moment a stage is off.
+    const st = (result && result.stages) || null;
+    if (!st) return null;
+    const parts = [];
+    const push = (label, v) => {
+      if (!v) return;
+      parts.push(v.error ? `${label} ✗` : v.skipped ? `${label} off` : label);
+    };
+    push("ephemeris", st.ephemeris);
+    push("measure", st.measure);
+    push("multi-night", st.multi_epoch);
+    push("stress", st.hard_synth);
+    return parts.length ? parts.join(" · ") : null;
+  }
+
+  async function runEverythingTail(result) {
     if (everythingRan) return;                 // a re-polled result must not re-run it
     everythingRan += 1;
     const note = (msg) => setText("oneClickNote", msg);
@@ -1164,7 +1182,9 @@
       const b = $("btnDetRun");
       if (b && !b.disabled) b.click();          // long sweep: leave the tab choice to the user
     });
-    note(`Night done — dashboard, report, ephemeris, multi-night, stress${steps.length ? ", " + steps.join(", ") : ""} filled. Press 4 to watch the ☄ Deterioration Lab sweep.`);
+    const night = nightSummary(result || lastResult);
+    note(`Night done — ${night || "stages reported"}${steps.length ? " · " + steps.join(", ") + " filled" : ""}. `
+         + "Press 4 to watch the ☄ Deterioration Lab sweep.");
     CONSOLE_LINE();
   }
 
@@ -1279,7 +1299,7 @@
         renderResult(j.result);
         if (pendingEverything && j.result.kind === "factory_night") {
           pendingEverything = false;
-          runEverythingTail();                     // fills the panels the night cannot
+          runEverythingTail(j.result);             // fills the panels the night cannot
         }
         if (wasRunning) {
           if (j.result.kind === "factory_night") showTab("dashboard", true);

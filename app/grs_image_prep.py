@@ -278,7 +278,6 @@ def orange_grs_lonlat(
         pass
 
     # Keep only SEB-ish image rows by projecting lat of each row centre
-    best = None
     ys, xs = np.where(score >= max(float(score.max()) * 0.55, 1e-8))
     cands = []
     for y, x in zip(ys.tolist(), xs.tolist()):

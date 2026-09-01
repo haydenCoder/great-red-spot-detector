@@ -1008,7 +1008,7 @@ def main(argv=None) -> int:
         from observatory_pipeline import _save_png
         rgb_path = _save_png(out / "rgb.png", res.rgb)
         (out / "rgb_report.json").write_text(
-            json.dumps(res.report, indent=2, default=str))
+            json.dumps(res.report, indent=2, default=str), encoding="utf-8")
         print(f"rgb: {rgb_path}\nreport: {out / 'rgb_report.json'}")
         return 0
 

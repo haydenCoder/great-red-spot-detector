@@ -453,19 +453,43 @@ class JupiterZonalStackerResult:
 # Per-frame per-AP tracking with zonal-shear correction
 # -----------------------------------------------------------------------------
 
+def _ap_on_disk(x: float, y: float, xc: float, yc: float, a_eq_px: float,
+                north_pa_deg: float, flattening: float) -> bool:
+    """Whether a pixel lies inside the fitted limb (polar-radius convention)."""
+    k = max(1.0 - float(flattening), 1e-9)
+    X = (float(x) - float(xc)) / (float(a_eq_px) + 1e-12)
+    Y = (float(yc) - float(y)) / (float(a_eq_px) + 1e-12)
+    pa = deg2rad(float(north_pa_deg or 0.0))
+    Xp = X * math.cos(pa) + Y * math.sin(pa)
+    Yp = -X * math.sin(pa) + Y * math.cos(pa)
+    return bool(Xp * Xp + (Yp / k) ** 2 <= 1.0)
+
+
 def _ap_latitude(
     ap_xy: Tuple[float, float],
     nav_center_xy: Tuple[float, float],
     nav_a_px: float,
     sub_lat_deg: float = 0.0,
     north_pa_deg: float = 0.0,
+    flattening: float = FLAT,
 ) -> float:
     """
-    Approximate planetocentric latitude of an AP, in degrees. We use
-    a thin-sky approximation (the AP's distance from the rotation
-    axis, mapped to latitude). For an AP at the disk centre this is
-    `sub_lat_deg`; for an AP at the limb, it's the latitude
-    where the AP's pixel column intersects the spheroid.
+    Planetocentric latitude of an AP, in degrees.
+
+    Uses ``precision_engine.px_to_lonlat_vec`` — the same exact oblate-spheroid
+    line-of-sight solve the engine uses to publish measurements — so the latitude
+    that bins an AP is the latitude the pipeline reports.
+
+    The previous thin-sky form, ``asin(Y * cos D)`` after undoing PA, contradicted
+    this function's own docstring: it returned 0° at the disc centre where the
+    truth is ``sub_lat_deg``, and its error grew toward the limb (measured over a
+    400 px Jovian disc: mean ~1.3°, p99 ~8.8°, max ~20°, and up to ~2.9° *inside*
+    the GRS band at the season's worst sub-Earth latitude of +3°). That mis-binned
+    the per-AP zonal-wind prior. This is the sibling of the fix already shipped in
+    ``planetary_stacker._ap_latitudes`` (CHANGELOG, 2026-08-02).
+
+    APs outside the fitted limb have no real spheroid intersection; they keep the
+    old approximation so callers still receive a finite number.
     """
     x, y = ap_xy
     xc, yc = nav_center_xy
@@ -473,10 +497,16 @@ def _ap_latitude(
     # The (X, Y) on the unit disk (in equatorial plate-scale units)
     X = (x - xc) / a
     Y = (yc - y) / a
+    if _ap_on_disk(x, y, xc, yc, a, north_pa_deg, flattening):
+        exact = _ap_latitude_exact(x, y, xc, yc, a, sub_lat_deg, north_pa_deg,
+                                  flattening)
+        if math.isfinite(exact):
+            return exact
+    # Off-limb AP (or the engine cannot be imported): the historical thin-sky
+    # form, kept so this never returns NaN into the shear prior.
     # Apply PA
     pa = deg2rad(north_pa_deg)
     cos_P, sin_P = math.cos(pa), math.sin(pa)
-    Xp = X * cos_P + Y * sin_P
     Yp = -X * sin_P + Y * cos_P
     # Tilt by sub-lat
     D = deg2rad(sub_lat_deg)
@@ -487,6 +517,32 @@ def _ap_latitude(
     Yb = Yp * cos_D
     lat_rad = math.asin(max(-1.0, min(1.0, Yb)))
     return math.degrees(lat_rad)
+
+
+def _ap_latitude_exact(x: float, y: float, xc: float, yc: float, a_eq_px: float,
+                       sub_lat_deg: float, north_pa_deg: float,
+                       flattening: float) -> float:
+    """Spheroid latitude of one pixel via the engine, or NaN if unavailable.
+
+    Latitude does not depend on CM III or distance, so only the orientation and
+    limb scale are needed here. Imported lazily, as in planetary_stacker, to
+    keep this module loadable without the precision engine.
+    """
+    try:
+        from precision_engine import NavState, px_to_lonlat_vec
+    except Exception:
+        return float("nan")
+    try:
+        ns = NavState(
+            xc=float(xc), yc=float(yc), a_eq_px=float(a_eq_px),
+            flattening=float(flattening), cm_iii_deg=0.0, distance_au=5.2,
+            sub_lat_deg=float(sub_lat_deg or 0.0),
+            north_pa_deg=float(north_pa_deg or 0.0),
+        )
+        _, lat = px_to_lonlat_vec(np.asarray([float(y)]), np.asarray([float(x)]), ns)
+        return float(lat[0])
+    except Exception:
+        return float("nan")
 
 
 # -----------------------------------------------------------------------------

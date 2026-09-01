@@ -282,7 +282,7 @@ def export_profile_csv(report: Dict[str, Any], out_path,
             ("n_evidence_frames", "n_frames")]
     cols = {k: report.get(k) or [] for k, _ in keys}
     os.makedirs(os.path.dirname(os.path.abspath(str(out_path))), exist_ok=True)
-    with open(str(out_path), "w", newline="") as f:
+    with open(str(out_path), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if summary:
             w.writerow(["# wind profile analysis summary"])

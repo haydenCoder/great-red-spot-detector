@@ -874,7 +874,7 @@ def write_gold_standard_bundle(out_dir: Path, gs: GoldStandardResult) -> Dict[st
         f"# generated {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
         f"# primary_definition {gs.primary_definition}",
         f"# cm_source {gs.cm_source}",
-        f"# NOT a NASA GRS catalog product",
+        "# NOT a NASA GRS catalog product",
         f"utc={gs.user_time_iso}",
         f"cm_iii_deg={gs.cm_iii_deg:.6f}",
         f"distance_au={gs.distance_au:.6f}",

@@ -2098,7 +2098,9 @@ def measure_grs_precision(
             wnn = 0.18
             lon = wrap_deg(lon + wnn * wrap_diff(nlon, lon))
             lat = (1 - wnn) * lat + wnn * nlat
-            notes.append(f"SPIRE-Net light tail rescue pull w=0.18")
+            # interpolated, not typed: a note that hard-codes "0.18" starts lying
+            # the moment the blend weight is retuned
+            notes.append(f"SPIRE-Net light tail rescue pull w={wnn:.2f}")
             methods["spire_net"] = {**nn_prior, "blend_w": wnn, "mode": "rescue"}
 
     length, width, size_src = _choose_size(usable)

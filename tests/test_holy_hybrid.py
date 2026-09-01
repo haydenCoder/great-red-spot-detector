@@ -101,6 +101,39 @@ class TestWinJuposDerotator(unittest.TestCase):
         # Output PNG exists
         self.assertTrue(Path(res.output_path).exists())
 
+    def _mini_stack(self, **kw):
+        from holy_hybrid_stacker import run_holy_hybrid
+        frames = _synthetic_jupiter_frames(n=4, h=128, w=128, seed=7, dx_per_frame=0.2)
+        out_dir = Path("/tmp/holy_hybrid_test"); out_dir.mkdir(parents=True, exist_ok=True)
+        return run_holy_hybrid(frames, out_dir, n_grid=4, ap_half=8, n_importance=8,
+                               train_cnn=False, **kw)
+
+    def test_discarded_rbf_solve_stays_gone(self):
+        """The per-frame RBF fit was computed for every frame and thrown away
+        (43-74 ms per solve: 17-30 s on a 400-frame run). Pin that no stacking
+        path calls it, so it cannot quietly come back as dead weight."""
+        import holy_hybrid_stacker as hhs
+        real = hhs._fit_rbf_velocity_field
+        calls = []
+
+        def spy(*a, **k):
+            calls.append(1)
+            return real(*a, **k)
+
+        hhs._fit_rbf_velocity_field = spy
+        try:
+            res = self._mini_stack()
+        finally:
+            hhs._fit_rbf_velocity_field = real
+        self.assertEqual(res.n_frames, 4)
+        self.assertEqual(len(calls), 0, "RBF velocity field fitted but unused again")
+
+    def test_rbf_smoothness_sigma_is_still_published(self):
+        """`sigma_rbf` also feeds the published diagnostic, so removing the dead
+        solve must not remove the number itself."""
+        res = self._mini_stack()
+        self.assertGreater(float(res.rbf_smoothness_sigma), 0.0)
+
     def test_rigid_rotation_fit(self):
         from win_jupos_derotator import _fit_rigid_rotation
         # Pure rotation by 0.05 rad about the centre: APs at known

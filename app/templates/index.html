@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0f1419" />
+  <meta name="color-scheme" content="dark" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Great Red Spot Detector</title>
-  <link rel="stylesheet" href="/static/style.css?v=6.5.1" />
+  <link rel="stylesheet" href="/static/style.css?v={{ ui_v or 'dev' }}" />
 </head>
 <body>
   <div class="app">
@@ -30,10 +31,25 @@
       </div>
     </header>
 
-    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <!-- no `hidden` attribute: the state lives in .show so the fade can animate -->
+    <!-- whole-window file drop: drag a capture anywhere and it uploads -->
+    <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
+      <div class="drop-card">
+        <div class="drop-title">Drop to load</div>
+        <div class="drop-sub" id="dropOverlayName">.ser · .avi · .fits · .png · .jpg</div>
+      </div>
+    </div>
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <!-- left-edge drag zone: swipe right to open the controls drawer (mobile) -->
+    <div class="edge-zone" id="edgeZone" aria-hidden="true"></div>
 
     <main class="grid">
-      <section class="panel controls" id="controlsPanel" aria-label="Controls">
+      <section class="panel controls" id="controlsPanel" aria-label="Controls" tabindex="-1">
+        <div class="drawer-head">
+          <span class="drawer-grip" aria-hidden="true"></span>
+          <span class="drawer-title">Controls</span>
+          <button type="button" class="drawer-close" id="btnDrawerCloseTop" aria-label="Close controls menu">✕</button>
+        </div>
         <h2>1 · When you observed</h2>
         <label>Your country
           <select id="country"></select>
@@ -42,12 +58,19 @@
         <label>Observation date
           <input type="date" id="obsDate" />
         </label>
-        <label class="time-bar-label">Local time of day
-          <div class="time-bar-row">
-            <input type="range" id="timeBar" min="0" max="1439" value="720" step="1" />
-            <span id="timeBarReadout" class="mono">12:00:00</span>
+        <div class="field">
+          <div class="field-head">
+            <label for="timeBar" class="field-label">Local time of day</label>
+            <output id="timeBarReadout" class="mono" for="timeBar">12:00:00</output>
           </div>
-        </label>
+          <div class="slider-row">
+            <input type="range" id="timeBar" class="slider" min="0" max="1439" value="720" step="1"
+                   aria-valuetext="12:00 local" />
+            <div class="slider-scale" aria-hidden="true">
+              <span>00</span><span>06</span><span>12</span><span>18</span><span>24</span>
+            </div>
+          </div>
+        </div>
         <label>Mid-exposure time (UTC)
           <input type="text" id="userTime" placeholder="YYYY-MM-DD HH:MM:SS" autocomplete="off" />
         </label>
@@ -138,21 +161,30 @@
               <option value="16K">16K (may downshift)</option>
             </select>
           </label>
+          <p class="muted small" id="resHint" hidden></p>
           <p class="muted small">Always picks a <strong>random UTC epoch</strong>. Session time above is ignored.</p>
           <label class="check"><input type="checkbox" id="synthProcess" checked /> Measure after generate</label>
           <button type="button" id="btnSynth" class="btn accent">Generate synthetic</button>
         </div>
 
-        <div class="mode-section factory">
-          <h2>6 · Self-test night (optional)</h2>
-          <p class="mode-tag">With a file loaded → processes <strong>your</strong> image. Without → synthetic test.</p>
-          <label class="check"><input type="checkbox" id="factoryHard" /> Include stress suite (slower)</label>
-          <button type="button" id="btnFactory" class="btn factory">Run self-test night</button>
+        <div class="mode-section factory oneclick">
+          <h2>6 · One click — the whole night</h2>
+          <p class="mode-tag">Pro ephemeris → measure <strong>your</strong> image (synthetic if none) →
+             multi-night drift → stress suite → then Transits, the session planner, Sharpen Lab and
+             the Deterioration Lab fill themselves.</p>
+          <label class="check"><input type="checkbox" id="factoryHard" checked /> Include stress suite (slower)</label>
+          <button type="button" id="btnFactory" class="btn factory big">⚡ Run everything</button>
+          <p class="muted small" id="oneClickNote">Nothing else needs to be pressed. The buttons under
+            “step-by-step” are only for running one stage alone.</p>
         </div>
 
-        <h2>7 · Extra tools</h2>
-        <button type="button" id="btnMulti" class="btn primary">Multi-night drift</button>
-        <button type="button" id="btnHard" class="btn accent">Stress suite</button>
+        <details class="steps">
+          <summary id="stepsSummary">Step-by-step (optional) — Multi-night, stress suite</summary>
+          <div class="btn-row">
+            <button type="button" id="btnMulti" class="btn primary">Multi-night drift</button>
+            <button type="button" id="btnHard" class="btn accent">Stress suite</button>
+          </div>
+        </details>
 
         <h2>8 · SPIRE-Net (weights are frozen)</h2>
         <p class="muted small">Training is not needed for normal use. Weights ship with the app and stay fixed so results stay stable.</p>
@@ -175,30 +207,53 @@
         <div id="nnStatus" class="file-info muted">NN: idle (frozen weights recommended)</div>
 
         <button type="button" id="btnClearLog" class="btn ghost">Clear console</button>
-        <button type="button" id="btnCloseDrawer" class="btn ghost menu-only-mobile">Close menu</button>
       </section>
 
       <section class="panel center" aria-label="Workspace">
-        <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-tab="preview" role="tab" aria-selected="true">Preview</button>
-          <button type="button" class="tab" data-tab="dashboard" role="tab">Dashboard</button>
-          <button type="button" class="tab" data-tab="results" role="tab">Full report</button>
-          <button type="button" class="tab" data-tab="eph" role="tab">Ephemeris</button>
-          <button type="button" class="tab" data-tab="multi" role="tab">Multi-night</button>
-          <button type="button" class="tab" data-tab="hard" role="tab">Stress</button>
-          <button type="button" class="tab" data-tab="nasa" role="tab">Geometry</button>
-          <button type="button" class="tab" data-tab="video" role="tab">Video</button>
-          <button type="button" class="tab" data-tab="transits" role="tab">Transits</button>
-          <button type="button" class="tab" data-tab="analysis" role="tab">Analysis</button>
-          <button type="button" class="tab hot" data-tab="deterioration" role="tab">☄ Deterioration Lab</button>
+        <div class="tabs-wrap">
+          <div class="tabs" role="tablist" aria-label="Workspaces" id="tabStrip"
+               title="Tabs: press 1-9 or 0 on the keyboard to jump straight to one">
+            <button type="button" class="tab active" id="tabbtn-preview" data-tab="preview" role="tab" aria-selected="true" aria-controls="tab-preview" tabindex="0">Preview</button>
+            <button type="button" class="tab" id="tabbtn-dashboard" data-tab="dashboard" role="tab" aria-selected="false" aria-controls="tab-dashboard" tabindex="-1">Dashboard</button>
+            <button type="button" class="tab" id="tabbtn-results" data-tab="results" role="tab" aria-selected="false" aria-controls="tab-results" tabindex="-1">Full report</button>
+            <button type="button" class="tab hot" id="tabbtn-deterioration" data-tab="deterioration" role="tab" aria-selected="false" aria-controls="tab-deterioration" tabindex="-1">☄ Deterioration Lab</button>
+            <button type="button" class="tab" id="tabbtn-eph" data-tab="eph" role="tab" aria-selected="false" aria-controls="tab-eph" tabindex="-1">Ephemeris</button>
+            <button type="button" class="tab" id="tabbtn-multi" data-tab="multi" role="tab" aria-selected="false" aria-controls="tab-multi" tabindex="-1">Multi-night</button>
+            <button type="button" class="tab" id="tabbtn-hard" data-tab="hard" role="tab" aria-selected="false" aria-controls="tab-hard" tabindex="-1">Stress</button>
+            <button type="button" class="tab" id="tabbtn-nasa" data-tab="nasa" role="tab" aria-selected="false" aria-controls="tab-nasa" tabindex="-1">Geometry</button>
+            <button type="button" class="tab" id="tabbtn-video" data-tab="video" role="tab" aria-selected="false" aria-controls="tab-video" tabindex="-1">Video</button>
+            <button type="button" class="tab" id="tabbtn-transits" data-tab="transits" role="tab" aria-selected="false" aria-controls="tab-transits" tabindex="-1">Transits</button>
+            <button type="button" class="tab" id="tabbtn-analysis" data-tab="analysis" role="tab" aria-selected="false" aria-controls="tab-analysis" tabindex="-1">Analysis</button>
+          </div>
+          <span class="tab-ink" id="tabInk" aria-hidden="true"></span>
         </div>
 
-        <div id="tab-preview" class="tabpane active" role="tabpanel">
+        <div id="tab-preview" class="tabpane active" role="tabpanel" aria-labelledby="tabbtn-preview" tabindex="0">
           <div class="preview-meta">
             <span id="previewSource" class="preview-source none">No image</span>
             <span id="previewRun" class="muted small"></span>
+            <span class="zoom-ctl" role="group" aria-label="Preview zoom">
+              <button type="button" id="btnZoomOut" title="Zoom out (or press −)" aria-label="Zoom out">−</button>
+              <button type="button" id="zoomPct" class="zoom-readout" title="Reset to fit (or press 0)" aria-label="Reset zoom">100%</button>
+              <button type="button" id="btnZoomIn" title="Zoom in (or press +)" aria-label="Zoom in">+</button>
+              <span id="zoomHint" class="zoom-hint">wheel: zoom · drag: pan</span>
+            </span>
           </div>
-          <div class="preview-wrap">
+          <div class="sharp-lab" id="sharpLab">
+            <label class="sl-field">Sharpen
+              <select id="sharpMethod">
+                <option value="wavelet" selected>Wavelet (safe)</option>
+                <option value="unsharp">Unsharp mask</option>
+                <option value="rl">Richardson–Lucy</option>
+              </select>
+            </label>
+            <label class="sl-field sl-amount">Amount <output id="sharpAmountOut">1.0×</output>
+              <input type="range" id="sharpAmount" class="slider" min="0.2" max="3" step="0.1" value="1" aria-label="Sharpen amount" />
+            </label>
+            <button type="button" id="btnSharpen" class="btn ghost" disabled title="Needs an uploaded image">Sharpen my image</button>
+            <span id="sharpOut" class="muted small">Measures sharpness before/after (Laplacian variance) and shows the result in this pane.</span>
+          </div>
+          <div class="preview-wrap" id="previewWrap">
             <img id="previewImg" alt="Jupiter / GRS preview" />
             <div id="previewEmpty" class="preview-empty">
               Load a FITS/PNG to see <strong>your</strong> photo, or run a synthetic test.
@@ -206,7 +261,7 @@
           </div>
         </div>
 
-        <div id="tab-dashboard" class="tabpane" role="tabpanel">
+        <div id="tab-dashboard" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-dashboard" tabindex="0">
           <p class="muted small results-hint">Small table of key numbers. Open <strong>Full report</strong> for everything.</p>
           <pre id="dashTable" class="codeblock mono">Run a job — dashboard table appears here.</pre>
           <!-- hidden legacy ids so app.js still updates without errors -->
@@ -232,16 +287,16 @@
           <div id="budgetBars" class="budget" hidden></div>
         </div>
 
-        <div id="tab-results" class="tabpane" role="tabpanel">
+        <div id="tab-results" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-results" tabindex="0">
           <p class="muted small results-hint">Everything: publish, champion, dual, budgets, headline, JSON.</p>
           <pre id="resultsBox" class="codeblock">No results yet.</pre>
         </div>
-        <div id="tab-eph" class="tabpane" role="tabpanel"><pre id="ephBox" class="codeblock">Resolve ephemeris or run a job first.</pre></div>
-        <div id="tab-multi" class="tabpane" role="tabpanel"><pre id="multiBox" class="codeblock">Needs at least two measured jobs.</pre></div>
-        <div id="tab-hard" class="tabpane" role="tabpanel"><pre id="hardBox" class="codeblock">Optional stress suite for error-bar honesty.</pre></div>
-        <div id="tab-nasa" class="tabpane" role="tabpanel"><pre id="nasaBox" class="codeblock">No geometry report yet.</pre></div>
+        <div id="tab-eph" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-eph" tabindex="0"><pre id="ephBox" class="codeblock">Resolve ephemeris or run a job first.</pre></div>
+        <div id="tab-multi" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-multi" tabindex="0"><pre id="multiBox" class="codeblock">Needs at least two measured jobs.</pre></div>
+        <div id="tab-hard" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-hard" tabindex="0"><pre id="hardBox" class="codeblock">Optional stress suite for error-bar honesty.</pre></div>
+        <div id="tab-nasa" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-nasa" tabindex="0"><pre id="nasaBox" class="codeblock">No geometry report yet.</pre></div>
 
-        <div id="tab-video" class="tabpane" role="tabpanel">
+        <div id="tab-video" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-video" tabindex="0">
           <p class="muted small results-hint">
             <strong>Video Import</strong> — AutoStakkert-class APS stacking: per-alignment-point
             lucky selection + sub-pixel drizzle ×2/×3. Load a .ser / .avi capture.
@@ -297,7 +352,7 @@
           </div>
         </div>
 
-        <div id="tab-transits" class="tabpane" role="tabpanel">
+        <div id="tab-transits" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-transits" tabindex="0">
           <p class="muted small results-hint">
             <strong>Transit planner</strong> — WinJUPOS-class: GRS meridian crossings,
             visibility windows (|rel| ≤ 45°) and Galilean moon transit/occultation
@@ -320,7 +375,7 @@
           <pre id="transitsBox" class="codeblock">Plan a night — events appear here.</pre>
         </div>
 
-        <div id="tab-analysis" class="tabpane" role="tabpanel">
+        <div id="tab-analysis" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-analysis" tabindex="0">
           <p class="muted small results-hint">
             <strong>Analysis Pro</strong> — physics-derived session budgets and GRS
             System-II drift geophysics, from the same rotation model the
@@ -351,7 +406,7 @@
           <pre id="driftBox" class="codeblock">Upload a JUPOS CSV and fit.</pre>
         </div>
 
-        <div id="tab-deterioration" class="tabpane" role="tabpanel">
+        <div id="tab-deterioration" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-deterioration" tabindex="0">
           <p class="muted small results-hint">
             <strong>Deterioration Lab</strong> — measure how GRS accuracy falls
             off as <em>resolution</em>, <em>seeing</em> and <em>noise</em>
@@ -379,7 +434,7 @@
             </div>
             <div class="det-field det-actions">
               <button type="button" id="btnDetRun" class="btn primary">▶ Run deterioration sweep</button>
-              <button type="button" id="btnDetStop" class="btn ghost" disabled>Poll</button>
+              <button type="button" id="btnDetStop" class="btn ghost" disabled title="Ask the server for the current sweep state">Poll status</button>
             </div>
           </div>
           <div id="detProgress" class="det-progress" hidden>
@@ -437,9 +492,14 @@
       <section class="panel console-panel" aria-label="Live console">
         <div class="console-head">
           <h2>Live console</h2>
-          <span class="muted small" id="logCount">0</span>
+          <div class="console-tools">
+            <button type="button" id="btnJumpLatest" class="jump-latest" hidden>0 new ↓</button>
+            <button type="button" id="btnPinLog" class="pin-log" aria-pressed="true"
+                    title="Auto-scroll keeps the newest line visible">⇣ follow</button>
+            <span class="muted small" id="logCount">0</span>
+          </div>
         </div>
-        <div id="console" class="console"></div>
+        <div id="console" class="console" role="log" tabindex="0" aria-label="Live console log"></div>
       </section>
     </main>
 
@@ -448,6 +508,6 @@
       <span id="healthInfo">…</span>
     </footer>
   </div>
-  <script src="/static/app.js?v=6.5.1"></script>
+  <script src="/static/app.js?v={{ ui_v or 'dev' }}"></script>
 </body>
 </html>

@@ -136,6 +136,15 @@ class TestEphemerisProvenance(unittest.TestCase):
         self.assertTrue(Path(d["output_dir"]).exists())
 
     def test_cm_source_is_trusted_when_spice_available(self):
+        # The name promises the SPICE branch; without spiceypy installed,
+        # resolve_ephemeris can only answer "analytical" — which the next test
+        # asserts *must* be flagged. Failing here punished the environment for
+        # lacking an optional dependency and hid the one number this gate exists
+        # to protect, so the gate now only runs where it can be met.
+        try:
+            import spiceypy  # noqa: F401
+        except Exception:
+            self.skipTest("spiceypy unavailable — no SPICE branch to gate")
         from accuracy_gates import is_trusted_cm_source
         from product_core import resolve_ephemeris
 

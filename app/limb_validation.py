@@ -114,7 +114,7 @@ def main(argv=None) -> int:
         "pass": n_fail == 0,
         "rows": rows,
     }
-    (out / "limb_validation_report.json").write_text(json.dumps(report, indent=2, default=str))
+    (out / "limb_validation_report.json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     print(json.dumps({"pass": report["pass"], "n_fail": n_fail, "n": len(rows)}, indent=2))
     return 0 if report["pass"] else 3
 

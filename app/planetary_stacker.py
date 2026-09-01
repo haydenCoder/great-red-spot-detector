@@ -551,6 +551,15 @@ def _robust_combine(
     n = len(warped)
     if n == 0:
         raise ValueError("_robust_combine: no frames")
+    if len(weights) != n:
+        # The n < 3 branch below zips, so a short weight list used to drop frames
+        # from the mean silently and still hand back a plausible-looking stack.
+        raise ValueError(
+            f"_robust_combine: {n} frames but {len(weights)} weights")
+    if len(weights) != n:
+        # With n < 3 this zips, so a short weight list used to drop frames from
+        # the mean silently and still return a plausible-looking stack.
+        raise ValueError(f"_robust_combine: {n} frames but {len(weights)} weights")
     first = np.asarray(warped[0], dtype=np.float64)
     if n < 3:
         acc = np.zeros_like(first)

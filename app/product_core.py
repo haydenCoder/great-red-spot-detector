@@ -177,7 +177,7 @@ def generate_synthetic(
             "fit": str(fit),
             "output_dir": str(job),
         }
-        (job / "job_result.json").write_text(json.dumps(package, indent=2, default=str))
+        (job / "job_result.json").write_text(json.dumps(package, indent=2, default=str), encoding="utf-8")
         return package
 
     package = run_synthetic_full(

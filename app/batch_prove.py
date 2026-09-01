@@ -231,12 +231,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         from spice_auto import ensure_kernels, selftest
         spice_status = selftest()
-        (root / "spice_status.json").write_text(json.dumps(spice_status, indent=2, default=str))
+        (root / "spice_status.json").write_text(json.dumps(spice_status, indent=2, default=str), encoding="utf-8")
         CONSOLE.ok(f"SPICE selftest ok={spice_status.get('ok')}")
     except Exception as e:
         spice_status = {"ok": False, "error": str(e)}
         CONSOLE.warn(f"SPICE selftest: {e}")
-        (root / "spice_status.json").write_text(json.dumps(spice_status, indent=2))
+        (root / "spice_status.json").write_text(json.dumps(spice_status, indent=2), encoding="utf-8")
 
     rows: List[Dict[str, Any]] = []
     skys: List[float] = []

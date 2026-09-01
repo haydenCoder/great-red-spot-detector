@@ -218,8 +218,8 @@ app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 try:
     from security_hard import (
         SecurityError,
+        rate_bucket,
         rate_limit_ok,
-        sanitize_filename,
         safe_upload_extension,
         assert_safe_process_path,
         safe_resolve_under,
@@ -232,6 +232,7 @@ try:
 except Exception:
     _SEC = False
     SecurityError = PermissionError  # type: ignore
+    rate_bucket = lambda *_a, **_k: "mutate"  # noqa: E731  (no-op: no limiter loaded)
 
 
 @app.before_request
@@ -246,7 +247,8 @@ def _security_before():
     if not host_allowed(request.host or "", bind_host=bind):
         return jsonify({"ok": False, "error": "host not allowed"}), 403
     ip = request.remote_addr or "local"
-    if not rate_limit_ok(ip):
+    # Read-only UI polling lives in its own budget — see security_hard.POLL_ENDPOINTS
+    if not rate_limit_ok(ip, bucket=rate_bucket(request.path, request.method)):
         return jsonify({"ok": False, "error": "rate limit — slow down"}), 429
     return None
 
@@ -341,9 +343,29 @@ ACCURACY_TIPS = [
 ]
 
 
+def _ui_version(base="0", static_dir=None):
+    """Cache-busting token for the two hand-edited assets.
+
+    PRODUCT_VERSION alone is not enough: a UI round that touches only app.js and
+    style.css never bumps the version, so every browser keeps running the file it
+    cached. The mtime of the assets is what actually changes when the UI does.
+    """
+    static = Path(static_dir) if static_dir else Path(__file__).resolve().parent / "static"
+    try:
+        stamp = max(int((static / n).stat().st_mtime) for n in ("app.js", "style.css"))
+    except OSError:
+        return str(base)                    # unpacked/odd install: version alone is fine
+    return f"{base}.{stamp:x}"
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # The static asset query string is the cache-buster; see _ui_version.
+    try:
+        from product_core import PRODUCT_VERSION as _base_v
+    except Exception:
+        _base_v = _version_fallback()
+    return render_template("index.html", ui_v=_ui_version(_base_v))
 
 
 @app.route("/api/health")
@@ -398,6 +420,36 @@ def verbose():
 def job():
     with _lock:
         return jsonify(dict(_job))
+
+
+@app.route("/api/status")
+def status():
+    """One snapshot for the live UI: log tail + job slot + NN status.
+
+    The page used to fire three separate polls per tick (``/api/logs``,
+    ``/api/job``, ``/api/nn/status``) to paint what is effectively one status
+    line. Folding them together cuts the request rate to a third and gives the
+    front end a single atomic view, so the console and the results card can
+    never disagree about which run just finished. The three old endpoints stay
+    for the CLI/tests.
+    """
+    try:
+        after = int(request.args.get("after", 0))
+    except (TypeError, ValueError):
+        after = 0
+    with _lock:
+        job_state = dict(_job)
+    try:
+        nn = nn_grs.get_train_status()
+    except Exception as e:  # NN is optional; never take the whole poll down
+        nn = {"running": False, "error": str(e)}
+    return jsonify({
+        "ok": True,
+        "lines": CONSOLE.since(after),
+        "verbose": CONSOLE.verbose,
+        "job": job_state,
+        "nn": nn,
+    })
 
 
 @app.route("/api/regions")
@@ -507,11 +559,9 @@ def upload():
         return jsonify({"ok": False, "error": "No file"}), 400
     try:
         if _SEC:
-            ext = safe_upload_extension(f.filename)
-            safe_name = sanitize_filename(f.filename)
+            ext = safe_upload_extension(f.filename)   # allowlist + sanitize inside
         else:
             ext = Path(f.filename).suffix.lower()
-            safe_name = Path(f.filename).name
             if ext not in (".fit", ".fits", ".fts", ".ser", ".avi", ".png", ".jpg", ".jpeg"):
                 return jsonify({"ok": False, "error": f"Bad type {ext}"}), 400
     except SecurityError as e:
@@ -824,8 +874,8 @@ def process():
             _attach_human_report(report, out, run_n)
             # JSON without the huge text field (text lives in FULL_REPORT.txt)
             dump = {k: v for k, v in report.items() if k != "text"}
-            (out / result_name).write_text(json.dumps(dump, indent=2, default=str))
-            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
+            (out / result_name).write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
             CONSOLE.ok(f"PROCESS COMPLETE → {out.name} / {result_name}")
             free_memory()
             _finish(report)
@@ -1069,8 +1119,8 @@ def synthetic():
             result_name = f"job_result_run{run_n:04d}{mtag}.json"
             _attach_human_report(result, out, run_n)
             dump = {k: v for k, v in result.items() if k != "text"}
-            (out / result_name).write_text(json.dumps(dump, indent=2, default=str))
-            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
+            (out / result_name).write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
             CONSOLE.ok(f"SYNTHETIC COMPLETE → {out.name} / {result_name}")
             free_memory()
             _finish(result)
@@ -1185,8 +1235,8 @@ def api_multi_epoch():
             }
             _attach_human_report(report, out, run_n)
             dump = {k: v for k, v in report.items() if k != "text"}
-            (out / f"job_result_run{run_n:04d}.json").write_text(json.dumps(dump, indent=2, default=str))
-            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
+            (out / f"job_result_run{run_n:04d}.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
             CONSOLE.ok(f"MULTI-EPOCH COMPLETE run#{run_n:04d} → {out.name}")
             _finish(report)
         except Exception as e:
@@ -1228,8 +1278,8 @@ def api_hard_synth():
             report["output_folder"] = out.name
             _attach_human_report(report, out, run_n)
             dump = {k: v for k, v in report.items() if k != "text"}
-            (out / f"job_result_run{run_n:04d}.json").write_text(json.dumps(dump, indent=2, default=str))
-            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
+            (out / f"job_result_run{run_n:04d}.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
             CONSOLE.ok(f"HARD SYNTH COMPLETE run#{run_n:04d}: {report.get('calibration_grade')} → {out.name}")
             free_memory()
             _finish(report)
@@ -1487,7 +1537,7 @@ def api_factory_night():
             stages["measure"] = measure_block
             vf = (rg.methods or {}).get("vlbi_full")
             if isinstance(vf, dict):
-                (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str))
+                (out / "vlbi_metrology.json").write_text(json.dumps(vf, indent=2, default=str), encoding="utf-8")
 
             # --- 3) Multi-epoch ---
             CONSOLE.info("[3/4] Multi-epoch differential scan…")
@@ -1634,9 +1684,9 @@ def api_factory_night():
 
             _attach_human_report(report, out, run_n)
             dump = {k: v for k, v in report.items() if k != "text"}
-            (out / report_name).write_text(json.dumps(dump, indent=2, default=str))
-            (out / "factory_night_report.json").write_text(json.dumps(dump, indent=2, default=str))
-            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str))
+            (out / report_name).write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "factory_night_report.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
+            (out / "job_result.json").write_text(json.dumps(dump, indent=2, default=str), encoding="utf-8")
             # Short summary still written for quick glance
             lines = [
                 "FACTORY NIGHT — QUICK SUMMARY",

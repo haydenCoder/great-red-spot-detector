@@ -150,8 +150,8 @@ def format_dashboard_table(package: Dict[str, Any]) -> str:
 def format_human_report(package: Dict[str, Any]) -> str:
     """Full Results — all important blocks + full headline + budgets + JSON."""
     d = _pull(package)
-    pkg, h, pub, ch, pe, eq, dual = (
-        d["pkg"], d["h"], d["pub"], d["ch"], d["pe"], d["eq"], d["dual"]
+    pkg, h, pub, ch, pe, dual = (
+        d["pkg"], d["h"], d["pub"], d["ch"], d["pe"], d["dual"]
     )
     lines: List[str] = []
 

@@ -350,6 +350,16 @@ class TestOneClickNight(unittest.TestCase):
         self.assertIn("pendingEverything = false;", f)
         self.assertIn("Nothing else was run.", f)
 
+    def test_sharpen_readout_uses_one_scale_for_both_numbers(self):
+        # before/after are only comparable when printed the same way, and these
+        # variances live in 1e-3..1e2 so a fixed toFixed(1) shows "0.0 → 0.0"
+        call = JS[JS.index("async function runSharpen()"):][: 1800]
+        self.assertIn("const big = Math.max(Math.abs(before) || 0, Math.abs(after) || 0);", call)
+        self.assertIn("big >= 100 ? v.toFixed(1)", call)
+        self.assertIn("big >= 1e-3 ? v.toFixed(4)", call)
+        self.assertIn("v.toExponential(2)", call)
+        self.assertNotIn("const f = (v) => (v == null", call, "per-number precision crept back in")
+
     def test_optional_steps_are_folded_away(self):
         start = HTML.index('<details class="steps">')
         end = HTML.index("</details>", start)

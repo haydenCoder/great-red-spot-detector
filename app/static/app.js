@@ -1718,13 +1718,12 @@
       if (!j.ok) { setText("sharpOut", "Error: " + (j.error || "failed")); return; }
       // Laplacian variance on these frames is a small number (1e-3 … 1e2), so fixed
       // decimals would print "0.0 → 0.0" and hide the whole result.
-      const f = (v) => {
-        const n = Number(v);
-        if (v == null || !Number.isFinite(n)) return "—";
-        const a = Math.abs(n);
-        return a >= 100 ? n.toFixed(1) : a >= 0.01 ? n.toFixed(4) : n.toExponential(2);
-      };
+      // One scale for both numbers: 4.21e-3 → 0.0330 is unreadable next to itself,
+      // and a fixed toFixed(1) would print "0.0 → 0.0" for every real frame.
       const before = Number(j.lapvar_before), after = Number(j.lapvar_after);
+      const big = Math.max(Math.abs(before) || 0, Math.abs(after) || 0);
+      const f = (v) => (!Number.isFinite(v) ? "—"
+        : big >= 100 ? v.toFixed(1) : big >= 1e-3 ? v.toFixed(4) : v.toExponential(2));
       const gain = before > 0 && Number.isFinite(after) ? ` · ×${(after / before).toFixed(2)}` : "";
       setText("sharpOut",
         `${method} · Laplacian variance ${f(before)} → ${f(after)}${gain}`

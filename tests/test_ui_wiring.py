@@ -451,6 +451,16 @@ class TestBackendIsReachable(unittest.TestCase):
                 orphans.append(r)
         self.assertFalse(orphans, f"routes no page control can reach: {orphans}")
 
+    def test_no_control_is_inert(self):
+        """The other direction of "everything in my code is in this UI": a visible
+        input with no code behind it is worse than a missing one, because it looks
+        like it does something. (tabbtn-* ids are exempt: the strip is driven off
+        the DOM in TAB_ORDER, so the ids are built as "tabbtn-" + name.)"""
+        controls = re.findall(r'<(?:input|select|textarea|button)\b[^>]*?id="([A-Za-z0-9_-]+)"', HTML, re.DOTALL)
+        self.assertGreaterEqual(len(controls), 80, f"only {len(controls)} controls parsed — regex drift?")
+        dead = [c for c in controls if not c.startswith("tabbtn-") and f'"{c}"' not in JS]
+        self.assertFalse(dead, f"controls no script reads: {dead}")
+
     def test_resolution_table_is_used_by_the_picker(self):
         self.assertIn('fetch("/api/resolutions")', JS)
         self.assertIn('id="resHint"', HTML)

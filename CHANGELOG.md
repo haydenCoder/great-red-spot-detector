@@ -63,7 +63,12 @@ remember to make. It is now *load an image → press one button → read the tab
   downshift if RAM tight` — instead of leaving 16K as a mystery word.
 * `tests/test_ui_wiring.py::TestBackendIsReachable` scans every `@app.route` and fails if
   one is not reachable from a control, so a backend feature can no longer ship without a
-  way to press it. Two exemptions, both documented in the test: `/api/file` and
+  way to press it. The reverse is checked too — `test_no_control_is_inert` walks every
+  `<input>`/`<select>`/`<button>` in the markup (86 of them) and fails if no script reads it,
+  because a control that looks usable and is not is worse than a missing one. All 86 pass,
+  through helpers (`numOrNull("cmOverride")`, `wireDrop("dropZone", "fileInput", …)`,
+  `num("detSubLat", 0)`) as well as directly; only the `tabbtn-*` ids are exempt, since the
+  strip is built from the DOM. Two exemptions, both documented in the test: `/api/file` and
   `/api/output/*`, which the server uses to *build* URLs it already sends in JSON.
 
 ### Fixed — a duplicated test class, so test edits cannot silently do nothing

@@ -77,6 +77,8 @@ class ChampionResult:
     extent_ew_deg: Optional[float] = None
     definition: str = "CHAMPION"
     cm_iii_deg: float = float("nan")
+    cm_ii_deg: float = float("nan")
+    lon_ii_deg: float = float("nan")
     cm_source: str = ""
     distance_au: float = 5.2
     sigma_cm_deg: float = 0.0
@@ -1341,6 +1343,27 @@ def run_champion_measure(
     )
 
     ok = math.isfinite(lon) and math.isfinite(lat)
+
+    # --- System II mapping (IAU frame rotation, exact; needs only UTC) ------
+    cm_ii = lon_ii = float("nan")
+    if user_time_iso:
+        try:
+            from system_ii import derive_system_ii
+            s2 = derive_system_ii(
+                cm_iii_deg, user_time_iso,
+                lon_iii_deg=(lon if ok else None),
+                source=cm_source or "champion",
+            )
+            cm_ii = s2.cm_ii_deg
+            lon_ii = s2.lon_ii_deg if s2.lon_ii_deg is not None else float("nan")
+            notes.append(
+                f"System II frame offset {s2.offset_deg:+.4f}° (IAU WGCCRE) "
+                f"→ CM_II={cm_ii:.4f}°"
+                + (f", GRS L_II={lon_ii:.4f}°" if math.isfinite(lon_ii) else "")
+            )
+        except Exception as e:
+            notes.append(f"System II mapping skipped: {e}")
+
     CONSOLE.ok(
         f"CHAMPION {grade} lon={lon:.4f}° lat={lat:.4f}° φ_g={lat_g:.3f}°  "
         f"σ_sky≈{sky:.3f}″ score={score:.0f} abs={absolute_ok} "
@@ -1349,6 +1372,8 @@ def run_champion_measure(
     return ChampionResult(
         ok=ok,
         lon_iii_deg=float(lon) if ok else float("nan"),
+        cm_ii_deg=float(cm_ii),
+        lon_ii_deg=float(lon_ii),
         lat_planetocentric_deg=float(lat) if ok else float("nan"),
         lat_planetographic_deg=float(lat_g) if math.isfinite(lat_g) else float("nan"),
         length_deg=length,
@@ -1437,6 +1462,8 @@ def attach_champion_to_package(
     package["champion"] = d
     h = package.setdefault("headline", {})
     h["champion_lon_iii_deg"] = ch.lon_iii_deg
+    h["champion_lon_ii_deg"] = ch.lon_ii_deg
+    h["champion_cm_ii_deg"] = ch.cm_ii_deg
     h["champion_lat_deg"] = ch.lat_planetocentric_deg
     h["champion_lat_planetographic_deg"] = ch.lat_planetographic_deg
     h["champion_grade"] = ch.grade
@@ -1458,9 +1485,11 @@ def attach_champion_to_package(
             "========",
             f"grade     {ch.grade}  score={ch.world_class_score:.0f}",
             f"lon_III   {ch.lon_iii_deg:.4f} °  ±{ch.sigma_total_lon_deg:.3f}",
+            f"lon_II    {ch.lon_ii_deg:.4f} °" if math.isfinite(ch.lon_ii_deg) else "lon_II    —",
             f"lat_c     {ch.lat_planetocentric_deg:.3f} °",
             f"lat_g     {ch.lat_planetographic_deg:.3f} °",
             f"CM_III    {ch.cm_iii_deg:.4f} °  [{ch.cm_source}]",
+            f"CM_II     {ch.cm_ii_deg:.4f} °" if math.isfinite(ch.cm_ii_deg) else "CM_II     —",
             f"def       {ch.definition}",
             f"σ_sky     {ch.sigma_total_sky_arcsec:.2f} ″",
             f"EW        {ch.extent_ew_deg}",

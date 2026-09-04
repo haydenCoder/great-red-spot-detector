@@ -3,6 +3,37 @@
 All notable changes to the Great Red Spot Detector. Versions follow the `VERSION`
 file (the single source of truth; no hardcoded literals).
 
+## [7.0.2] — System II mapping · FITS metadata · measurement overlay · video batch
+
+### Added
+- **System II / System III longitude mapping** (`app/system_ii.py`): exact IAU/IAG
+  WGCCRE Jupiter rotation frames (W_II = 43.3 + 870.270 d, W_III = 284.95 + 870.536 d,
+  d = TT days since J2000) with System III ↔ System II conversions. The champion
+  result and publish card now carry `lon_ii_deg` / `cm_ii_deg` alongside the
+  existing System III values (derived from the observation UTC; SPICE remains the
+  absolute CM III source). New CLI `sys2`.
+- **FITS header & metadata extraction** (`app/fits_meta.py`): exposure time,
+  telescope aperture (normalised to metres), filter passband, target name and
+  RA/Dec (sexagesimal or decimal) from a path or header mapping; mid-exposure time
+  is delegated to `fits_time.py`. New CLI `fits-info`; `process` reports now
+  include a `fits_metadata` block.
+- **Interactive measurement overlay** (`app/grs_overlay.py`): headless grid/ellipse
+  geometry (reusing `precision_engine` projection) + 16-bit TIFF and annotated PNG
+  export, plus an optional Tk `MeasureOverlay` with draggable ellipse handles and a
+  lat/lon grid toggle. Wired into the desktop app (*Inspect / tweak overlay*) and
+  available headless via the new `annotate` CLI command.
+- **Batch video / SER streaming** (`app/video_batch.py`): `video-batch` streams a
+  folder of `.ser`/`.avi` captures directly into the APS stacker (no image-folder
+  extraction), with per-file reports and a batch summary JSON. Fails per-file, not
+  per-batch.
+
+### Changed
+- `champion_measure.py` / `publish_primary.py`: System II fields added to the
+  champion dataclass, `champion.txt`/`champion.json`, the package headline, and the
+  publish section — populated only when an observation UTC is available (no
+  fabrication).
+- Version bumped to 7.0.2 (`VERSION`, `pyproject.toml`, `README.md`).
+
 ## [Unreleased] — UI rounds 1–3 + full-code audit
 
 Full write-ups: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)

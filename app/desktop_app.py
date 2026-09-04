@@ -410,6 +410,7 @@ class GRSDesktopApp(tk.Tk if _HAS_TK else object):
         self.winjupos_path: Optional[str] = None
         self._photo = None
         self.last_package: Optional[Dict[str, Any]] = None
+        self.last_preview_path: Optional[Path] = None
         self.log_bridge = LogBridge(self.msg_q)
         self._license_status = None
         try:
@@ -913,6 +914,13 @@ class GRSDesktopApp(tk.Tk if _HAS_TK else object):
         self._action_btn(
             left, "Open outputs folder", self.on_open_outputs,
             "Job folders with publish.txt / SUPERDUPER_BEST_ANSWER.txt.",
+            secondary=True,
+        )
+        self._action_btn(
+            left, "📐  Inspect / tweak measurement overlay", self.on_overlay,
+            "Open an interactive canvas: drag the limb/GRS ellipse handles, toggle "
+            "the lat/lon grid, and export a 16-bit TIFF or annotated PNG of the "
+            "last processed image. Needs a completed Process job.",
             secondary=True,
         )
         self._action_btn(
@@ -2139,6 +2147,7 @@ class GRSDesktopApp(tk.Tk if _HAS_TK else object):
                             self._update_metrics(pkg)
                         prev = payload.get("preview")
                         if prev:
+                            self.last_preview_path = Path(prev)
                             self._show_preview(Path(prev))
                 elif kind == "status":
                     self.status_var.set("● " + str(payload))
@@ -2308,6 +2317,66 @@ class GRSDesktopApp(tk.Tk if _HAS_TK else object):
         if p:
             Path(p).write_text(json.dumps(self.last_package, indent=2, default=str), encoding="utf-8")
             messagebox.showinfo("Saved", p)
+
+    def on_overlay(self):
+        """Open the interactive measurement overlay on the last processed image.
+
+        Runs on the Tk main thread (never from a worker) and is fully guarded:
+        on a headless box it shows a warning instead of raising.
+        """
+        if not self.last_package:
+            messagebox.showinfo("Nothing to inspect", "Run Process first, then "
+                                "open the overlay to inspect and tweak the ellipses.")
+            return
+        try:
+            import numpy as _np
+            from precision_engine import fit_limb_nav, to_mono
+            from grs_overlay import (EllipseSpec, ellipse_from_lonlat_deg,
+                                     MeasureOverlay)
+            from PIL import Image as _PIL
+
+            # image: prefer the job preview, fall back to the loaded file
+            path = self.last_preview_path or getattr(self, "file_path", None)
+            if not path or not Path(path).exists():
+                messagebox.showwarning("No image", "No processed image to overlay.")
+                return
+            if str(path).lower().endswith((".fit", ".fits", ".fts")):
+                import grs_complete_system as _grs
+                arr, _ = _grs.read_fits(Path(path))
+                img = _np.asarray(arr, dtype=_np.float64)
+            else:
+                img = _np.asarray(_PIL.open(path), dtype=_np.float64)
+            mono = to_mono(img)
+            if mono.max() > 1.0:
+                mono = mono / max(255.0, float(mono.max()))
+
+            h = self.last_package.get("headline") or {}
+            pub = self.last_package.get("publish") or {}
+            cm_iii = pub.get("cm_iii_deg") or h.get("cm_iii_deg") or 0.0
+            nav = fit_limb_nav(mono, cm_iii_deg=float(cm_iii), north_pa_deg=0.0)
+            limb = EllipseSpec(cx=nav.xc, cy=nav.yc, a=nav.a_eq_px,
+                               b=nav.b_pol_px, color="#00ff66", label="limb")
+
+            # place the GRS ellipse at the published lon/lat, with true
+            # foreshortened semi-axes from the engine's projection
+            lon = pub.get("publish_lon_iii_deg") or h.get("lon_iii_deg")
+            lat = pub.get("publish_lat_deg") or h.get("lat_deg")
+            grs = None
+            if lon is not None and lat is not None:
+                length = h.get("grs_length_deg") or pub.get("grs_length_deg")
+                width = h.get("grs_width_deg") or pub.get("grs_width_deg")
+                grs = ellipse_from_lonlat_deg(
+                    nav, float(lon), float(lat),
+                    length_deg=float(length or 7.5), width_deg=float(width or 4.0))
+
+            out_dir = Path(self.last_package.get("output_dir") or BASE / "outputs") / "overlay"
+            MeasureOverlay(mono, nav=nav, limb=limb, grs=grs,
+                           cm_iii_deg=float(cm_iii) if cm_iii else None,
+                           title="GRS measurement overlay", out_dir=out_dir)
+        except Exception as e:
+            CONSOLE.debug(traceback.format_exc())
+            messagebox.showwarning("Overlay unavailable",
+                                   f"Could not open overlay: {e}")
 
     def on_open_file(self):
         p = filedialog.askopenfilename(

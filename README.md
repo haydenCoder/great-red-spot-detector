@@ -5,7 +5,7 @@ Jupiter image (FITS / SER / AVI / PNG / JPEG) and measures the Great Red Spot
 as a System III longitude and latitude, with a documented uncertainty budget
 instead of just "there it is."
 
-**Version:** 7.0.1 · **Python:** 3.10+ · **Platforms:** macOS / Linux ·
+**Version:** 7.0.2 · **Python:** 3.10+ · **Platforms:** macOS / Linux ·
 **License:** see [`LICENSE`](LICENSE)
 
 ---
@@ -32,6 +32,8 @@ Stacked image (FITS / SER / AVI / PNG / JPEG)
    │
    ├─ mid-exposure UTC (header / filename / typed in)
    ├─ SPICE CM III + distance (local kernels, no download)
+   ├─ System II mapping (IAU WGCCRE frame rotation) → L_II / CM_II alongside L_III
+   ├─ FITS metadata auto-read: exposure · aperture · filter · RA/Dec · target
    ├─ prep: N-S flip, moon mask, red+orange mono for RGB
    ├─ multi-isophote limb fit  (auto green + by-eye cyan outline)
    ├─ orthographic → cylindrical map on the true oblate spheroid
@@ -39,6 +41,30 @@ Stacked image (FITS / SER / AVI / PNG / JPEG)
    ├─ per-method scatter → systematic floor; Monte Carlo → random term
    └─ publish card + SUPERDUPER best answer + FULL_REPORT.txt
 ```
+
+### New in 7.0.2
+
+- **System II / System III longitude mapping** — `app/system_ii.py` adds the exact
+  IAU/IAG WGCCRE Jupiter rotation frames (System II = 43.3 + 870.270 d, System
+  III = 284.95 + 870.536 d) so every measurement is reported in *both* systems:
+  `L_II`/`CM_II` alongside `L_III`/`CM_III`. The frame offset is a pure,
+  dependency-free function of the UTC timestamp; SPICE stays the absolute CM III
+  source. CLI: `grs-observatory sys2 "2026-07-14 12:00:00" --lon-iii 120`.
+- **FITS header & metadata extraction** — `app/fits_meta.py` reads exposure time,
+  telescope aperture (m/mm/cm/in normalised to metres), filter passband, and
+  target RA/Dec (sexagesimal or decimal) from the header, delegating the
+  mid-exposure time to `fits_time.py`. CLI: `grs-observatory fits-info file.fits`
+  (also folded into every `process` report).
+- **Interactive measurement overlay** — `app/grs_overlay.py`: a Tk canvas that
+  draws the limb + GRS ellipses over the real pixels with draggable centre /
+  semi-major / semi-minor handles, a toggleable latitude/longitude grid (the same
+  orthographic projection the engine measures in), and 16-bit TIFF / annotated
+  PNG export. Opened from the desktop app's *Inspect / tweak overlay* button, and
+  headless via `grs-observatory annotate stack.fits --lon-iii 110 --lat -20`.
+- **Batch video / SER streaming** — `app/video_batch.py` streams a whole folder of
+  `.ser`/`.avi` captures straight into the APS stacker (memory-mapped, no
+  extraction to image folders), with per-file reports and a batch summary. CLI:
+  `grs-observatory video-batch ./captures/ --drizzle 2`.
 
 The colour (redness) lock is the workhorse: colour survives the atmospheric
 blur that destroys dark-oval shape, so it stays locked when the template starts

@@ -456,6 +456,68 @@ def main(argv=None) -> int:
     psp.add_argument("--lat", type=float, default=-20.0)
     psp.add_argument("--png", default="")
 
+    # --- System II / FITS metadata / overlay export / video batch (v7.0.2) --
+    psys2 = sub.add_parser(
+        "sys2",
+        help="Map System III <-> System II longitude for a UTC timestamp "
+             "(IAU WGCCRE rotation frames).",
+    )
+    psys2.add_argument("time", help="UTC time, e.g. '2026-07-14 12:00:00'")
+    psys2.add_argument("--cm-iii", type=float, default=None,
+                       help="System III central meridian deg (e.g. from SPICE)")
+    psys2.add_argument("--lon-iii", type=float, default=None,
+                       help="GRS System III W longitude deg to convert")
+    psys2.add_argument("--lon-ii", type=float, default=None,
+                       help="GRS System II longitude deg to convert back")
+
+    pfinfo = sub.add_parser(
+        "fits-info",
+        help="Extract observation metadata (exposure, aperture, filter, RA/Dec, "
+             "mid-time) from a FITS header.",
+    )
+    pfinfo.add_argument("path", help="FITS file path")
+
+    panno = sub.add_parser(
+        "annotate",
+        help="Render an annotated PNG + 16-bit TIFF of a stack with limb/GRS "
+             "ellipses and a lat/lon grid (headless overlay export).",
+    )
+    panno.add_argument("image", help="FITS/PNG/JPG stack image")
+    panno.add_argument("--out", default="", help="output directory")
+    panno.add_argument("--cm-iii", type=float, default=None,
+                       help="System III central meridian for grid labels")
+    panno.add_argument("--sub-lat", type=float, default=0.0)
+    panno.add_argument("--north-pa", type=float, default=0.0)
+    panno.add_argument("--lon-iii", type=float, default=None,
+                       help="GRS System III longitude (draws the GRS ellipse)")
+    panno.add_argument("--lat", type=float, default=None,
+                       help="GRS planetocentric latitude (draws the GRS ellipse)")
+    panno.add_argument("--length", type=float, default=None,
+                       help="GRS zonal length deg (semi-major of GRS ellipse)")
+    panno.add_argument("--width", type=float, default=None,
+                       help="GRS zonal width deg (semi-minor of GRS ellipse)")
+    panno.add_argument("--no-grid", action="store_true")
+
+    pvb = sub.add_parser(
+        "video-batch",
+        help="Stream a folder of SER/AVI captures straight into the stacker "
+             "(no image-folder extraction); per-file reports + batch JSON.",
+    )
+    pvb.add_argument("paths", nargs="+", help="capture dir(s) / file(s) / globs")
+    pvb.add_argument("--recursive", action="store_true")
+    pvb.add_argument("--measure", action="store_true",
+                     help="also run the full video->answer measurement per capture")
+    pvb.add_argument("--time", default="", help="mid-exposure UTC (else SER stamps)")
+    pvb.add_argument("--best", type=float, default=0.25)
+    pvb.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
+    pvb.add_argument("--ap-size", type=int, default=32)
+    pvb.add_argument("--step", type=int, default=1)
+    pvb.add_argument("--limit", type=int, default=0)
+    pvb.add_argument("--downsample", type=int, default=1)
+    pvb.add_argument("--sharpen", default="none",
+                     choices=["none", "wavelet", "rl", "unsharp"])
+    pvb.add_argument("--out", default="")
+
     args = p.parse_args(argv)
 
     if args.cmd == "version":
@@ -523,9 +585,16 @@ def main(argv=None) -> int:
             use_spice=not args.no_spice,
             use_horizons=not args.no_horizons,
         )
+        cm_iii = d.get("cm_iii_deg")
+        sys2 = None
+        if isinstance(cm_iii, (int, float)):
+            import system_ii
+            sys2 = system_ii.derive_system_ii(
+                float(cm_iii), args.time, source=str(d.get("cm_source") or ""))
         print(json.dumps({
             "t_utc_iso": d.get("t_utc_iso"),
-            "cm_iii_deg": d.get("cm_iii_deg"),
+            "cm_iii_deg": cm_iii,
+            "cm_ii_deg": sys2.cm_ii_deg if sys2 else None,
             "cm_source": d.get("cm_source"),
             "distance_au": d.get("distance_au"),
             "distance_source": d.get("distance_source"),
@@ -533,6 +602,7 @@ def main(argv=None) -> int:
             "north_pa_deg": d.get("north_pa_deg"),
             "source": d.get("source"),
             "output_dir": d.get("output_dir"),
+            "system_ii_offset_deg": sys2.offset_deg if sys2 else None,
         }, indent=2))
         return 0
 
@@ -601,16 +671,37 @@ def main(argv=None) -> int:
         h = pkg.get("headline") or {}
         pub = pkg.get("publish") or {}
         eq = pub.get("winjupos_equality") or {}
+        # System II mapping + FITS metadata for the report
+        sys2 = None
+        cm_iii = h.get("cm_iii_deg")
+        lon_iii = pub.get("publish_lon_iii_deg", h.get("lon_iii_deg"))
+        if isinstance(cm_iii, (int, float)):
+            import system_ii
+            sys2 = system_ii.derive_system_ii(
+                float(cm_iii), args.time,
+                lon_iii_deg=(float(lon_iii) if isinstance(lon_iii, (int, float)) else None),
+                source=str(h.get("cm_source") or ""))
+        fits_meta = None
+        if Path(args.path).suffix.lower() in (".fit", ".fits", ".fts"):
+            try:
+                from fits_meta import extract_fits_meta
+                fits_meta = extract_fits_meta(path=args.path).to_dict()
+            except Exception:
+                fits_meta = None
         print(json.dumps({
             "mode": pkg.get("mode"),
             "output_dir": pkg.get("output_dir"),
             "PUBLISH_definition": pub.get("publish_definition") or h.get("publish_definition"),
             "PUBLISH_lon_iii_deg": pub.get("publish_lon_iii_deg", h.get("lon_iii_deg")),
+            "PUBLISH_lon_ii_deg": sys2.lon_ii_deg if sys2 else None,
             "PUBLISH_lat_deg": pub.get("publish_lat_deg", h.get("lat_deg")),
             "pipeline_lon_iii_deg": pub.get("pipeline_lon_iii_deg") or h.get("pipeline_lon_iii_deg"),
             "sigma_total_sky_arcsec": h.get("sigma_total_sky_arcsec"),
-            "cm_iii_deg": h.get("cm_iii_deg"),
+            "cm_iii_deg": cm_iii,
+            "cm_ii_deg": sys2.cm_ii_deg if sys2 else None,
             "cm_source": h.get("cm_source"),
+            "system_ii_offset_deg": sys2.offset_deg if sys2 else None,
+            "fits_metadata": fits_meta,
             "soup_n_methods": pub.get("soup_n_methods"),
             "soup_role": "scatter_only",
             "winjupos_agreement": eq.get("agreement"),
@@ -1090,6 +1181,115 @@ def main(argv=None) -> int:
         if args.png:
             print("panel:", render_plan_png(plan, args.png))
         return 0
+
+    if args.cmd == "sys2":
+        import system_ii
+        try:
+            out = {"t_utc_iso": system_ii.parse_time(args.time).isoformat()}
+            # longitude conversion (either direction, or neither)
+            if args.lon_ii is not None:
+                out["lon_ii_deg"] = float(args.lon_ii)
+                out["lon_iii_deg"] = system_ii.system_ii_to_system_iii(
+                    args.lon_ii, args.time)
+            elif args.lon_iii is not None:
+                out["lon_iii_deg"] = float(args.lon_iii)
+                out["lon_ii_deg"] = system_ii.system_iii_to_system_ii(
+                    args.lon_iii, args.time)
+            # central meridian — resolve automatically when the user didn't pass one
+            cm_iii = args.cm_iii
+            src = "user"
+            if cm_iii is None:
+                try:
+                    d = resolve_ephemeris(args.time)
+                    cm_iii = d.get("cm_iii_deg")
+                    src = d.get("cm_source")
+                except Exception as e:
+                    print(f"note: could not resolve CM III automatically ({e}); "
+                          f"CM fields omitted", file=sys.stderr)
+            if cm_iii is not None:
+                c = system_ii.derive_system_ii(
+                    float(cm_iii), args.time,
+                    lon_iii_deg=out.get("lon_iii_deg"),
+                    source=str(src))
+                out["cm_iii_deg"] = c.cm_iii_deg
+                out["cm_ii_deg"] = c.cm_ii_deg
+                out["offset_deg"] = c.offset_deg
+                out["source"] = c.source
+            print(json.dumps(out, indent=2))
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.cmd == "fits-info":
+        from fits_meta import extract_fits_meta, meta_report_text
+        try:
+            meta = extract_fits_meta(path=args.path)
+            print(meta_report_text(meta))
+            print(json.dumps(meta.to_dict(), indent=2, default=str))
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.cmd == "annotate":
+        import grs_complete_system as _grs
+        from precision_engine import fit_limb_nav, to_mono
+        from grs_overlay import (EllipseSpec, ellipse_from_lonlat_deg,
+                                 render_annotated_png, export_16bit_tiff)
+        try:
+            p = Path(args.image)
+            if p.suffix.lower() in (".fits", ".fit", ".fts"):
+                arr, _hdr = _grs.read_fits(p)
+                arr = np.asarray(arr, dtype=np.float64)
+            else:
+                from PIL import Image as _PIL
+                arr = np.asarray(_PIL.open(p), dtype=np.float64)
+            mono = to_mono(arr)
+            if mono.max() > 1.0:
+                mono = mono / max(255.0, float(mono.max()))
+            out = Path(args.out) if args.out else default_out_root() / "annotate"
+            out.mkdir(parents=True, exist_ok=True)
+            nav = fit_limb_nav(mono, cm_iii_deg=args.cm_iii or 0.0,
+                               north_pa_deg=args.north_pa)
+            nav.sub_lat_deg = float(args.sub_lat)
+            nav.north_pa_deg = float(args.north_pa)
+            limb = EllipseSpec(cx=nav.xc, cy=nav.yc, a=nav.a_eq_px,
+                               b=nav.b_pol_px, color="#00ff66", label="limb")
+            grs = None
+            if args.lon_iii is not None and args.lat is not None:
+                grs = ellipse_from_lonlat_deg(
+                    nav, args.lon_iii, args.lat,
+                    length_deg=args.length or 7.5, width_deg=args.width or 4.0)
+            png_path = render_annotated_png(
+                out / "annotated.png", mono, nav=nav, limb=limb, grs=grs,
+                show_grid=not args.no_grid, cm_iii_deg=args.cm_iii,
+                title=p.name)
+            tif_path = export_16bit_tiff(out / "stack_16bit.tiff", mono)
+            print(json.dumps({"png": str(png_path), "tiff": str(tif_path)},
+                             indent=2))
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.cmd == "video-batch":
+        from video_batch import discover_captures, run_video_batch, batch_summary_text
+        caps = discover_captures(args.paths, recursive=args.recursive)
+        if not caps:
+            print("ERROR: no .ser/.avi captures found", file=sys.stderr)
+            return 2
+        res = run_video_batch(
+            caps,
+            out_root=Path(args.out) if args.out else None,
+            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            step=args.step, limit=args.limit, downsample=args.downsample,
+            sharpen_method=args.sharpen, measure=args.measure,
+            time_utc=args.time or None,
+        )
+        print(batch_summary_text(res))
+        print(json.dumps(res.to_dict(), indent=2, default=str))
+        return 0 if res.n_failed == 0 else 3
 
     return 1
 

@@ -74,6 +74,62 @@ class TestExtractFitsMeta:
         p_deg = _write_fits(tmp_path, **{"RA": "82.55"})
         assert extract_fits_meta(path=p_deg).target_ra_deg == pytest.approx(82.55)
 
+    def test_plate_scale_from_pixel_and_focal(self, tmp_path):
+        p = _write_fits(tmp_path, **{"XPIXSZ": 3.75, "YPIXSZ": 3.75,
+                                     "FOCALLEN": 2350.0})
+        m = extract_fits_meta(path=p)
+        assert m.pixel_size_um == pytest.approx(3.75)
+        assert m.focal_length_mm == pytest.approx(2350.0)
+        # 206265 * 3.75e-6 / 2.35 rad -> arcsec/px
+        expect = 206264.80624709636 * 3.75 / (2350.0 * 1000.0)
+        assert m.plate_scale_arcsec_per_px == pytest.approx(expect, rel=1e-9)
+        assert m.plate_scale_arcsec_per_px == pytest.approx(0.329, abs=0.01)
+
+    def test_plate_scale_absent_when_incomplete(self, tmp_path):
+        p = _write_fits(tmp_path, **{"XPIXSZ": 3.75})  # no focal length
+        m = extract_fits_meta(path=p)
+        assert m.pixel_size_um == pytest.approx(3.75)
+        assert m.plate_scale_arcsec_per_px is None
+
+    def test_capture_keywords(self, tmp_path):
+        p = _write_fits(tmp_path, **{"GAIN": 40, "CCD-TEMP": 23.7,
+                                     "ROWORDER": "TOP-DOWN",
+                                     "EQUINOX": 2000.0,
+                                     "OBSERVER": "Ada", "FRAMETYP": "Light"})
+        m = extract_fits_meta(path=p)
+        assert m.gain == pytest.approx(40.0)
+        assert m.gain_str == "40"
+        assert m.ccd_temp_c == pytest.approx(23.7)
+        assert m.row_order == "TOP-DOWN"
+        assert m.equinox == pytest.approx(2000.0)
+        assert m.observer == "Ada"
+        assert m.frame_type == "Light"
+
+    def test_bscale_bzero_via_header_mapping(self):
+        # astropy drops BSCALE/BZERO when writing unscaled float data, so test
+        # those through a raw header mapping (the astropy-header path).
+        m = extract_fits_meta(header={"BSCALE": 1.0, "BZERO": 32768.0})
+        assert m.bscale == pytest.approx(1.0)
+        assert m.bzero == pytest.approx(32768.0)
+
+    def test_sharpcap_style_header(self, tmp_path):
+        """A realistic SharpCap planetary header (from the SharpCap forum)."""
+        cards = {
+            "OBJECT": "Jupiter", "GAIN": 40, "FILTER": "Red",
+            "OBJCTRA": "18 28 51.000", "OBJCTDEC": "+00 00 00.000",
+            "RA": 277.213894941816, "DATE-OBS": "2021-10-01T17:55:17.3886948",
+            "CCD-TEMP": 23.7, "FRAMETYP": "Light", "XPIXSZ": 3.75,
+            "YPIXSZ": 3.75, "EXPTIME": 0.05, "ROWORDER": "TOP-DOWN",
+            "INSTRUME": "ZWO ASI120MM-S", "BSCALE": 1,
+        }
+        p = _write_fits(tmp_path, **cards)
+        m = extract_fits_meta(path=p)
+        assert m.instrument == "ZWO ASI120MM-S"
+        assert m.target_ra_deg == pytest.approx(277.213, abs=1e-2)  # OBJCTRA hours
+        assert m.exposure_time_s == pytest.approx(0.05)
+        assert m.mid_time_utc is not None and m.mid_time_utc.startswith("2021-10-01T17:55:17")
+        assert m.row_order == "TOP-DOWN"
+
     def test_not_a_fits(self, tmp_path):
         p = tmp_path / "image.png"
         p.write_bytes(b"\x89PNG")

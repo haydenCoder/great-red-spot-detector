@@ -86,6 +86,33 @@ class TestBatchRun:
         txt = batch_summary_text(res)
         assert "OK" in txt and "a.ser" in txt
 
+    def test_multi_keep_frac_stacks(self, tmp_path):
+        """One capture -> one stack per keep fraction, each in keep_NNpct/."""
+        ser_io.write_ser(tmp_path / "a.ser", _frames())
+        res = run_video_batch([tmp_path / "a.ser"], out_root=tmp_path / "out",
+                              keep_fracs=(0.05, 0.10, 0.20, 0.50))
+        assert res.n_ok == 1
+        item = res.items[0]
+        assert item.report["primary_keep_frac"] == 0.05
+        stacks = item.report["stacks"]
+        assert [s["keep_frac"] for s in stacks] == [0.05, 0.10, 0.20, 0.50]
+        assert all(s["ok"] for s in stacks)
+        for s in stacks:
+            d = Path(s["out_dir"])
+            assert d.exists() and (d / "aps_stack.png").exists()
+            assert d.name in ("keep_05pct", "keep_10pct", "keep_20pct", "keep_50pct")
+        # primary report still points at the first fraction's output dir
+        assert Path(item.out_dir).name == "keep_05pct"
+
+    def test_single_keep_frac_is_backward_compatible(self, tmp_path):
+        """Without keep_fracs, the report shape is the original stack report."""
+        ser_io.write_ser(tmp_path / "a.ser", _frames())
+        res = run_video_batch([tmp_path / "a.ser"], out_root=tmp_path / "out",
+                              keep_frac=0.25)
+        item = res.items[0]
+        assert "stacks" not in item.report
+        assert (Path(item.out_dir) / "aps_stack.png").exists()
+
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

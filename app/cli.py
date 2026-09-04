@@ -509,6 +509,10 @@ def main(argv=None) -> int:
                      help="also run the full video->answer measurement per capture")
     pvb.add_argument("--time", default="", help="mid-exposure UTC (else SER stamps)")
     pvb.add_argument("--best", type=float, default=0.25)
+    pvb.add_argument("--keep-fracs", default="",
+                     help="comma-separated multi-stack fractions, e.g. "
+                          "0.05,0.10,0.20,0.50 (AutoStakkert practice; "
+                          "overrides --best; first entry is the primary stack)")
     pvb.add_argument("--drizzle", type=int, default=1, choices=[1, 2, 3])
     pvb.add_argument("--ap-size", type=int, default=32)
     pvb.add_argument("--step", type=int, default=1)
@@ -1279,10 +1283,14 @@ def main(argv=None) -> int:
         if not caps:
             print("ERROR: no .ser/.avi captures found", file=sys.stderr)
             return 2
+        keep_fracs = None
+        if args.keep_fracs:
+            keep_fracs = tuple(float(x) for x in args.keep_fracs.split(",") if x.strip())
         res = run_video_batch(
             caps,
             out_root=Path(args.out) if args.out else None,
-            keep_frac=args.best, drizzle=args.drizzle, ap_size=args.ap_size,
+            keep_frac=args.best, keep_fracs=keep_fracs,
+            drizzle=args.drizzle, ap_size=args.ap_size,
             step=args.step, limit=args.limit, downsample=args.downsample,
             sharpen_method=args.sharpen, measure=args.measure,
             time_utc=args.time or None,

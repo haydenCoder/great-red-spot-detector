@@ -109,11 +109,37 @@ class BatchResult:
         }
 
 
+def _frac_dir(frac: float) -> str:
+    """Filesystem-safe, unambiguous subdirectory name for a keep fraction."""
+    return f"keep_{int(round(float(frac) * 100.0)):02d}pct"
+
+
+def _normalize_keep_fracs(
+    keep_frac: float, keep_fracs: Optional[Sequence[float]]
+) -> List[float]:
+    """Merge the scalar default with an explicit multi-stack list.
+
+    AutoStakkert practice stacks at several keep fractions (5/10/20/50%);
+    a single list drives that. The FIRST entry is the "primary" stack whose
+    report fills the per-item report (backward-compatible).
+    """
+    if keep_fracs:
+        fracs = [float(f) for f in keep_fracs if float(f) > 0.0]
+        # de-dupe, keep first occurrence order
+        seen: List[float] = []
+        for f in fracs:
+            if f not in seen:
+                seen.append(f)
+        return seen
+    return [float(keep_frac)]
+
+
 def run_video_batch(
     captures: Sequence[Union[str, Path]],
     *,
     out_root: Optional[Union[str, Path]] = None,
     keep_frac: float = 0.25,
+    keep_fracs: Optional[Sequence[float]] = None,
     drizzle: int = 1,
     ap_size: int = 32,
     step: int = 1,
@@ -130,6 +156,13 @@ def run_video_batch(
     the desktop app / CLI can render a determinate bar without blocking. When
     no callback is supplied, a one-line progress message is written to stderr
     (keeps the JSON summary on stdout clean for machine consumption).
+
+    ``keep_fracs`` (e.g. ``(0.05, 0.10, 0.20, 0.50)``) produces one APS stack
+    per keep fraction per capture — the AutoStakkert multi-stack practice —
+    each written to its own ``keep_NNpct/`` subdirectory. The first fraction
+    is the primary stack whose report fills the per-item report (so existing
+    consumers of ``report["out_dir"]`` keep working). In ``measure`` mode the
+    full video->answer path runs once per capture on the primary fraction.
     """
     import observatory_pipeline as op
 
@@ -142,6 +175,8 @@ def run_video_batch(
         progress = lambda done, total, label: print(  # noqa: E731
             f"[{done}/{total}] {label}", file=sys.stderr)
 
+    fracs = _normalize_keep_fracs(keep_frac, keep_fracs)
+
     res = BatchResult(out_dir=str(root), n_total=len(captures))
     for k, cap in enumerate(captures):
         cap = Path(cap)
@@ -150,27 +185,57 @@ def run_video_batch(
         item = BatchItem(path=str(cap), ok=False)
         t0 = time.time()
         try:
-            if measure:
-                # full answer; needs UTC (stamps or explicit --time) — fails closed
-                rep = op.video_to_answer(
-                    str(cap),
-                    time_utc=time_utc or None,
-                    keep_frac=keep_frac, drizzle=drizzle, ap_size=ap_size,
-                    step=step, limit=limit, downsample=downsample,
-                    sharpen_method=sharpen_method,
-                    out_root=root / cap.stem,
-                )
-            else:
+            multi = len(fracs) > 1
+            stacks: List[Dict[str, Any]] = []
+            for fi, f in enumerate(fracs):
+                out_sub = root / cap.stem / _frac_dir(f)
                 rep = op.stack_video(
                     video_path=str(cap),
-                    out_dir=root / cap.stem,
-                    keep_frac=keep_frac, drizzle=drizzle, ap_size=ap_size,
+                    out_dir=out_sub,
+                    keep_frac=f, drizzle=drizzle, ap_size=ap_size,
                     step=step, limit=limit, downsample=downsample,
                     sharpen_method=sharpen_method,
                 )
+                stacks.append({
+                    "keep_frac": f,
+                    "out_dir": str(out_sub),
+                    "stack_png": rep.get("stack_png"),
+                    "ok": True,
+                    "error": "",
+                })
+                if fi == 0:
+                    item.report = dict(rep)
+                    item.out_dir = str(out_sub)
+            if measure:
+                # full answer once, on the primary fraction — never fabricates
+                # System III (needs UTC stamps or --time; fails closed)
+                ans = op.video_to_answer(
+                    str(cap),
+                    time_utc=time_utc or None,
+                    keep_frac=fracs[0], drizzle=drizzle, ap_size=ap_size,
+                    step=step, limit=limit, downsample=downsample,
+                    sharpen_method=sharpen_method,
+                    out_root=root / cap.stem / "measure",
+                )
+                if multi:
+                    item.report["measurement"] = {
+                        "output_dir": ans.get("out_dir"),
+                        "headline": ans.get("measurement", {}).get("headline")
+                        if isinstance(ans.get("measurement"), dict) else None,
+                        "publish": ans.get("measurement", {}).get("publish")
+                        if isinstance(ans.get("measurement"), dict) else None,
+                        "time_utc": ans.get("time_utc"),
+                        "note": ans.get("note"),
+                    }
+                    item.report["stacks"] = stacks
+                    item.report["primary_keep_frac"] = fracs[0]
+                else:
+                    item.report = dict(ans)
+                    item.out_dir = str(root / cap.stem / "measure")
+            elif multi:
+                item.report["stacks"] = stacks
+                item.report["primary_keep_frac"] = fracs[0]
             item.ok = True
-            item.report = dict(rep)
-            item.out_dir = str(root / cap.stem)
         except Exception as e:  # noqa: BLE001 - recorded per file, not swallowed
             item.error = f"{type(e).__name__}: {e}"
         finally:

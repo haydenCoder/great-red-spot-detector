@@ -34,6 +34,22 @@ file (the single source of truth; no hardcoded literals).
   fabrication).
 - Version bumped to 7.0.2 (`VERSION`, `pyproject.toml`, `README.md`).
 
+### Improved — measurement window, FITS plate scale, multi-stack video batch
+- `champion_measure.py` now flags a GRS measured **beyond ±45° from the central
+  meridian** (`GRS_NEAR_LIMB`, −6 quality points): JUPOS practice measures only
+  within ±45° because foreshortening inflates the size/definition error. The
+  longitude itself stays geometric — the flag warns, it does not discard.
+- `fits_meta.py` now derives **plate scale** (arcsec/px) from pixel size
+  (`XPIXSZ`/`YPIXSZ`/…) and focal length (`FOCALLEN`/`FOCAL`/…), and extracts
+  gain, CCD temperature, row order, `BSCALE`/`BZERO`, observer, equinox and frame
+  type (SharpCap/FireCapture header keywords). `fits-info` report text updated.
+- `video_batch.py` / `video-batch` CLI: `--keep-fracs 0.05,0.10,0.20,0.50`
+  produces one APS stack per keep fraction per capture (the AutoStakkert
+  multi-stack practice), each in its own `keep_NNpct/` directory; the first
+  fraction remains the primary stack for backward-compatible reports. In
+  `--measure` mode the full video→answer path runs once per capture on the
+  primary fraction.
+
 ## [Unreleased] — UI rounds 1–3 + full-code audit
 
 Full write-ups: [`docs/DETERIORATION_AUDIT_2026-08-22.md`](docs/DETERIORATION_AUDIT_2026-08-22.md)

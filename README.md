@@ -53,8 +53,10 @@ Stacked image (FITS / SER / AVI / PNG / JPEG)
 - **FITS header & metadata extraction** — `app/fits_meta.py` reads exposure time,
   telescope aperture (m/mm/cm/in normalised to metres), filter passband, and
   target RA/Dec (sexagesimal or decimal) from the header, delegating the
-  mid-exposure time to `fits_time.py`. CLI: `grs-observatory fits-info file.fits`
-  (also folded into every `process` report).
+  mid-exposure time to `fits_time.py`. Also derives **plate scale** from pixel
+  size (`XPIXSZ`/…) + focal length (`FOCALLEN`/…), and captures gain, CCD
+  temperature, row order, BSCALE/BZERO, observer and frame type. CLI:
+  `grs-observatory fits-info file.fits` (also folded into every `process` report).
 - **Interactive measurement overlay** — `app/grs_overlay.py`: a Tk canvas that
   draws the limb + GRS ellipses over the real pixels with draggable centre /
   semi-major / semi-minor handles, a toggleable latitude/longitude grid (the same
@@ -64,7 +66,8 @@ Stacked image (FITS / SER / AVI / PNG / JPEG)
 - **Batch video / SER streaming** — `app/video_batch.py` streams a whole folder of
   `.ser`/`.avi` captures straight into the APS stacker (memory-mapped, no
   extraction to image folders), with per-file reports and a batch summary. CLI:
-  `grs-observatory video-batch ./captures/ --drizzle 2`.
+  `grs-observatory video-batch ./captures/ --drizzle 2`, or the AutoStakkert
+  multi-stack practice `--keep-fracs 0.05,0.10,0.20,0.50`.
 
 The colour (redness) lock is the workhorse: colour survives the atmospheric
 blur that destroys dark-oval shape, so it stays locked when the template starts

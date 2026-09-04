@@ -1070,6 +1070,13 @@ def run_champion_measure(
         if lon_rel_f > 88.0:
             flags.append("FINAL_MAP_EDGE")
             notes.append("Final position near map edge — treat absolute lon with caution")
+        elif lon_rel_f > 45.0:
+            flags.append("GRS_NEAR_LIMB")
+            notes.append(
+                f"GRS {lon_rel_f:.1f}° from the central meridian — JUPOS practice "
+                "measures within ±45°; foreshortening inflates the size/definition "
+                "error (longitude itself stays geometric)"
+            )
         d_final = _local_dark_score(cyl, cons, lon, lat)
         refine_meta["dark_score_final"] = d_final
         if d_final < 0.05:
@@ -1234,6 +1241,8 @@ def run_champion_measure(
         score -= 12
     if "FINAL_MAP_EDGE" in flags:
         score -= 15
+    elif "GRS_NEAR_LIMB" in flags:
+        score -= 6
     if not math.isfinite(lon):
         score = 0.0
     score = float(max(0.0, min(100.0, score)))

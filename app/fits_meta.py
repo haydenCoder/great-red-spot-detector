@@ -49,6 +49,17 @@ _DEC_KEYS = ("OBJCTDEC", "DEC", "TELDEC", "CRVAL2")
 # than degrees. `RA` / `CRVAL1` are decimal degrees per the FITS WCS rules.
 _RA_HOURS_KEYS = ("OBJCTRA", "TELRA")
 
+# Plate-scale inputs (SharpCap/FireCapture/ZWO style).
+_PIXEL_KEYS = ("XPIXSZ", "PIXSIZE1", "PIXEL", "XPIXELSZ")       # microns
+_FOCAL_KEYS = ("FOCALLEN", "FOCAL", "FOCLEN")                   # mm
+# Capture / detector / observer keywords (SharpCap + generic FITS).
+_GAIN_KEYS = ("GAIN", "EGAIN", "GAINDB")
+_TEMP_KEYS = ("CCD-TEMP", "CCDTEMP", "TEMPERAT")
+_OBSERVER_KEYS = ("OBSERVER", "AUTHOR")
+_FRAME_KEYS = ("FRAMETYP", "FRAME")
+
+ARCSEC_PER_RADIAN = 206264.80624709636
+
 
 def _hdr_get_key(hdr: Any, *keys: str) -> Optional[Tuple[str, str]]:
     """Case-insensitive keyword lookup returning (matched_key, value)."""
@@ -193,6 +204,20 @@ class FitsMeta:
     # array geometry
     naxis: Optional[int] = None
     bitpix: Optional[int] = None
+    bscale: Optional[float] = None
+    bzero: Optional[float] = None
+    # plate scale (computed from pixel size + focal length)
+    pixel_size_um: Optional[float] = None
+    focal_length_mm: Optional[float] = None
+    plate_scale_arcsec_per_px: Optional[float] = None
+    # capture / detector / observer
+    gain: Optional[float] = None
+    gain_str: Optional[str] = None
+    ccd_temp_c: Optional[float] = None
+    row_order: Optional[str] = None
+    equinox: Optional[float] = None
+    observer: Optional[str] = None
+    frame_type: Optional[str] = None
     notes: List[str] = field(default_factory=list)
     extra: Dict[str, Any] = field(default_factory=dict)
 
@@ -317,10 +342,71 @@ def extract_fits_meta(
     meta.naxis = int(float(na)) if na is not None and _as_float(na) is not None else None
     bp = _hdr_get(hdr, "BITPIX")
     meta.bitpix = int(float(bp)) if bp is not None and _as_float(bp) is not None else None
+    for k in ("BSCALE", "BZERO"):
+        v = _hdr_get(hdr, k)
+        f = _as_float(v) if v is not None else None
+        if k == "BSCALE":
+            meta.bscale = f
+        else:
+            meta.bzero = f
+
+    # --- plate scale: pixel size (µm) + focal length (mm) -----------------
+    for k in _PIXEL_KEYS:
+        v = _hdr_get(hdr, k)
+        f = _as_float(v) if v is not None else None
+        if f is not None and 0.1 < f < 1e3:
+            meta.pixel_size_um = f
+            notes.append(f"pixel_size_um={f} from {k}")
+            break
+    if meta.pixel_size_um is None:
+        notes.append("pixel size not found (XPIXSZ/PIXSIZE1/...)")
+    for k in _FOCAL_KEYS:
+        v = _hdr_get(hdr, k)
+        f = _as_float(v) if v is not None else None
+        if f is not None and 1.0 < f < 1e5:
+            meta.focal_length_mm = f
+            notes.append(f"focal_length_mm={f} from {k}")
+            break
+    if meta.focal_length_mm is None:
+        notes.append("focal length not found (FOCALLEN/FOCAL/...)")
+    if meta.pixel_size_um is not None and meta.focal_length_mm is not None:
+        # plate scale (arcsec/px) = 206265 * (pixel_um / 1e6) / (focal_mm / 1e3)
+        meta.plate_scale_arcsec_per_px = (
+            ARCSEC_PER_RADIAN * meta.pixel_size_um / (meta.focal_length_mm * 1000.0)
+        )
+        notes.append(
+            f"plate_scale={meta.plate_scale_arcsec_per_px:.4f} arcsec/px "
+            f"({meta.pixel_size_um} um / {meta.focal_length_mm} mm)")
+
+    # --- capture / detector / observer ------------------------------------
+    g = _hdr_get(hdr, *_GAIN_KEYS)
+    meta.gain_str = g
+    if g is not None:
+        meta.gain = _as_float(g)
+        notes.append(f"gain: {g}")
+    for k in _TEMP_KEYS:
+        v = _hdr_get(hdr, k)
+        f = _as_float(v) if v is not None else None
+        if f is not None and -100.0 < f < 100.0:
+            meta.ccd_temp_c = f
+            notes.append(f"ccd_temp_c={f} from {k}")
+            break
+    meta.row_order = _hdr_get(hdr, "ROWORDER", "ROWORD")
+    if meta.row_order:
+        notes.append(f"row_order: {meta.row_order}")
+    eq = _hdr_get(hdr, "EQUINOX", "EPOCH")
+    meta.equinox = _as_float(eq) if eq is not None else None
+    meta.observer = _hdr_get(hdr, *_OBSERVER_KEYS)
+    meta.frame_type = _hdr_get(hdr, *_FRAME_KEYS)
+    if meta.frame_type:
+        notes.append(f"frame_type: {meta.frame_type}")
 
     # keep the raw interesting keywords for debugging
     for k in (_APERTURE_KEYS + _FILTER_KEYS + _TELESCOPE_KEYS + _INSTRUMENT_KEYS
-              + _TARGET_KEYS + _RA_KEYS + _DEC_KEYS + ("EXPTIME", "NAXIS", "BITPIX")):
+              + _TARGET_KEYS + _RA_KEYS + _DEC_KEYS + _PIXEL_KEYS + _FOCAL_KEYS
+              + _GAIN_KEYS + _TEMP_KEYS + ("EXPTIME", "NAXIS", "BITPIX",
+                                           "BSCALE", "BZERO", "ROWORDER",
+                                           "EQUINOX")):
         v = _hdr_get(hdr, k)
         if v is not None:
             meta.extra[k] = v
@@ -345,6 +431,12 @@ def meta_report_text(meta: FitsMeta) -> str:
         f"RA           {meta.target_ra_str or '—'}  ({meta.target_ra_deg if meta.target_ra_deg is not None else '—'} deg)",
         f"Dec          {meta.target_dec_str or '—'}  ({meta.target_dec_deg if meta.target_dec_deg is not None else '—'} deg)",
         f"array        NAXIS={meta.naxis if meta.naxis is not None else '—'}  BITPIX={meta.bitpix if meta.bitpix is not None else '—'}",
+        f"pixel        {meta.pixel_size_um if meta.pixel_size_um is not None else '—'} µm  "
+        f"focal={meta.focal_length_mm if meta.focal_length_mm is not None else '—'} mm",
+        f"plate scale  {meta.plate_scale_arcsec_per_px if meta.plate_scale_arcsec_per_px is not None else '—'} ″/px",
+        f"gain         {meta.gain_str or '—'}   CCD-T={meta.ccd_temp_c if meta.ccd_temp_c is not None else '—'} °C",
+        f"row order    {meta.row_order or '—'}   bscale={meta.bscale if meta.bscale is not None else '—'}   bzero={meta.bzero if meta.bzero is not None else '—'}",
+        f"observer     {meta.observer or '—'}   frame={meta.frame_type or '—'}   equinox={meta.equinox if meta.equinox is not None else '—'}",
         "",
         "notes:",
     ]

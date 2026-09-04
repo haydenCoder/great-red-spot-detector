@@ -59,6 +59,33 @@ class TestChampion(unittest.TestCase):
         self.assertIn("CM_UNTRUSTED", ch.flags)
         self.assertFalse(ch.absolute_publish_ok)
 
+    def test_near_limb_flag_at_45_degrees(self):
+        """JUPOS practice: features beyond ±45° from the CM get flagged."""
+        from champion_measure import run_champion_measure
+
+        def planted(lon_rel: float):
+            yy, xx = np.mgrid[0:256, 0:256]
+            X = (xx - 128.0) / 90.0
+            Y = (128.0 - yy) / (90.0 * 0.935)
+            rr = X * X + Y * Y
+            disk = np.clip(1.0 - 0.15 * rr, 0, 1) * (rr <= 1.0)
+            ox = 128.0 + math.sin(math.radians(lon_rel)) * 90.0
+            oy = 128.0 + 0.37 * 90.0
+            ell = ((xx - ox) / (0.12 * 90.0)) ** 2 + ((yy - oy) / (0.08 * 90.0)) ** 2
+            return (disk * (1.0 - 0.55 * np.exp(-0.5 * ell))).astype(np.float64)
+
+        near = run_champion_measure(planted(50.0), cm_iii_deg=100.0,
+                                    cm_source="spice_auto", sigma_cm_deg=0.05)
+        self.assertTrue(near.ok)
+        self.assertIn("GRS_NEAR_LIMB", near.flags)
+        self.assertNotIn("FINAL_MAP_EDGE", near.flags)
+
+        central = run_champion_measure(planted(20.0), cm_iii_deg=100.0,
+                                       cm_source="spice_auto", sigma_cm_deg=0.05)
+        self.assertTrue(central.ok)
+        self.assertNotIn("GRS_NEAR_LIMB", central.flags)
+        self.assertNotIn("FINAL_MAP_EDGE", central.flags)
+
     def test_publish_prefers_champion_when_absolute(self):
         from publish_primary import apply_publish_policy
 

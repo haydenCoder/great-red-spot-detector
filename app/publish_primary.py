@@ -302,12 +302,39 @@ def apply_publish_policy(package: Dict[str, Any]) -> Dict[str, Any]:
     dlon_pipe = wrap_diff(pub_lon, pipe_lon) if pub_lon is not None and pipe_lon is not None else None
     dlon_sota = wrap_diff(pub_lon, sota_lon) if pub_lon is not None and sota_lon is not None else None
 
+    # System II mapping (IAU frame rotation). The published L_II / CM_II are
+    # derived from the published L_III / CM_III (not the champion's), so the
+    # card stays internally consistent whichever method wins. The champion's
+    # cm_ii is kept only as a fallback when no observation time is available.
+    cm_ii = None
+    pub_lon_ii = None
+    sys2_offset = None
+    obs_time = h.get("user_time") or h.get("synth_epoch") or h.get("time_utc")
+    if cm_iii is not None and obs_time:
+        try:
+            from system_ii import derive_system_ii
+            s2 = derive_system_ii(
+                float(cm_iii), str(obs_time),
+                lon_iii_deg=(float(pub_lon) if pub_lon is not None else None),
+                source=str(cm_source or ""),
+            )
+            cm_ii = s2.cm_ii_deg
+            pub_lon_ii = s2.lon_ii_deg
+            sys2_offset = s2.offset_deg
+        except Exception:
+            pass
+    if cm_ii is None:
+        cm_ii = _f(champ.get("cm_ii_deg"))
+
     publish = {
         "policy": "GS-MAP_THEN_GS-BARY_PUBLISH; SOUP_SCATTER_ONLY",
         "publish_definition": pub_def,
         "publish_lon_iii_deg": pub_lon,
+        "publish_lon_ii_deg": pub_lon_ii,
         "publish_lat_deg": pub_lat,
         "cm_iii_deg": cm_iii,
+        "cm_ii_deg": cm_ii,
+        "system_ii_offset_deg": sys2_offset,
         "cm_source": cm_source,
         "distance_au": dist,
         "pipeline_lon_iii_deg": pipe_lon,
@@ -474,9 +501,11 @@ def format_publish_section(package: Dict[str, Any]) -> str:
         "PUBLISH",
         "=======",
         f"lon_III   {p.get('publish_lon_iii_deg')} °",
+        f"lon_II    {p.get('publish_lon_ii_deg')} °" if p.get("publish_lon_ii_deg") is not None else None,
         f"lat_c     {p.get('publish_lat_deg')} °",
         f"lat_g     {lat_g} °" if lat_g is not None else None,
         f"CM_III    {p.get('cm_iii_deg')} °  [{p.get('cm_source')}]",
+        f"CM_II     {p.get('cm_ii_deg')} °" if p.get("cm_ii_deg") is not None else None,
         f"def       {p.get('publish_definition')}",
         f"grade     {q.get('grade')}  ok={q.get('publish_ok')}  abs={q.get('absolute_ok')}",
         f"vs_WJ     {eq.get('agreement')}  Δsky={eq.get('sky_error_arcsec')} ″",

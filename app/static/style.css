@@ -47,6 +47,15 @@ body {
   overflow-x: hidden;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -125,6 +134,7 @@ h1 {
   display: none;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   width: 40px;
   height: 40px;
   border-radius: 9px;
@@ -137,6 +147,22 @@ h1 {
   -webkit-tap-highlight-color: transparent;
 }
 .menu-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.menu-toggle-text { display: none; font-size: 12px; font-weight: 700; }
+
+.workspace-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -2px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: linear-gradient(110deg, rgba(74, 159, 224, 0.11), rgba(28, 37, 48, 0.7));
+}
+.workspace-status strong { display: block; margin-top: 2px; font-size: 14px; }
+.eyebrow { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.workspace-action-hint { color: var(--muted); font-size: 12px; text-align: right; }
 
 .pillar-bar {
   display: flex;
@@ -890,7 +916,19 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 
 /* Tablet portrait & phones: drawer controls + stacked main */
 @media (max-width: 900px) {
-  .menu-toggle { display: inline-flex; }
+  .menu-toggle { display: inline-flex; width: auto; min-width: 40px; padding: 0 10px; }
+  .menu-toggle-text { display: inline; }
+  .topbar { align-items: center; gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .brand { gap: 7px; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; font-size: 17px; }
+  .brand-text h1 { font-size: 14px; }
+  .sub { display: none; }
+  .top-actions { gap: 5px; }
+  .toggle { font-size: 11px; }
+  .toggle-label { display: none; }
+  .mode-badge { max-width: 104px; overflow: hidden; text-overflow: ellipsis; }
+  .workspace-status { align-items: flex-start; margin-top: 0; }
+  .workspace-action-hint { max-width: 42%; }
 
   .topbar {
     position: sticky;

@@ -13,7 +13,7 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open controls menu" aria-expanded="false" aria-controls="controlsPanel">☰</button>
+        <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open controls menu" aria-expanded="false" aria-controls="controlsPanel"><span aria-hidden="true">☰</span><span class="menu-toggle-text">Controls</span></button>
         <div class="logo" aria-hidden="true">♃</div>
         <div class="brand-text">
           <h1>Great Red Spot Detector</h1>
@@ -210,6 +210,13 @@
       </section>
 
       <section class="panel center" aria-label="Workspace">
+        <div class="workspace-status" aria-live="polite">
+          <div>
+            <span class="eyebrow">Current workspace</span>
+            <strong id="workspaceState">Preview ready</strong>
+          </div>
+          <span id="workspaceActionHint" class="workspace-action-hint">Load an image to begin</span>
+        </div>
         <div class="tabs-wrap">
           <div class="tabs" role="tablist" aria-label="Workspaces" id="tabStrip"
                title="Tabs: press 1-9 or 0 on the keyboard to jump straight to one">

@@ -86,6 +86,8 @@ class GRSPrecisionResult:
     err_lon_arcsec: float = float("nan")
     err_lat_arcsec: float = float("nan")
     quality: float = 0.0
+    calibrated_confidence: float = 0.0
+    evidence: Dict[str, Any] = field(default_factory=dict)
     notes: List[str] = field(default_factory=list)
     lat_planetographic_deg: float = float("nan")
     lat_kind: str = "planetocentric"
@@ -1542,6 +1544,72 @@ def _circular_weighted_mean(lons: np.ndarray, weights: np.ndarray) -> float:
     return wrap_deg(rad2deg(math.atan2(y, x)))
 
 
+def _mad(values: Sequence[float]) -> float:
+    arr = np.asarray(list(values), dtype=np.float64)
+    if arr.size == 0:
+        return float("nan")
+    med = float(np.median(arr))
+    return float(1.4826 * np.median(np.abs(arr - med)))
+
+
+def _calibrated_evidence(
+    methods: Dict[str, Dict[str, Any]],
+    lon: float,
+    lat: float,
+    disk_quality: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Turn independent method behaviour into an auditable confidence estimate.
+
+    This is deliberately not a probability claim: it is a calibrated readiness
+    score.  Agreement is computed in longitude's circular geometry, while each
+    method's reliability is down-weighted by its reported signal and by robust
+    residual dispersion.  A single crisp decoy therefore cannot manufacture
+    confidence without independent corroboration.
+    """
+    usable = []
+    for name, value in methods.items():
+        if not isinstance(value, dict) or value.get("rejected"):
+            continue
+        try:
+            mlon, mlat = float(value["lon_iii_deg"]), float(value["lat_deg"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(mlon) and math.isfinite(mlat):
+            usable.append((name, mlon, mlat))
+    dlon = [abs(wrap_diff(mlon, lon)) for _, mlon, _ in usable]
+    dlat = [abs(mlat - lat) for _, _, mlat in usable]
+    agreement = math.exp(-0.5 * ((_mad(dlon) if dlon else 30.0) / 8.0) ** 2)
+    support = min(1.0, len(usable) / 3.0)
+    disk = float(disk_quality.get("quality", 1.0))
+    if not math.isfinite(disk):
+        disk = 0.0 if not disk_quality.get("measurable", True) else 1.0
+    signal_values = [float(v.get("score", 0.0)) for _, _, _ in usable
+                     if math.isfinite(float(v.get("score", 0.0)))]
+    signal = min(1.0, max(0.0, (float(np.median(signal_values)) if signal_values else 0.0) / 3.0))
+    confidence = float(np.clip(0.42 * agreement + 0.28 * support + 0.20 * signal + 0.10 * disk, 0.0, 1.0))
+    reasons = []
+    if len(usable) < 2:
+        reasons.append("fewer than two independent estimators")
+    if dlon and max(dlon) > 18.0:
+        reasons.append("method longitude disagreement exceeds 18 degrees")
+    if not disk_quality.get("measurable", True):
+        reasons.append("planetary disk failed measurability gate")
+    return {
+        "model": "robust_multi_method_v1",
+        "candidate_count": len(usable),
+        "channel_agreement": float(agreement),
+        "support_fraction": float(support),
+        "signal_strength": float(signal),
+        "dispersion_lon_deg": float(_mad(dlon)) if dlon else float("nan"),
+        "dispersion_lat_deg": float(_mad(dlat)) if dlat else float("nan"),
+        "calibrated_confidence": confidence,
+        "indeterminate": bool(
+            confidence < 0.45 or len(usable) == 0 or not disk_quality.get("measurable", True)
+        ),
+        "rejection_reasons": reasons,
+    }
+
+
 def verify_grs_detection(
     image: np.ndarray,
     nav: NavState,
@@ -2186,6 +2254,11 @@ def measure_grs_precision(
     if not disk_q.get("measurable", True):
         quality = 0.0
 
+    evidence = _calibrated_evidence(methods, lon, lat, disk_q)
+    calibrated_confidence = float(evidence["calibrated_confidence"])
+    if evidence["indeterminate"]:
+        notes.append("indeterminate: independent evidence is insufficient for a calibrated lock")
+
     # Confirm the feature is real before publishing a number for it.
     # In lean mode (bulk accuracy audits scored directly against truth) we skip
     # the multi-scale re-detection: it re-runs the whole measurement at 2 reduced
@@ -2228,6 +2301,8 @@ def measure_grs_precision(
         err_lon_arcsec=float(as_lon),
         err_lat_arcsec=float(as_lat),
         quality=quality,
+        calibrated_confidence=calibrated_confidence,
+        evidence=evidence,
         notes=notes
         + [
             "Position: template-first; pathological map_dark/moment rejected",

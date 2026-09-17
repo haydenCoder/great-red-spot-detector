@@ -254,6 +254,28 @@ GRS_LAT_BAND_WIDE = (GRS_LAT0 - 13.0, GRS_LAT0 + 8.0)     # ~-32.8 .. -11.8
 GRS_LAT_BAND_SEARCH = (GRS_LAT0 - 10.0, GRS_LAT0 + 6.0)   # map search window
 
 
+@lru_cache(maxsize=16)
+def _ray_directions(n_rays: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Return immutable cached unit-ray directions for repeated limb fits."""
+    n = max(16, int(n_rays))
+    angles = 2.0 * np.pi * np.arange(n, dtype=np.float64) / n
+    cosines = np.cos(angles)
+    sines = np.sin(angles)
+    cosines.setflags(write=False)
+    sines.setflags(write=False)
+    return cosines, sines
+
+
+@lru_cache(maxsize=16)
+def _gaussian_filter_impl():
+    """Resolve SciPy's optimized Gaussian filter once, not per pyramid level."""
+    try:
+        from scipy.ndimage import gaussian_filter
+        return gaussian_filter
+    except Exception:
+        return None
+
+
 def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
     """Gaussian blur — tries scipy first, falls back to FFT convolution.
 
@@ -264,10 +286,10 @@ def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
     """
     if sigma <= 0.05:
         return np.asarray(img, dtype=np.float64)
-    try:
-        from scipy.ndimage import gaussian_filter
+    gaussian_filter = _gaussian_filter_impl()
+    if gaussian_filter is not None:
         return gaussian_filter(img, sigma=sigma, mode="nearest")
-    except Exception:
+    else:
         # True separable Gaussian when scipy is unavailable.
         #
         # The previous box-filter/FFT fallback did not re-centre its kernel, so
@@ -393,9 +415,8 @@ def fit_limb_nav(
     n_rad = 360 if n_rays >= 800 else 300
     pa_rad = deg2rad(float(north_pa_deg or 0.0))
     cPa, sPa = math.cos(pa_rad), math.sin(pa_rad)
-    # Precompute ray directions once (fixed across iterations)
-    _angs = 2.0 * np.pi * np.arange(n_rays, dtype=np.float64) / n_rays
-    _cos, _sin = np.cos(_angs), np.sin(_angs)
+    # Reuse ray geometry across repeated frames and isophote probes.
+    _cos, _sin = _ray_directions(n_rays)
 
     for _ in range(n_iter):
         # Vectorised isophote ray-trace: all n_rays x n_rad samples at once.

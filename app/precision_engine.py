@@ -1578,33 +1578,52 @@ def _calibrated_evidence(
             usable.append((name, mlon, mlat))
     dlon = [abs(wrap_diff(mlon, lon)) for _, mlon, _ in usable]
     dlat = [abs(mlat - lat) for _, _, mlat in usable]
-    agreement = math.exp(-0.5 * ((_mad(dlon) if dlon else 30.0) / 8.0) ** 2)
+    # Treat longitude and latitude as separate evidence dimensions. A set of
+    # methods can agree on a longitude while locking onto different latitudes
+    # (typically a belt edge), so longitude-only agreement is unsafe.
+    lon_disp = _mad(dlon) if dlon else 30.0
+    lat_disp = _mad(dlat) if dlat else 30.0
+    lon_agreement = math.exp(-0.5 * (lon_disp / 8.0) ** 2)
+    lat_agreement = math.exp(-0.5 * (lat_disp / 3.5) ** 2)
+    agreement = float(math.sqrt(max(0.0, lon_agreement * lat_agreement)))
     support = min(1.0, len(usable) / 3.0)
     disk = float(disk_quality.get("quality", 1.0))
     if not math.isfinite(disk):
         disk = 0.0 if not disk_quality.get("measurable", True) else 1.0
-    signal_values = [float(v.get("score", 0.0)) for _, _, _ in usable
-                     if math.isfinite(float(v.get("score", 0.0)))]
+    signal_values = []
+    for name, _, _ in usable:
+        value = methods[name]
+        try:
+            score = float(value.get("score", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(score):
+            signal_values.append(score)
     signal = min(1.0, max(0.0, (float(np.median(signal_values)) if signal_values else 0.0) / 3.0))
-    confidence = float(np.clip(0.42 * agreement + 0.28 * support + 0.20 * signal + 0.10 * disk, 0.0, 1.0))
+    confidence = float(np.clip(0.38 * agreement + 0.27 * support + 0.20 * signal + 0.15 * disk, 0.0, 1.0))
     reasons = []
     if len(usable) < 2:
         reasons.append("fewer than two independent estimators")
     if dlon and max(dlon) > 18.0:
         reasons.append("method longitude disagreement exceeds 18 degrees")
+    if dlat and max(dlat) > 8.0:
+        reasons.append("method latitude disagreement exceeds 8 degrees")
     if not disk_quality.get("measurable", True):
         reasons.append("planetary disk failed measurability gate")
     return {
-        "model": "robust_multi_method_v1",
+        "model": "robust_multi_method_v2",
         "candidate_count": len(usable),
         "channel_agreement": float(agreement),
+        "longitude_agreement": float(lon_agreement),
+        "latitude_agreement": float(lat_agreement),
         "support_fraction": float(support),
         "signal_strength": float(signal),
-        "dispersion_lon_deg": float(_mad(dlon)) if dlon else float("nan"),
-        "dispersion_lat_deg": float(_mad(dlat)) if dlat else float("nan"),
+        "dispersion_lon_deg": float(lon_disp) if dlon else float("nan"),
+        "dispersion_lat_deg": float(lat_disp) if dlat else float("nan"),
         "calibrated_confidence": confidence,
         "indeterminate": bool(
-            confidence < 0.45 or len(usable) == 0 or not disk_quality.get("measurable", True)
+            confidence < 0.45 or len(usable) < 2 or not disk_quality.get("measurable", True)
+            or (dlat and max(dlat) > 8.0)
         ),
         "rejection_reasons": reasons,
     }

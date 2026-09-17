@@ -1,7 +1,7 @@
 SPIRE-Net CNN weights — REQUIRED with the app
 ==============================================
-Bundled source: /home/user/great-red-spot-detector/app/models
-Active dir:     /home/user/great-red-spot-detector/app/models
+Bundled source: /vercel/share/v0-project/app/models
+Active dir:     /vercel/share/v0-project/app/models
 weights present: True  size=16636713
 meta present:    True
 Do not delete spire_net_weights.npz when sharing the folder.

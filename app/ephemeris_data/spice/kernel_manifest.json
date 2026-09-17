@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-09T12:01:29Z",
-  "kernel_dir": "/home/user/great-red-spot-detector/app/ephemeris_data/spice",
+  "updated": "2026-09-17T01:50:13Z",
+  "kernel_dir": "/vercel/share/v0-project/app/ephemeris_data/spice",
   "kernels": [
     "naif0012.tls",
     "pck00011.tpc",

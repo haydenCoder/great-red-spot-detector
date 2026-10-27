@@ -86,6 +86,8 @@ class GRSPrecisionResult:
     err_lon_arcsec: float = float("nan")
     err_lat_arcsec: float = float("nan")
     quality: float = 0.0
+    calibrated_confidence: float = 0.0
+    evidence: Dict[str, Any] = field(default_factory=dict)
     notes: List[str] = field(default_factory=list)
     lat_planetographic_deg: float = float("nan")
     lat_kind: str = "planetocentric"
@@ -252,6 +254,28 @@ GRS_LAT_BAND_WIDE = (GRS_LAT0 - 13.0, GRS_LAT0 + 8.0)     # ~-32.8 .. -11.8
 GRS_LAT_BAND_SEARCH = (GRS_LAT0 - 10.0, GRS_LAT0 + 6.0)   # map search window
 
 
+@lru_cache(maxsize=16)
+def _ray_directions(n_rays: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Return immutable cached unit-ray directions for repeated limb fits."""
+    n = max(16, int(n_rays))
+    angles = 2.0 * np.pi * np.arange(n, dtype=np.float64) / n
+    cosines = np.cos(angles)
+    sines = np.sin(angles)
+    cosines.setflags(write=False)
+    sines.setflags(write=False)
+    return cosines, sines
+
+
+@lru_cache(maxsize=16)
+def _gaussian_filter_impl():
+    """Resolve SciPy's optimized Gaussian filter once, not per pyramid level."""
+    try:
+        from scipy.ndimage import gaussian_filter
+        return gaussian_filter
+    except Exception:
+        return None
+
+
 def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
     """Gaussian blur — tries scipy first, falls back to FFT convolution.
 
@@ -262,10 +286,10 @@ def _gauss(img: np.ndarray, sigma: float) -> np.ndarray:
     """
     if sigma <= 0.05:
         return np.asarray(img, dtype=np.float64)
-    try:
-        from scipy.ndimage import gaussian_filter
+    gaussian_filter = _gaussian_filter_impl()
+    if gaussian_filter is not None:
         return gaussian_filter(img, sigma=sigma, mode="nearest")
-    except Exception:
+    else:
         # True separable Gaussian when scipy is unavailable.
         #
         # The previous box-filter/FFT fallback did not re-centre its kernel, so
@@ -391,9 +415,8 @@ def fit_limb_nav(
     n_rad = 360 if n_rays >= 800 else 300
     pa_rad = deg2rad(float(north_pa_deg or 0.0))
     cPa, sPa = math.cos(pa_rad), math.sin(pa_rad)
-    # Precompute ray directions once (fixed across iterations)
-    _angs = 2.0 * np.pi * np.arange(n_rays, dtype=np.float64) / n_rays
-    _cos, _sin = np.cos(_angs), np.sin(_angs)
+    # Reuse ray geometry across repeated frames and isophote probes.
+    _cos, _sin = _ray_directions(n_rays)
 
     for _ in range(n_iter):
         # Vectorised isophote ray-trace: all n_rays x n_rad samples at once.
@@ -1542,6 +1565,91 @@ def _circular_weighted_mean(lons: np.ndarray, weights: np.ndarray) -> float:
     return wrap_deg(rad2deg(math.atan2(y, x)))
 
 
+def _mad(values: Sequence[float]) -> float:
+    arr = np.asarray(list(values), dtype=np.float64)
+    if arr.size == 0:
+        return float("nan")
+    med = float(np.median(arr))
+    return float(1.4826 * np.median(np.abs(arr - med)))
+
+
+def _calibrated_evidence(
+    methods: Dict[str, Dict[str, Any]],
+    lon: float,
+    lat: float,
+    disk_quality: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Turn independent method behaviour into an auditable confidence estimate.
+
+    This is deliberately not a probability claim: it is a calibrated readiness
+    score.  Agreement is computed in longitude's circular geometry, while each
+    method's reliability is down-weighted by its reported signal and by robust
+    residual dispersion.  A single crisp decoy therefore cannot manufacture
+    confidence without independent corroboration.
+    """
+    usable = []
+    for name, value in methods.items():
+        if not isinstance(value, dict) or value.get("rejected"):
+            continue
+        try:
+            mlon, mlat = float(value["lon_iii_deg"]), float(value["lat_deg"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(mlon) and math.isfinite(mlat):
+            usable.append((name, mlon, mlat))
+    dlon = [abs(wrap_diff(mlon, lon)) for _, mlon, _ in usable]
+    dlat = [abs(mlat - lat) for _, _, mlat in usable]
+    # Treat longitude and latitude as separate evidence dimensions. A set of
+    # methods can agree on a longitude while locking onto different latitudes
+    # (typically a belt edge), so longitude-only agreement is unsafe.
+    lon_disp = _mad(dlon) if dlon else 30.0
+    lat_disp = _mad(dlat) if dlat else 30.0
+    lon_agreement = math.exp(-0.5 * (lon_disp / 8.0) ** 2)
+    lat_agreement = math.exp(-0.5 * (lat_disp / 3.5) ** 2)
+    agreement = float(math.sqrt(max(0.0, lon_agreement * lat_agreement)))
+    support = min(1.0, len(usable) / 3.0)
+    disk = float(disk_quality.get("quality", 1.0))
+    if not math.isfinite(disk):
+        disk = 0.0 if not disk_quality.get("measurable", True) else 1.0
+    signal_values = []
+    for name, _, _ in usable:
+        value = methods[name]
+        try:
+            score = float(value.get("score", 0.0))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(score):
+            signal_values.append(score)
+    signal = min(1.0, max(0.0, (float(np.median(signal_values)) if signal_values else 0.0) / 3.0))
+    confidence = float(np.clip(0.38 * agreement + 0.27 * support + 0.20 * signal + 0.15 * disk, 0.0, 1.0))
+    reasons = []
+    if len(usable) < 2:
+        reasons.append("fewer than two independent estimators")
+    if dlon and max(dlon) > 18.0:
+        reasons.append("method longitude disagreement exceeds 18 degrees")
+    if dlat and max(dlat) > 8.0:
+        reasons.append("method latitude disagreement exceeds 8 degrees")
+    if not disk_quality.get("measurable", True):
+        reasons.append("planetary disk failed measurability gate")
+    return {
+        "model": "robust_multi_method_v2",
+        "candidate_count": len(usable),
+        "channel_agreement": float(agreement),
+        "longitude_agreement": float(lon_agreement),
+        "latitude_agreement": float(lat_agreement),
+        "support_fraction": float(support),
+        "signal_strength": float(signal),
+        "dispersion_lon_deg": float(lon_disp) if dlon else float("nan"),
+        "dispersion_lat_deg": float(lat_disp) if dlat else float("nan"),
+        "calibrated_confidence": confidence,
+        "indeterminate": bool(
+            confidence < 0.45 or len(usable) < 2 or not disk_quality.get("measurable", True)
+            or (dlat and max(dlat) > 8.0)
+        ),
+        "rejection_reasons": reasons,
+    }
+
+
 def verify_grs_detection(
     image: np.ndarray,
     nav: NavState,
@@ -2186,6 +2294,11 @@ def measure_grs_precision(
     if not disk_q.get("measurable", True):
         quality = 0.0
 
+    evidence = _calibrated_evidence(methods, lon, lat, disk_q)
+    calibrated_confidence = float(evidence["calibrated_confidence"])
+    if evidence["indeterminate"]:
+        notes.append("indeterminate: independent evidence is insufficient for a calibrated lock")
+
     # Confirm the feature is real before publishing a number for it.
     # In lean mode (bulk accuracy audits scored directly against truth) we skip
     # the multi-scale re-detection: it re-runs the whole measurement at 2 reduced
@@ -2228,6 +2341,8 @@ def measure_grs_precision(
         err_lon_arcsec=float(as_lon),
         err_lat_arcsec=float(as_lat),
         quality=quality,
+        calibrated_confidence=calibrated_confidence,
+        evidence=evidence,
         notes=notes
         + [
             "Position: template-first; pathological map_dark/moment rejected",

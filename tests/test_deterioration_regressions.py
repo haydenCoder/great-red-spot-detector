@@ -262,5 +262,43 @@ class TestDerotatorMeasurementRegularised(unittest.TestCase):
                                 f"derot={derot:.4f} naive={naive_c:.4f}")
 
 
+class TestCalibratedEvidence(unittest.TestCase):
+    def test_wrap_safe_agreement_and_repeatability(self):
+        from precision_engine import _calibrated_evidence
+
+        methods = {
+            "redness": {"lon_iii_deg": 359.5, "lat_deg": -22.0, "score": 2.8},
+            "moment": {"lon_iii_deg": 0.4, "lat_deg": -22.1, "score": 2.4},
+            "template": {"lon_iii_deg": 1.0, "lat_deg": -21.9, "score": 2.2},
+        }
+        disk = {"measurable": True, "quality": 1.0}
+        first = _calibrated_evidence(methods, 0.0, -22.0, disk)
+        second = _calibrated_evidence(methods, 0.0, -22.0, disk)
+        self.assertGreater(first["channel_agreement"], 0.95)
+        self.assertGreater(first["calibrated_confidence"], 0.6)
+        self.assertEqual(first, second)
+
+    def test_single_decoy_is_indeterminate(self):
+        from precision_engine import _calibrated_evidence
+
+        out = _calibrated_evidence(
+            {"template": {"lon_iii_deg": 180.0, "lat_deg": -22.0, "score": 5.0}},
+            180.0, -22.0, {"measurable": True, "quality": 1.0},
+        )
+        self.assertTrue(out["indeterminate"])
+        self.assertIn("fewer than two independent estimators", out["rejection_reasons"])
+
+    def test_unmeasurable_disk_zeroes_readiness(self):
+        from precision_engine import _calibrated_evidence
+
+        out = _calibrated_evidence(
+            {"redness": {"lon_iii_deg": 80.0, "lat_deg": -22.0, "score": 3.0},
+             "moment": {"lon_iii_deg": 80.2, "lat_deg": -22.1, "score": 3.0}},
+            80.1, -22.05, {"measurable": False, "quality": 0.0},
+        )
+        self.assertTrue(out["indeterminate"])
+        self.assertEqual(out["rejection_reasons"][-1], "planetary disk failed measurability gate")
+
+
 if __name__ == "__main__":
     unittest.main()

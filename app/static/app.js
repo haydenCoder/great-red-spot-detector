@@ -34,10 +34,16 @@
   const fmt = (v, d = 4) => (v == null || v === "" || Number.isNaN(Number(v)) ? "—" : Number(v).toFixed(d));
 
   function setModeBadge(kind, label) {
+    const text = label || "NO DATA YET";
     const el = $("modeBadge");
-    if (!el) return;
-    el.className = "mode-badge " + (kind || "idle");
-    el.textContent = label || "NO DATA YET";
+    if (el) {
+      el.className = "mode-badge " + (kind || "idle");
+      el.textContent = text;
+    }
+    const state = $("workspaceState");
+    const hint = $("workspaceActionHint");
+    if (state) state.textContent = kind === "real" ? "Real image loaded" : kind === "synth" ? "Synthetic test ready" : "Preview ready";
+    if (hint) hint.textContent = kind === "real" ? "Ready to process" : kind === "synth" ? "Review the generated frame" : "Load an image to begin";
   }
 
   function setPreviewSource(kind, label) {
@@ -247,7 +253,7 @@
     if (btn) {
       btn.setAttribute("aria-expanded", drawerOpen ? "true" : "false");
       btn.setAttribute("aria-label", drawerOpen ? "Close controls menu" : "Open controls menu");
-      btn.textContent = drawerOpen ? "✕" : "☰";
+      btn.innerHTML = `<span aria-hidden="true">${drawerOpen ? "✕" : "☰"}</span><span class="menu-toggle-text">Controls</span>`;
     }
   }
 
